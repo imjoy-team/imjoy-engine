@@ -52,8 +52,8 @@ if opt.debug:
 else:
     logger.setLevel(logging.INFO)
 
-logger.info("Now you can run Python plugins from https://imjoy.io ")
-logger.info('======== Connection Token: '+opt.token + ' ========')
+logger.info("Now you can run Python plugins from https://imjoy.io, token: %s", opt.token)
+print('======== Connection Token: '+opt.token + ' ========')
 
 plugins = {}
 plugin_cids = {}
@@ -197,17 +197,7 @@ async def on_kill_plugin(sid, kwargs):
     if pid in plugins:
         print('killing plugin ' + pid)
         await sio.emit('to_plugin_'+plugins[pid]['secret'], {'type': 'disconnect'})
-        if pid in plugins:
-            plugins[pid]['abort'].set()
-            del plugins[pid]
-        for cid in plugin_cids.keys():
-            exist = False
-            for p in plugin_cids[cid]:
-                if p['id'] == pid:
-                    exist = p
-                    break
-            if exist:
-                plugin_cids[cid].remove(exist)
+
     return {'success': True}
 
 
