@@ -124,7 +124,7 @@ async def on_init_plugin(sid, kwargs):
         await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
         raise
 
-    secretKey = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+    secretKey = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
     plugins[pid] = {'secret': secretKey, 'id': pid, 'name': config['name'], 'type': config['type'], 'client_id': client_id}
     if client_id in plugin_cids:
         plugin_cids[client_id].append(plugins[pid])
