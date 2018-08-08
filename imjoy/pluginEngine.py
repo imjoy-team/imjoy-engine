@@ -197,8 +197,9 @@ async def on_kill_plugin(sid, kwargs):
     if pid in plugins:
         print('killing plugin ' + pid)
         await sio.emit('to_plugin_'+plugins[pid]['secret'], {'type': 'disconnect'})
-        plugins[pid]['abort'].set()
-        del plugins[pid]
+        if pid in plugins:
+            plugins[pid]['abort'].set()
+            del plugins[pid]
         for cid in plugin_cids.keys():
             exist = False
             for p in plugin_cids[cid]:
