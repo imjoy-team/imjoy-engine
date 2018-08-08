@@ -304,9 +304,10 @@ def execute(args, workdir, abort, name):
     kwargs = {}
     if platform.system() == 'Windows':
         # from msdn [1]
-        CREATE_NEW_PROCESS_GROUP = 0x00000200  # note: could get it from subprocess
-        DETACHED_PROCESS = 0x00000008          # 0x8 | 0x200 == 0x208
-        kwargs.update(creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
+        # CREATE_NEW_PROCESS_GROUP = 0x00000200  # note: could get it from subprocess
+        # DETACHED_PROCESS = 0x00000008          # 0x8 | 0x200 == 0x208
+        # kwargs.update(creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
+        pass
     # elif sys.version_info < (3, 2):  # assume posix
     #     kwargs.update(preexec_fn=os.setsid)
     else:  # Python 3.2+ and Unix
