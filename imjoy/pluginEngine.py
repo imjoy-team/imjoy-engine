@@ -13,6 +13,8 @@ import random
 import string
 import shlex
 import logging
+import argparse
+import uuid
 
 from subprocess import Popen, PIPE, STDOUT
 try:
@@ -20,14 +22,33 @@ try:
 except ImportError:
     from queue import Queue, Empty  # python 3.x
 
+def get_token():
+    random.seed(uuid.getnode())
+    a = "%32x" % random.getrandbits(128)
+    rd = a[:12] + '4' + a[13:16] + 'a' + a[17:]
+    uuid4 = uuid.UUID(rd)
+    random.seed()
+    return str(uuid4)
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--token', type=str, default=get_token(), help='connection token')
+parser.add_argument('--debug', action="store_true", help='debug mode')
+opt = parser.parse_args()
+
+MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'
+print('Please connect with this token: '+opt.token)
 sio = socketio.AsyncServer()
 app = web.Application()
 sio.attach(app)
 
 logging.basicConfig()
 logger = logging.getLogger('PluginEngine')
-logger.setLevel(logging.INFO)
+
+if opt.debug:
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
 
 logger.info("Now you can run Python plugins from https://imjoy.io ")
 
@@ -36,6 +57,7 @@ plugin_cids = {}
 plugin_sids = {}
 clients = {}
 clients_sids = {}
+attempt_count = 0
 
 cmd_history = []
 default_requirements_py2 = ["six", "requests", "gevent", "websocket-client"]
@@ -50,17 +72,20 @@ def connect(sid, environ):
 
 @sio.on('init_plugin', namespace=NAME_SPACE)
 async def on_init_plugin(sid, kwargs):
-    logger.info("initialize the plugin: "+str(kwargs))
-    sys.stdout.flush()
+
     if sid in clients_sids:
         client_id = clients_sids[sid]
     else:
-        client_id = ''
-        clients_sids[sid] = client_id
-        if client_id in clients:
-            clients[client_id].append(sid)
-        else:
-            clients[client_id] = [sid]
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False}
+        # client_id = ''
+        # clients_sids[sid] = client_id
+        # if client_id in clients:
+        #     clients[client_id].append(sid)
+        # else:
+        #     clients[client_id] = [sid]
+    logger.info("initialize the plugin: "+str(kwargs))
+    sys.stdout.flush()
 
     pid = kwargs['id']
     config = kwargs.get('config', {})
@@ -124,7 +149,7 @@ async def on_init_plugin(sid, kwargs):
         await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
         raise
 
-    secretKey = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
+    secretKey = str(uuid.uuid4())
     plugins[pid] = {'secret': secretKey, 'id': pid, 'name': config['name'], 'type': config['type'], 'client_id': client_id}
     if client_id in plugin_cids:
         plugin_cids[client_id].append(plugins[pid])
@@ -152,7 +177,7 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=execute, args=[cmd+' '+template_script+' --id='+pid+' --secret='+secretKey, './', abort, pid])
+        taskThread = threading.Thread(target=execute, args=[cmd+' '+template_script+' --id='+pid+' --secret='+secretKey+' --namespace='+NAME_SPACE, './', abort, pid])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
@@ -184,14 +209,26 @@ async def on_kill_plugin(sid, kwargs):
 
 @sio.on('register_client', namespace=NAME_SPACE)
 async def on_message(sid, kwargs):
+    global attempt_count
     cid = kwargs['id']
-    if cid in clients:
-        clients[cid].append(sid)
+    token = kwargs.get('token', None)
+    if token != opt.token:
+        logger.debug('token mismatch: %s != %s', token, opt.token)
+        print('Please use this token to connect: '+opt.token)
+        attempt_count += 1
+        if attempt_count>= MAX_ATTEMPTS:
+            logger.info("Client exited because max attemps exceeded: %s", attempt_count)
+            sys.exit(100)
+        return {'plugins': [], 'success': False}
     else:
-        clients[cid] = [sid]
-    clients_sids[sid] = cid
-    logger.info("register client: %s", kwargs)
-    return {'plugins': [ {"id": p['id'], "name": p['name'], "type": p['type']} for p in plugin_cids[cid] ] if cid in plugin_cids else []}
+        attempt_count = 0
+        if cid in clients:
+            clients[cid].append(sid)
+        else:
+            clients[cid] = [sid]
+        clients_sids[sid] = cid
+        logger.info("register client: %s", kwargs)
+        return {'success': True, 'plugins': [ {"id": p['id'], "name": p['name'], "type": p['type']} for p in plugin_cids[cid] ] if cid in plugin_cids else []}
 
 @sio.on('message', namespace=NAME_SPACE)
 async def on_message(sid, kwargs):

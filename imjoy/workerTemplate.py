@@ -383,7 +383,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--id', type=str, required=True, help='plugin id')
     parser.add_argument('--secret', type=str, required=True, help='plugin secret')
+    parser.add_argument('--namespace', type=str, default='/', help='socketio namespace')
+    parser.add_argument('--debug', action="store_true", help='debug mode')
     opt = parser.parse_args()
+    if opt.debug:
+        logger.setLevel(logging.DEBUG)
     pc = PluginConnection(opt.id, opt.secret)
     pc.start()
     gevent.wait()
