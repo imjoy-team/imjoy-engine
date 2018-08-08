@@ -37,7 +37,7 @@ opt = parser.parse_args()
 
 MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'
-print('Please connect with this token: '+opt.token)
+print('========= Please use this token to connect: '+opt.token + ' =========')
 sio = socketio.AsyncServer()
 app = web.Application()
 sio.attach(app)
@@ -214,7 +214,7 @@ async def on_message(sid, kwargs):
     token = kwargs.get('token', None)
     if token != opt.token:
         logger.debug('token mismatch: %s != %s', token, opt.token)
-        print('Please use this token to connect: '+opt.token)
+        print('=========Please use this token to connect: '+opt.token + '=========')
         attempt_count += 1
         if attempt_count>= MAX_ATTEMPTS:
             logger.info("Client exited because max attemps exceeded: %s", attempt_count)
