@@ -1,0 +1,6 @@
+requests
+gevent
+websocket-client-py3
+python-socketio
+aiohttp
+numpy
