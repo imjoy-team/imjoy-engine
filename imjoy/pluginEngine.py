@@ -35,9 +35,11 @@ parser.add_argument('--token', type=str, default=get_token(), help='connection t
 parser.add_argument('--debug', action="store_true", help='debug mode')
 opt = parser.parse_args()
 
+
+
 MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'
-print('========= Please use this token to connect: '+opt.token + ' =========')
+
 sio = socketio.AsyncServer()
 app = web.Application()
 sio.attach(app)
@@ -51,6 +53,7 @@ else:
     logger.setLevel(logging.INFO)
 
 logger.info("Now you can run Python plugins from https://imjoy.io ")
+logger.info('======== Connection Token: '+opt.token + ' ========')
 
 plugins = {}
 plugin_cids = {}
@@ -214,7 +217,7 @@ async def on_message(sid, kwargs):
     token = kwargs.get('token', None)
     if token != opt.token:
         logger.debug('token mismatch: %s != %s', token, opt.token)
-        print('=========Please use this token to connect: '+opt.token + '=========')
+        print('======== Connection Token: '+opt.token + ' ========')
         attempt_count += 1
         if attempt_count>= MAX_ATTEMPTS:
             logger.info("Client exited because max attemps exceeded: %s", attempt_count)
