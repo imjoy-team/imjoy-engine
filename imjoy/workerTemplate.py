@@ -142,7 +142,7 @@ class PluginConnection():
             #if(v !== Object(v) || v instanceof Boolean || v instanceof String || v instanceof Date || v instanceof RegExp || v instanceof Blob || v instanceof File || v instanceof FileList || v instanceof ArrayBuffer || v instanceof ArrayBufferView || v instanceof ImageData){
             elif 'np' in self._local and isinstance(v, (self._local['np'].ndarray, self._local['np'].generic)):
                 if sys.version_info >= (3, 0):
-                    v_bytes = v.tobytes().decode()
+                    v_bytes = v.tobytes().decode() #'cp437'
                 else:
                     v_bytes = v.tobytes()
                 vObj = {'__jailed_type__': 'ndarray', '__value__' : v_bytes, '__shape__': v.shape, '__is_bytes__': True, '__dtype__': str(v.dtype)}
@@ -187,7 +187,7 @@ class PluginConnection():
                     elif sys.version_info >= (3, 0) and isinstance(aObject['__value__'], str):
                         aObject['__value__'] = bytearray(aObject['__value__'], encoding="utf-8")
                     else:
-                        raise Exception('type error')
+                        raise Exception('Unsupported data type: ', type(aObject['__value__']))
 
                     if aObject['__is_bytes__']:
                         bObject = np.frombuffer(aObject['__value__'], dtype=aObject['__dtype__']).reshape(tuple(aObject['__shape__']))
