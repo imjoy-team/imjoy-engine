@@ -149,7 +149,7 @@ class PluginConnection():
             elif type(v) is dict or type(v) is list:
                 vObj = self._encode(v, callbacks)
             elif not isinstance(v, six.string_types) and type(v) is bytes:
-                v = v.decode() # covert python3 bytes to str
+                vObj = v.decode() # covert python3 bytes to str
             elif isinstance(v, Exception):
                 vObj = {'__jailed_type__': 'error', '__value__' : str(v)}
             else:
