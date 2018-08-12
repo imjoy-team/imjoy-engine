@@ -45,15 +45,9 @@ class Websocket(Transport):
         while self.state in ['opening', 'open']:
             if self.state == 'opening':
                 self.handle_open()
-            try:
-                packet = self.read()
-                sys.stdout.flush()
-                packet = self.parser.decode_packet(packet)
-                self.handle_packet(packet)
-            except Exception as e:
-                print(e)
-                sys.stdout.flush()
-
+            packet = self.read()
+            packet = self.parser.decode_packet(packet)
+            self.handle_packet(packet)
 
     def do_open(self):
         self.connection.connect(self.get_uri(), subprotocols=["binary", "base64"])
