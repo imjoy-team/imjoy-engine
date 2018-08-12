@@ -6,6 +6,7 @@ import sys
 import six
 import gevent
 import random
+import math
 import traceback
 from functools import reduce
 from inspect import isfunction
@@ -145,7 +146,7 @@ class PluginConnection():
             elif 'np' in self._local and isinstance(v, (self._local['np'].ndarray, self._local['np'].generic)):
                 vb = bytearray(v.tobytes())
                 if len(vb)>ARRAY_CHUNK:
-                    vl = len(vb)//ARRAY_CHUNK
+                    vl = int(math.ceil(1.0*len(vb)/ARRAY_CHUNK))
                     v_bytes = []
                     for i in range(vl):
                         v_bytes.append(vb[i*ARRAY_CHUNK:(i+1)*ARRAY_CHUNK])
@@ -196,7 +197,7 @@ class PluginConnection():
                         raise Exception('Unsupported data type: ', type(aObject['__value__']))
                     bObject = np.frombuffer(aObject['__value__'], dtype=aObject['__dtype__']).reshape(tuple(aObject['__shape__']))
                 except Exception as e:
-                    logger.debug('Error in converting: %s, %s', e, aObject)
+                    logger.debug('Error in converting: %s', e)
                     # try:
                     #     tf = self._local['tf']
                     #     bObject = tf.Tensor(aObject['__value__'], aObject['__shape__'], aObject['__dtype__'])
