@@ -145,7 +145,7 @@ class PluginConnection():
             elif 'np' in self._local and isinstance(v, (self._local['np'].ndarray, self._local['np'].generic)):
                 vb = bytearray(v.tobytes())
                 if len(vb)>ARRAY_CHUNK:
-                    vl = len(vb)/ARRAY_CHUNK
+                    vl = len(vb)//ARRAY_CHUNK
                     v_bytes = []
                     for i in range(vl):
                         v_bytes.append(vb[i*ARRAY_CHUNK:(i+1)*ARRAY_CHUNK])
