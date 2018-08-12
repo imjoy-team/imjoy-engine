@@ -141,11 +141,7 @@ class PluginConnection():
           # // https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm
             #if(v !== Object(v) || v instanceof Boolean || v instanceof String || v instanceof Date || v instanceof RegExp || v instanceof Blob || v instanceof File || v instanceof FileList || v instanceof ArrayBuffer || v instanceof ArrayBufferView || v instanceof ImageData){
             elif 'np' in self._local and isinstance(v, (self._local['np'].ndarray, self._local['np'].generic)):
-                if sys.version_info >= (3, 0):
-                    v_bytes = v.tobytes().decode() #'cp437'
-                else:
-                    v_bytes = v.tobytes()
-                vObj = {'__jailed_type__': 'ndarray', '__value__' : v_bytes, '__shape__': v.shape, '__is_bytes__': True, '__dtype__': str(v.dtype)}
+                vObj = {'__jailed_type__': 'ndarray', '__value__' : bytearray(v.tobytes()), '__shape__': v.shape, '__is_bytes__': True, '__dtype__': str(v.dtype)}
             elif type(v) is dict or type(v) is list:
                 vObj = self._encode(v, callbacks)
             elif not isinstance(v, six.string_types) and type(v) is bytes:
@@ -182,10 +178,8 @@ class PluginConnection():
                 # create build array/tensor if used in the plugin
                 try:
                     np = self._local['np']
-                    if sys.version_info < (3, 0) and isinstance(aObject['__value__'], unicode):
-                        aObject['__value__'] = bytearray(aObject['__value__'], encoding="utf-8")
-                    elif sys.version_info >= (3, 0) and isinstance(aObject['__value__'], str):
-                        aObject['__value__'] = bytearray(aObject['__value__'], encoding="utf-8")
+                    if isinstance(aObject['__value__'], bytearray):
+                        aObject['__value__'] = aObject['__value__']
                     else:
                         raise Exception('Unsupported data type: ', type(aObject['__value__']))
 

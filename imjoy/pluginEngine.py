@@ -53,7 +53,7 @@ else:
     logger.setLevel(logging.INFO)
 
 logger.info("Now you can run Python plugins from https://imjoy.io, token: %s", opt.token)
-print('======== Connection Token: '+opt.token + ' ========')
+print('======>> Connection Token: '+opt.token + ' <<======')
 
 plugins = {}
 plugin_cids = {}

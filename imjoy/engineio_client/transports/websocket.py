@@ -45,12 +45,18 @@ class Websocket(Transport):
         while self.state in ['opening', 'open']:
             if self.state == 'opening':
                 self.handle_open()
-            packet = self.read()
-            packet = self.parser.decode_packet(packet)
-            self.handle_packet(packet)
+            try:
+                packet = self.read()
+                sys.stdout.flush()
+                packet = self.parser.decode_packet(packet)
+                self.handle_packet(packet)
+            except Exception as e:
+                print(e)
+                sys.stdout.flush()
+
 
     def do_open(self):
-        self.connection.connect(self.get_uri())
+        self.connection.connect(self.get_uri(), subprotocols=["binary", "base64"])
         self.read_loop = self.client.start_loop(self.loop_read)
 
     def do_close(self):
@@ -65,15 +71,19 @@ class Websocket(Transport):
 
     def do_send(self, packets):
         for packet in packets:
+            sys.stdout.flush()
             enc_packet = self.parser.encode_packet(packet)
-            self.write(enc_packet)
+            self.write(enc_packet, packet.binary)
 
     def read(self):
         self.reading = True
         packet = self.connection.recv()
         return packet
 
-    def write(self, packet):
+    def write(self, packet, binary):
         self.writing = True
         logger.debug('Sending payload: %s' % repr(packet))
-        self.connection.send(packet)
+        if binary:
+            self.connection.send_binary(packet)
+        else:
+            self.connection.send(packet)
