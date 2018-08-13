@@ -1,6 +1,7 @@
 import sys
-if sys.version_info < (3,0):
-    sys.exit('Sorry, Python < 3.0 is not supported, please install imjoy in a Python 3 environment.')
+py_version = sys.version
+if not py_version.startswith('3') or not 'Anaconda' in py_version :
+    sys.exit('Sorry, ImJoy plugin engine can only run with Anaconda(Python 3.6+).')
 
 from setuptools import setup, find_packages
 setup(name='imjoy',
