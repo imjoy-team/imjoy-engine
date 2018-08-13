@@ -6,7 +6,9 @@ import sys
 import six
 import gevent
 import random
+import math
 import traceback
+from functools import reduce
 from inspect import isfunction
 from gevent import monkey;
 monkey.patch_socket()
@@ -16,6 +18,7 @@ logger = logging.getLogger('plugin')
 logger.setLevel(logging.INFO)
 # import logging
 # logging.basicConfig(level=logging.DEBUG)
+ARRAY_CHUNK = 1000000
 
 if '' not in sys.path:
     sys.path.insert(0, '')
@@ -141,15 +144,19 @@ class PluginConnection():
           # // https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm
             #if(v !== Object(v) || v instanceof Boolean || v instanceof String || v instanceof Date || v instanceof RegExp || v instanceof Blob || v instanceof File || v instanceof FileList || v instanceof ArrayBuffer || v instanceof ArrayBufferView || v instanceof ImageData){
             elif 'np' in self._local and isinstance(v, (self._local['np'].ndarray, self._local['np'].generic)):
-                if sys.version_info >= (3, 0):
-                    v_bytes = v.tobytes().decode() #'cp437'
+                vb = bytearray(v.tobytes())
+                if len(vb)>ARRAY_CHUNK:
+                    vl = int(math.ceil(1.0*len(vb)/ARRAY_CHUNK))
+                    v_bytes = []
+                    for i in range(vl):
+                        v_bytes.append(vb[i*ARRAY_CHUNK:(i+1)*ARRAY_CHUNK])
                 else:
-                    v_bytes = v.tobytes()
-                vObj = {'__jailed_type__': 'ndarray', '__value__' : v_bytes, '__shape__': v.shape, '__is_bytes__': True, '__dtype__': str(v.dtype)}
+                    v_bytes = vb
+                vObj = {'__jailed_type__': 'ndarray', '__value__' : v_bytes, '__shape__': v.shape, '__dtype__': str(v.dtype)}
             elif type(v) is dict or type(v) is list:
                 vObj = self._encode(v, callbacks)
             elif not isinstance(v, six.string_types) and type(v) is bytes:
-                v = v.decode() # covert python3 bytes to str
+                vObj = v.decode() # covert python3 bytes to str
             elif isinstance(v, Exception):
                 vObj = {'__jailed_type__': 'error', '__value__' : str(v)}
             else:
@@ -182,19 +189,15 @@ class PluginConnection():
                 # create build array/tensor if used in the plugin
                 try:
                     np = self._local['np']
-                    if sys.version_info < (3, 0) and isinstance(aObject['__value__'], unicode):
-                        aObject['__value__'] = bytearray(aObject['__value__'], encoding="utf-8")
-                    elif sys.version_info >= (3, 0) and isinstance(aObject['__value__'], str):
-                        aObject['__value__'] = bytearray(aObject['__value__'], encoding="utf-8")
+                    if isinstance(aObject['__value__'], bytearray):
+                        aObject['__value__'] = aObject['__value__']
+                    elif isinstance(aObject['__value__'], list) or isinstance(aObject['__value__'], tuple):
+                        aObject['__value__'] = reduce((lambda x, y: x + y), aObject['__value__'])
                     else:
                         raise Exception('Unsupported data type: ', type(aObject['__value__']))
-
-                    if aObject['__is_bytes__']:
-                        bObject = np.frombuffer(aObject['__value__'], dtype=aObject['__dtype__']).reshape(tuple(aObject['__shape__']))
-                    else:
-                        bObject = np.array(aObject['__value__'], aObject['__dtype__']).reshape(aObject['__shape__'])
+                    bObject = np.frombuffer(aObject['__value__'], dtype=aObject['__dtype__']).reshape(tuple(aObject['__shape__']))
                 except Exception as e:
-                    logger.debug('Error in converting: %s, %s', e, aObject)
+                    logger.debug('Error in converting: %s', e)
                     # try:
                     #     tf = self._local['tf']
                     #     bObject = tf.Tensor(aObject['__value__'], aObject['__shape__'], aObject['__dtype__'])

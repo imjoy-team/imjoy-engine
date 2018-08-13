@@ -53,7 +53,7 @@ else:
     logger.setLevel(logging.INFO)
 
 logger.info("Now you can run Python plugins from https://imjoy.io, token: %s", opt.token)
-print('======== Connection Token: '+opt.token + ' ========')
+print('======>> Connection Token: '+opt.token + ' <<======')
 
 plugins = {}
 plugin_cids = {}
@@ -87,8 +87,7 @@ async def on_init_plugin(sid, kwargs):
         #     clients[client_id].append(sid)
         # else:
         #     clients[client_id] = [sid]
-    logger.info("initialize the plugin: "+str(kwargs))
-    sys.stdout.flush()
+
 
     pid = kwargs['id']
     config = kwargs.get('config', {})
@@ -96,6 +95,8 @@ async def on_init_plugin(sid, kwargs):
     cmd = config.get('cmd', 'python')
     pname = config.get('name', None)
     requirements = config.get('requirements', []) or []
+
+    logger.info("initialize the plugin. name=%s, id=%s, cmd=%s", pname, id, cmd)
 
     if pid in plugins:
         if client_id in plugin_cids:
@@ -166,7 +167,7 @@ async def on_init_plugin(sid, kwargs):
             if pid in plugins:
                 plugin_sids[sid] = plugins[pid]
             await sio.emit('message_from_plugin_'+pid,  kwargs)
-            logger.debug('message from %s: %s', pid, kwargs)
+            logger.debug('message from %s', pid)
         else:
             await sio.emit('message_from_plugin_'+pid, {'type': 'message', 'data': kwargs})
 
@@ -175,7 +176,7 @@ async def on_init_plugin(sid, kwargs):
         # print('forwarding message_to_plugin_'+pid, kwargs)
         if kwargs['type'] == 'message':
             await sio.emit('to_plugin_'+secretKey, kwargs['data'])
-        logger.debug('message to plugin %s: %s', secretKey, kwargs)
+        logger.debug('message to plugin %s', secretKey)
 
     try:
         abort = threading.Event()

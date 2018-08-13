@@ -150,4 +150,3 @@ class ParserException(Exception):
 
 class PacketException(Exception):
     pass
-

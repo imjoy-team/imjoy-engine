@@ -5,7 +5,7 @@ if not py_version.startswith('3') or not 'Anaconda' in py_version :
 
 from setuptools import setup, find_packages
 setup(name='imjoy',
-      version='0.1.7',
+      version='0.1.8',
       description='Python plugin engine for ImJoy.io',
       url='http://github.com/oeway/ImJoy',
       author='Wei OUYANG',
