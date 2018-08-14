@@ -1,11 +1,10 @@
 import sys
 import subprocess
 
-if not 'Anaconda' in sys.version:
-    try:
-        subprocess.call(["conda", "-V"])
-    except OSError as e:
-        sys.exit('Sorry, ImJoy plugin engine can only run with Anaconda.')
+try:
+    subprocess.call(["conda", "-V"])
+except OSError as e:
+    sys.exit('Sorry, ImJoy plugin engine can only run with Anaconda or Miniconda.')
 
 requirements = []
 if sys.version_info > (3, 0):
