@@ -1,7 +1,7 @@
 # Python Plugin Engine
 The plugin engine used for running python plugins in https://imjoy.io
 
-**Note:** If the Plugin Engine and the ImJoy app are run on different computers, you will have to open the ImJoy app with http://imjoy.io instead of https://imjoy.io
+**Note:** If the Plugin Engine and the ImJoy app are run on different computers, you will have to open the ImJoy app with http://imjoy.io instead of `https://imjoy.io`.
 ## Installation
   * Download and install [Anaconda](https://www.anaconda.com/download/) or [Miniconda](https://conda.io/miniconda.html) (Python3.6+ version is preferred)
   * Start a terminal window and run the following command:
