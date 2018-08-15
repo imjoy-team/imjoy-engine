@@ -129,7 +129,7 @@ async def on_init_plugin(sid, kwargs):
 
             logger.info('creating environment: %s', env)
             if env not in cmd_history:
-                subprocess.Popen(env, shell=True)
+                subprocess.Popen(env, shell=True).wait()
                 cmd_history.append(env)
             else:
                 logger.debug('skip command: %s', env)
@@ -146,7 +146,7 @@ async def on_init_plugin(sid, kwargs):
     try:
         logger.info('installing requirements: %s', pip_cmd)
         if pip_cmd not in cmd_history:
-            subprocess.Popen(pip_cmd, shell=True)
+            subprocess.Popen(pip_cmd, shell=True).wait()
             cmd_history.append(pip_cmd)
         else:
             logger.debug('skip command: %s', pip_cmd)
