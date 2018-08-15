@@ -137,7 +137,7 @@ async def on_init_plugin(sid, kwargs):
             raise
 
     requirements += (default_requirements_py2 if is_py2 else default_requirements_py3)
-    pip_cmd = "pip install "+" ".join(requirements)
+    pip_cmd = "conda install -y git pip && pip install "+" ".join(requirements)
     if env_name is not None:
         pip_cmd = "source activate "+env_name + " || activate "+env_name + " && " + pip_cmd
     if env_name is not None:
