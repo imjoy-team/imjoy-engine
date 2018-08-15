@@ -15,14 +15,16 @@ The plugin engine used for running python plugins in https://imjoy.io
 ## FAQs
  * Can I use my existing python?
  
-  It depends whether it's a conda-compatible distribution or not, try to type `conda -V` command, if you see a version number, it means you can install ImJoy directly with your existing python.
- * Can I use ImJoy with Python 2.7 or other version less than Python 3.6?
+  It depends whether it's a conda-compatible distribution or not, try to type `conda -V` command, if you see a version number(e.g:`conda 4.3.30`), it means you can skip the Anaconda/Miniconda installation, and install ImJoy directly with your existing python.
+ * Can I use ImJoy with Python 2.7 or other version lower than Python 3.6?
  
-  Yes, you can once you have the conda environment. You will be able to install and run ImJoy with Anaconda/Miniconda with Python2.7. However, in that case, it will bootstrapping itself by creating a Python 3 environment (named `imjoy`) in order to run the actual plugin engine code. Therefore, Anaconda/Miniconda (Python3.6+ version) is still recommended if you have the choice.
+  Yes, you can if you have the conda environment. You will be able to install and run ImJoy with Python version lower thant 3.6 (e.g.: Anaconda/Miniconda Python2.7). However, in that case, it will bootstrapping itself by creating a Python 3 environment (named `imjoy`) in order to run the actual plugin engine code. Therefore, Anaconda/Miniconda (Python3.6+ version) is still recommended if you have the choice.
  * What's the difference with [Anaconda](https://www.anaconda.com/download/) and [Miniconda](https://conda.io/miniconda.html)?
  
- Miniconda is just a reduced version of Anaconda, since ImJoy only relies on `conda` which comes with both, you can choose either of them. If you like minimal installation, choose Miniconda. If you want all those packages which will be used for scientific computing(such as numpy, scipy, scikit-image etc.), choose Anaconda.
-
+ Miniconda is just a reduced version of Anaconda. Since ImJoy only relies on `conda` which included by both, you can choose either of them. If you like minimal installation, choose Miniconda. If you want all those packages which will be used for scientific computing(such as numpy, scipy, scikit-image etc.), choose Anaconda.
+ * Why I can't connect to my plugin engine run on a remote computer?
+ First, you needs to make sure the other computer with plugin engine can be accessed from your current network and not blocked by a firewall for example.
+ Second, currently you can't use ImJoy.io loaded with `https` with the Plugin Engine, because modern browsers do not allow you to make a insecured connection with a SSL secured website. So, you will have to use `http` instead, by typing `http://imjoy.io` in your browser.
 
 ## Developing Python Plugins for ImJoy
 
