@@ -26,7 +26,7 @@ The plugin engine used for running python plugins in https://imjoy.io
  
  First, you needs to make sure the other computer with plugin engine can be accessed from your current network and not blocked by a firewall for example.
  
- Second, currently you can't use ImJoy.io loaded with `https` with the Plugin Engine, because modern browsers do not allow you to make a insecured connection with a SSL secured website. So, you will have to use `http` instead, by typing `http://imjoy.io` in your browser.
+ Second, currently you can't use ImJoy.io loaded with `https` with the Plugin Engine, because modern browsers do not allow you to make a insecured connection within a SSL secured website. So, you will have to use `http` instead, by typing `http://imjoy.io` in your browser.
 
 ## Developing Python Plugins for ImJoy
 
