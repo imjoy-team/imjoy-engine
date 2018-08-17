@@ -137,9 +137,21 @@ class PluginConnection():
             v = aObject[k]
             value = None
             if isfunction(v):
-                cid = str(random.random())
-                callbacks[cid] = v
-                vObj = {'__jailed_type__': 'callback', '__value__' : 'f', 'num': cid}
+                interfaceFuncName = None
+                for name in self._interface:
+                    if name.startswith('_'):
+                        continue
+                    if isfunction(this._interface[name]) and this._interface[name] == v:
+                        interfaceFuncName = name
+                        break
+
+                if interfaceFuncName is None:
+                    cid = str(random.random())
+                    callbacks[cid] = v
+                    vObj = {'__jailed_type__': 'callback', '__value__' : 'f', 'num': cid}
+                else:
+                    vObj = {'__jailed_type__': 'interface', '__value__' : interfaceFuncName}
+
           # // send objects supported by structure clone algorithm
           # // https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm
             #if(v !== Object(v) || v instanceof Boolean || v instanceof String || v instanceof Date || v instanceof RegExp || v instanceof Blob || v instanceof File || v instanceof FileList || v instanceof ArrayBuffer || v instanceof ArrayBufferView || v instanceof ImageData){
@@ -185,6 +197,12 @@ class PluginConnection():
         if '__jailed_type__' in aObject and '__value__' in aObject:
             if aObject['__jailed_type__'] == 'callback':
                 bObject = self._genRemoteCallback(callbackId, aObject['num'], withPromise)
+            elif aObject['__jailed_type__'] == 'interface':
+                name = aObject['__value__']
+                if name in self._remote:
+                    bObject = self._remote[name]
+                else:
+                    bObject = self._genRemoteMethod(name)
             elif aObject['__jailed_type__'] == 'ndarray':
                 # create build array/tensor if used in the plugin
                 try:
@@ -308,6 +326,7 @@ class PluginConnection():
         _remote["ndarray"] = self._ndarray
         _remote["export"] = self.setInterface
         self._local["api"] = _remote
+        self._remote = _remote
         return _remote
 
     def sio_plugin_message(self, data):
