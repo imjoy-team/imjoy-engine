@@ -335,9 +335,9 @@ class PluginConnection():
         else:
             if data['type'] == 'execute':
                 if not self._executed:
-                    type = data['code']['type']
-                    content = data['code']['content']
                     try:
+                        type = data['code']['type']
+                        content = data['code']['content']
                         exec(content, self._local)
                         self.emit({'type':'executeSuccess'})
                         self._executed = True
