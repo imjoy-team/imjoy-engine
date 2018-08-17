@@ -66,7 +66,7 @@ class ReferenceStore():
         self._store[id] = obj
         return id
 
-    def fetch(id):
+    def fetch(self, id):
         obj = self._store[id]
         self._store[id] = None
         del self._store[id]
@@ -362,41 +362,44 @@ class PluginConnection():
                     self._remote_set = True
                 elif d['type'] == 'method':
                     if d['name'] in self._interface:
-                        method = self._interface[d['name']]
                         if 'promise' in d:
-                            resolve, reject = self._unwrap(d['promise'], False)
                             try:
+                                resolve, reject = self._unwrap(d['promise'], False)
+                                method = self._interface[d['name']]
                                 args = self._unwrap(d['args'], True)
                                 result = method(*args)
                                 resolve(result)
                             except Exception as e:
-                                logger.info('error in method %s, %s: %s', d['name'], d['args'], traceback.format_exc())
+                                logger.info('error in method %s: %s', d['name'], traceback.format_exc())
                                 reject(e)
                         else:
                             try:
+                                method = self._interface[d['name']]
                                 args = self._unwrap(d['args'], True)
                                 method(*args)
                             except Exception as e:
-                                logger.info('error in method %s %s: %s', d['name'], d['args'], traceback.format_exc())
+                                logger.info('error in method %s: %s', d['name'], traceback.format_exc())
                     else:
                         raise Exception('method '+d['name'] +' is not found.')
                 elif d['type'] == 'callback':
-                    method = self._store.fetch(d['id'])[d['num']]
+
                     if 'promise' in d:
-                        resolve, reject = self._unwrap(d['promise'], False)
                         try:
+                            resolve, reject = self._unwrap(d['promise'], False)
+                            method = self._store.fetch(d['id'])[d['num']]
                             args = self._unwrap(d['args'], True)
                             result = method(*args)
                             resolve(result)
                         except Exception as e:
-                            logger.info('error in method %s, %s: %s', d['id'], d['args'], traceback.format_exc())
+                            logger.info('error in method %s: %s', d['id'], traceback.format_exc())
                             reject(e)
                     else:
                         try:
+                            method = self._store.fetch(d['id'])[d['num']]
                             args = self._unwrap(d['args'], True)
                             method(*args)
                         except Exception as e:
-                            logger.info('error in method %s, %s: %s', d['id'], d['args'], traceback.format_exc())
+                            logger.info('error in method %s: %s', d['id'], traceback.format_exc())
                 sys.stdout.flush()
 
 if __name__ == "__main__":
