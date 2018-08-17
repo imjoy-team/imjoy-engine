@@ -8,6 +8,7 @@ import gevent
 import random
 import math
 import traceback
+import uuid
 from functools import reduce
 from inspect import isfunction
 from gevent import monkey;
@@ -136,17 +137,14 @@ class PluginConnection():
         for k in keys:
             v = aObject[k]
             value = None
-            if isfunction(v):
+            if callable(v):
                 interfaceFuncName = None
                 for name in self._interface:
-                    if name.startswith('_'):
-                        continue
-                    if isfunction(this._interface[name]) and this._interface[name] == v:
+                    if self._interface[name] == v:
                         interfaceFuncName = name
                         break
-
                 if interfaceFuncName is None:
-                    cid = str(random.random())
+                    cid = str(uuid.uuid4())
                     callbacks[cid] = v
                     vObj = {'__jailed_type__': 'callback', '__value__' : 'f', 'num': cid}
                 else:
@@ -289,9 +287,9 @@ class PluginConnection():
                             data2[k] = "**@@FUNCTION@@**:"+k
                         else:
                             data2[k] = data[k]
-                    names.push({"name":name, "data": data2})
+                    names.append({"name":name, "data": data2})
                 else:
-                  names.push({"name":name, "data": data})
+                  names.append({"name":name, "data": data})
         self.emit({'type':'setInterface', 'api': names})
 
     def _genRemoteMethod(self, name):

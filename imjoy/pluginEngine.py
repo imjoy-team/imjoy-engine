@@ -138,7 +138,7 @@ async def on_init_plugin(sid, kwargs):
             raise
 
     requirements += (default_requirements_py2 if is_py2 else default_requirements_py3)
-    pip_cmd = "conda install -y git pip && pip install "+" ".join(requirements)
+    pip_cmd = "pip install "+" ".join(requirements)
     if env_name is not None:
         pip_cmd = "source activate "+env_name + " || activate "+env_name + " && " + pip_cmd
     if env_name is not None:
@@ -146,7 +146,18 @@ async def on_init_plugin(sid, kwargs):
     try:
         logger.info('installing requirements: %s', pip_cmd)
         if pip_cmd not in cmd_history:
-            subprocess.Popen(pip_cmd, shell=True).wait()
+            ret = subprocess.Popen(pip_cmd, shell=True).wait()
+            if ret != 0:
+                logger.info('pip command failed, trying to install git and pip...')
+                # try to install git and pip
+                git_cmd = "conda install -y git pip"
+                ret = subprocess.Popen(git_cmd, shell=True).wait()
+                if ret != 0:
+                    raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
+                else:
+                    ret = subprocess.Popen(pip_cmd, shell=True).wait()
+                    if ret != 0:
+                        raise Exception('Failed to install dependencies with exit code: '+str(ret))
             cmd_history.append(pip_cmd)
         else:
             logger.debug('skip command: %s', pip_cmd)
