@@ -10,9 +10,13 @@ import math
 import traceback
 import uuid
 from functools import reduce
-from inspect import isfunction
+import inspect
+# from inspect import isfunction
 from gevent import monkey;
 monkey.patch_socket()
+from socketio_client.manager import Manager
+# from RestrictedPython import compile_restricted
+# from RestrictedPython import safe_builtins
 
 logging.basicConfig()
 logger = logging.getLogger('plugin')
@@ -27,12 +31,6 @@ if '' not in sys.path:
 imjoy_path = os.path.dirname(os.path.normpath(__file__))
 if imjoy_path not in sys.path:
     sys.path.insert(0, imjoy_path)
-
-from socketio_client.manager import Manager
-# from RestrictedPython import compile_restricted
-# from RestrictedPython import safe_builtins
-import inspect
-
 
 
 class ReferenceStore():
@@ -382,7 +380,6 @@ class PluginConnection():
                     else:
                         raise Exception('method '+d['name'] +' is not found.')
                 elif d['type'] == 'callback':
-
                     if 'promise' in d:
                         try:
                             resolve, reject = self._unwrap(d['promise'], False)
