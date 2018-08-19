@@ -34,11 +34,8 @@ if __name__ == '__main__':
         ret = subprocess.Popen(pip_cmd, shell=True).wait()
         if ret != 0:
             # try to install git and pip
-            git_cmd = "conda install -y git pip"
-            ret = subprocess.Popen(git_cmd, shell=True).wait()
+            git_cmd = "conda install -y git pip &&"
+            ret = subprocess.Popen(git_cmd + pip_cmd, shell=True).wait()
             if ret != 0:
                 print('ImJoy failed with exit code: '+str(ret))
-            else:
-                ret = subprocess.Popen(pip_cmd, shell=True).wait()
-                if ret != 0:
-                    print('ImJoy failed with exit code: '+str(ret))
+                sys.exit(2)

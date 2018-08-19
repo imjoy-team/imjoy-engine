@@ -16,6 +16,7 @@ import shlex
 import logging
 import argparse
 import uuid
+import shutil
 
 from subprocess import Popen, PIPE, STDOUT
 try:
@@ -34,9 +35,23 @@ def get_token():
 parser = argparse.ArgumentParser()
 parser.add_argument('--token', type=str, default=get_token(), help='connection token')
 parser.add_argument('--debug', action="store_true", help='debug mode')
+parser.add_argument('--offline', action="store_true", help='prepare for offline access')
 opt = parser.parse_args()
 
-
+if opt.offline:
+    imjpath = '__ImJoy__'
+    if os.path.exists(imjpath) and os.path.isdir(imjpath):
+        ret = subprocess.Popen('cd '+imjpath+' && git pull', shell=True).wait()
+        if ret != 0:
+            shutil.rmtree(imjpath)
+            print('Downloading files for offline access...')
+            ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__', shell=True).wait()
+            if ret != 0:
+                ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy", shell=True).wait()
+                if ret != 0:
+                    print('Failed to download files for offline access, please check whether you have internet access.')
+                    sys.exit(3)
+    print('Now you can access the offline version of Imjoy by http://localhost:8080 , imjoy!')
 
 MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'
@@ -271,15 +286,19 @@ async def disconnect(sid):
     logger.info('disconnect %s', sid)
 
 
-async def index(request):
-    """Serve the client-side application."""
-    return web.Response(text='home', content_type='text/html')
-    #
-    # with open('index.html') as f:
-    #     return web.Response(text=f.read(), content_type='text/html')
+app = web.Application()
 
-# app.router.add_static('/files', 'data-files')
+if os.path.exists('__ImJoy__/docs') and os.path.exists('__ImJoy__/docs/index.html') and os.path.exists('__ImJoy__/docs/static'):
+    async def index(request):
+        """Serve the client-side application."""
+        with open('__ImJoy__/docs/index.html') as f:
+            return web.Response(text=f.read(), content_type='text/html')
+    app.router.add_static('/static', path=str('__ImJoy__/docs/static'))
+else:
+    async def index(request):
+        raise web.HTTPFound('https://imjoy.io')
 app.router.add_get('/', index)
+
 
 def process_output(line):
     print(line)
@@ -438,7 +457,6 @@ class NonBlockingStreamReader:
             if self.end:
                 raise UnexpectedEndOfStream
             return None
-
 
 class UnexpectedEndOfStream(Exception):
     pass
