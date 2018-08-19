@@ -36,6 +36,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--token', type=str, default=get_token(), help='connection token')
 parser.add_argument('--debug', action="store_true", help='debug mode')
 parser.add_argument('--offline', action="store_true", help='prepare for offline access')
+parser.add_argument('--host', type=str, default='localhost', help='socketio host')
+parser.add_argument('--port', type=str, default='8080', help='socketio port')
 opt = parser.parse_args()
 
 if opt.offline:
@@ -220,7 +222,7 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=execute, args=[cmd+' '+template_script+' --id='+pid+' --secret='+secretKey+' --namespace='+NAME_SPACE, './', abort, pid])
+        taskThread = threading.Thread(target=execute, args=[cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE, './', abort, pid])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
@@ -460,4 +462,4 @@ class UnexpectedEndOfStream(Exception):
     pass
 
 if __name__ == '__main__':
-    web.run_app(app)
+    web.run_app(app, host=opt.host, port=opt.port)
