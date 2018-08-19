@@ -68,6 +68,18 @@ if opt.debug:
 else:
     logger.setLevel(logging.INFO)
 
+if os.path.exists('__ImJoy__/docs') and os.path.exists('__ImJoy__/docs/index.html') and os.path.exists('__ImJoy__/docs/static'):
+    async def index(request):
+        """Serve the client-side application."""
+        with open('__ImJoy__/docs/index.html') as f:
+            return web.Response(text=f.read(), content_type='text/html')
+    app.router.add_static('/static', path=str('__ImJoy__/docs/static'))
+else:
+    async def index(request):
+        return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>For offline mode, you need to run "python -m imjoy --offline" before you can access the ImJoy app in offline mode.</p>', content_type="text/html")
+app.router.add_get('/', index)
+
+
 logger.info("Now you can run Python plugins from https://imjoy.io, token: %s", opt.token)
 print('======>> Connection Token: '+opt.token + ' <<======')
 
@@ -284,20 +296,6 @@ async def disconnect(sid):
             if exist:
                 plugin_cids[cid].remove(exist)
     logger.info('disconnect %s', sid)
-
-
-app = web.Application()
-
-if os.path.exists('__ImJoy__/docs') and os.path.exists('__ImJoy__/docs/index.html') and os.path.exists('__ImJoy__/docs/static'):
-    async def index(request):
-        """Serve the client-side application."""
-        with open('__ImJoy__/docs/index.html') as f:
-            return web.Response(text=f.read(), content_type='text/html')
-    app.router.add_static('/static', path=str('__ImJoy__/docs/static'))
-else:
-    async def index(request):
-        return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>For offline mode, you need to run "python -m imjoy --offline" before you can access the ImJoy app in offline mode.</p>', content_type="text/html")
-app.router.add_get('/', index)
 
 
 def process_output(line):
