@@ -46,13 +46,14 @@ if opt.offline:
         ret = subprocess.Popen('cd '+imjpath+' && git pull', shell=True).wait()
         if ret != 0:
             shutil.rmtree(imjpath)
-            print('Downloading files for offline access...')
-            ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__', shell=True).wait()
+    if not os.path.exists(imjpath):
+        print('Downloading files for offline access...')
+        ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__', shell=True).wait()
+        if ret != 0:
+            ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy", shell=True).wait()
             if ret != 0:
-                ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy", shell=True).wait()
-                if ret != 0:
-                    print('Failed to download files for offline access, please check whether you have internet access.')
-                    sys.exit(3)
+                print('Failed to download files for offline access, please check whether you have internet access.')
+                sys.exit(3)
     print('Now you can access the offline version of Imjoy by http://localhost:8080 , imjoy!')
 
 MAX_ATTEMPTS = 1000
@@ -76,9 +77,10 @@ if os.path.exists('__ImJoy__/docs') and os.path.exists('__ImJoy__/docs/index.htm
         with open('__ImJoy__/docs/index.html') as f:
             return web.Response(text=f.read(), content_type='text/html')
     app.router.add_static('/static', path=str('__ImJoy__/docs/static'))
+    print('An offline version of Imjoy is available at http://localhost:8080')
 else:
     async def index(request):
-        return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>For offline mode, you need to run "python -m imjoy --offline" before you can access the ImJoy app in offline mode.</p>', content_type="text/html")
+        return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>For offline mode, you need to run "python -m imjoy --offline" before you can access it.</p>', content_type="text/html")
 app.router.add_get('/', index)
 
 
