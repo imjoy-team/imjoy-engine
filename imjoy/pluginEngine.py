@@ -296,7 +296,7 @@ if os.path.exists('__ImJoy__/docs') and os.path.exists('__ImJoy__/docs/index.htm
     app.router.add_static('/static', path=str('__ImJoy__/docs/static'))
 else:
     async def index(request):
-        raise web.HTTPFound('https://imjoy.io')
+        return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>For offline mode, you need to run "python -m imjoy --offline" before you can access the ImJoy app in offline mode.</p>', content_type="text/html")
 app.router.add_get('/', index)
 
 
