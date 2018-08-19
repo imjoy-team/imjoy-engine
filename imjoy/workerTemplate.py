@@ -32,6 +32,11 @@ imjoy_path = os.path.dirname(os.path.normpath(__file__))
 if imjoy_path not in sys.path:
     sys.path.insert(0, imjoy_path)
 
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 class ReferenceStore():
     def __init__(self):
@@ -230,12 +235,12 @@ class PluginConnection():
             if type(aObject) is tuple:
                 aObject = list(aObject)
             isarray = type(aObject) is list
-            bObject =  [] if isarray else {}
+            bObject =  [] if isarray else dotdict()
             keys = range(len(aObject)) if isarray else aObject.keys()
             for k in keys:
                 if isarray or k in aObject:
                     v = aObject[k]
-                    if type(v) is dict or type(v) is list:
+                    if isinstance(v, dict)or type(v) is list:
                         if isarray:
                             bObject.append(self._decode(v, callbackId, withPromise))
                         else:
