@@ -23,7 +23,11 @@ Once it's done, you will be able to access your personal ImJoy web app through: 
 Also notice that, although the main ImJoy app can go offline, and most of the plugins support offline, there still plugins require remote access to files, in that case, you won't be able to use those plugins without internet.
 
 ## Use the engine remotely.
-You can use the Plugin Engine remotely on another computer. Due to security restrictions enforced by the browser, you won't be able to connect your remote plugin engine with https://imjoy.io , however, you can do it with the offline version of ImJoy. Just follow the instructions in **Go Offline**, and from the offline version, click the settings button, and you will be able set a remote url for the remote access.
+You can use the Plugin Engine remotely on another computer. Due to security restrictions enforced by the browser, you won't be able to connect your remote plugin engine with https://imjoy.io , however, you can do it with the offline version of ImJoy. In addition to the instructions in **Go Offline**, you need to specify the host in order to allow outside connection:
+```
+  python -m imjoy --offline --host=0.0.0.0
+```
+Then go to [http://localhost:8080](http://localhost:8080) to connect to the offline ImJoy. Then click the settings button, and you will be able set a remote url for the remote access.
 
 ## FAQs
  * Can I use my existing python?
