@@ -463,5 +463,5 @@ class NonBlockingStreamReader:
 class UnexpectedEndOfStream(Exception):
     pass
 
-if __name__ == '__main__':
-    web.run_app(app, host=opt.host, port=opt.port)
+
+web.run_app(app, host=opt.host, port=opt.port)

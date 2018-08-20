@@ -18,7 +18,6 @@ if __name__ == '__main__':
         except:
             pass
         from .pluginEngine import *
-        web.run_app(app)
     else:
         # running in python 2
         print('ImJoy needs to run in Python 3.6+, bootstrapping with conda ...')
