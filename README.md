@@ -7,6 +7,7 @@ The plugin engine used for running python plugins in https://imjoy.io
 
     ```conda -V && pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy```
   * If you encountered any error related to `git` or `pip`, try to run : `conda install -y git pip` before the above command. (Otherwise, please check **FAQs**.)
+  * You can also use the same command if you want to upgrade the Plugin Engine to the latest version.
 
 ## Usage
   * Run `python -m imjoy` in a **Terminal** or **Anaconda Prompt**, and keep the window running.

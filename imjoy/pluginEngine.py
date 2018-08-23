@@ -69,7 +69,7 @@ logger = logging.getLogger('PluginEngine')
 if opt.debug:
     logger.setLevel(logging.DEBUG)
 else:
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.ERROR)
 
 if os.path.exists('__ImJoy__/docs') and os.path.exists('__ImJoy__/docs/index.html') and os.path.exists('__ImJoy__/docs/static'):
     async def index(request):
