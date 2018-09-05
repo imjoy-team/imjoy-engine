@@ -2,11 +2,12 @@
 The plugin engine used for running python plugins in https://imjoy.io
 
 ## Installation
-  * Download and install [Anaconda](https://www.anaconda.com/download/) or [Miniconda](https://conda.io/miniconda.html) (Python3.6+ version is preferred)
+  * Download and install [Miniconda with Python 3.6](https://conda.io/miniconda.html) (or [Anaconda with Python 3.6](https://www.anaconda.com/download/) if you prefer a full installation). If you have installed any of these, please skip this step.
   * Start a **Terminal**(Mac and Linux) or **Anaconda Prompt**(Windows), then run the following command:
 
     ```conda -V && pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy```
   * If you encountered any error related to `git` or `pip`, try to run : `conda install -y git pip` before the above command. (Otherwise, please check **FAQs**.)
+  * You can also use the same command if you want to upgrade the Plugin Engine to the latest version.
 
 ## Usage
   * Run `python -m imjoy` in a **Terminal** or **Anaconda Prompt**, and keep the window running.

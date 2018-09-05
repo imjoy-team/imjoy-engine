@@ -50,7 +50,7 @@ class Websocket(Transport):
             self.handle_packet(packet)
 
     def do_open(self):
-        self.connection.connect(self.get_uri(), subprotocols=["binary", "base64"])
+        self.connection.connect(self.get_uri())
         self.read_loop = self.client.start_loop(self.loop_read)
 
     def do_close(self):
