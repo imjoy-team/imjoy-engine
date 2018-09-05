@@ -144,6 +144,8 @@ async def on_init_plugin(sid, kwargs):
 
     if env is not None:
         try:
+            if not env.startswith('conda'):
+                raise Exception('env command must start with conda')
             if 'python=2' in env:
                 is_py2 = True
             parms = shlex.split(env)
@@ -169,15 +171,19 @@ async def on_init_plugin(sid, kwargs):
             raise
 
     requirements += (default_requirements_py2 if is_py2 else default_requirements_py3)
-    pip_cmd = "pip install "+" ".join(requirements)
+    requirements_pip = [r for r in requirements if not r.startswith('conda:')]
+    requirements_conda = [r.replace('conda:', '') for r in requirements if r.startswith('conda:')]
+    requirements_cmd = "pip install "+" ".join(requirements_pip)
+    if len(requirements_conda) > 0:
+        requirements_cmd = 'conda install -y ' + " ".join(requirements_conda) + " && " + requirements_cmd
     if env_name is not None:
-        pip_cmd = "source activate "+env_name + " || activate "+env_name + " && " + pip_cmd
+        requirements_cmd = "source activate " + env_name + " || activate " + env_name + " && " + requirements_cmd
     if env_name is not None:
-        cmd = "source activate "+env_name + " || activate "+env_name + " && " + cmd
+        cmd = "source activate " + env_name + " || activate "+env_name + " && " + cmd
     try:
-        logger.info('installing requirements: %s', pip_cmd)
-        if pip_cmd not in cmd_history:
-            ret = subprocess.Popen(pip_cmd, shell=True).wait()
+        logger.info('installing requirements: %s', requirements_cmd)
+        if requirements_cmd not in cmd_history:
+            ret = subprocess.Popen(requirements_cmd, shell=True).wait()
             if ret != 0:
                 logger.info('pip command failed, trying to install git and pip...')
                 # try to install git and pip
@@ -186,12 +192,12 @@ async def on_init_plugin(sid, kwargs):
                 if ret != 0:
                     raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
                 else:
-                    ret = subprocess.Popen(pip_cmd, shell=True).wait()
+                    ret = subprocess.Popen(requirements_cmd, shell=True).wait()
                     if ret != 0:
                         raise Exception('Failed to install dependencies with exit code: '+str(ret))
-            cmd_history.append(pip_cmd)
+            cmd_history.append(requirements_cmd)
         else:
-            logger.debug('skip command: %s', pip_cmd)
+            logger.debug('skip command: %s', requirements_cmd)
     except Exception as e:
         await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
         raise
