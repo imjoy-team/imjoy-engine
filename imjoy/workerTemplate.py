@@ -114,9 +114,7 @@ class PluginConnection():
 
         self.sio = sio
         _remote = API()
-        _remote["ndarray"] = self._ndarray
-        _remote["export"] = self.setInterface
-        _remote["utils"] = api_utils
+        self._setLocalAPI(_remote)
         self._local = {"api": _remote}
         self._interface = {}
         self._remote_set = False
@@ -345,11 +343,14 @@ class PluginConnection():
                     _remote[name] = data
             else:
                 _remote[name] = self._genRemoteMethod(name)
+
+        self._setLocalAPI(_remote)
+        return _remote
+
+    def _setLocalAPI(self, _remote):
         _remote["ndarray"] = self._ndarray
         _remote["export"] = self.setInterface
-        self._local["api"] = _remote
-        self._remote = _remote
-        return _remote
+        _remote["utils"] = api_utils
 
     def sio_plugin_message(self, data):
         if data['type']== 'import':
