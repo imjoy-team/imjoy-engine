@@ -78,21 +78,6 @@ class ReferenceStore():
         self._releaseId(id)
         return obj
 
-
-class API(dict):
-    def __getattr__(self, name):
-        if name in self:
-            return self[name]
-        else:
-            raise AttributeError("No such attribute: " + name)
-    def __setattr__(self, name, value):
-        self[name] = value
-    def __delattr__(self, name):
-        if name in self:
-            del self[name]
-        else:
-            raise AttributeError("No such attribute: " + name)
-
 def kill(proc_pid):
     process = psutil.Process(proc_pid)
     for proc in process.children(recursive=True):
@@ -113,7 +98,7 @@ class PluginConnection():
         self.emit = emit
 
         self.sio = sio
-        _remote = API()
+        _remote = dotdict()
         self._setLocalAPI(_remote)
         self._local = {"api": _remote}
         self._interface = {}
@@ -325,7 +310,7 @@ class PluginConnection():
         return remoteMethod
 
     def _setRemote(self, api):
-        _remote = API()
+        _remote = dotdict
         for i in range(len(api)):
             name = api[i]["name"]
             data = api[i]["data"]
