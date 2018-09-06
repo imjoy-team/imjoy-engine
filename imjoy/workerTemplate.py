@@ -310,7 +310,7 @@ class PluginConnection():
         return remoteMethod
 
     def _setRemote(self, api):
-        _remote = dotdict
+        _remote = dotdict()
         for i in range(len(api)):
             name = api[i]["name"]
             data = api[i]["data"]
