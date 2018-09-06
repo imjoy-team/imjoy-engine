@@ -47,6 +47,7 @@ Then go to [http://localhost:8080](http://localhost:8080) to connect to the offl
  Second, currently you can't use ImJoy.io loaded with `https` with the Plugin Engine, because modern browsers do not allow you to make a insecured connection within a SSL secured website. So, you will have to switch to the offline version.
  
  * Getting "address already in use error"?
+ 
  If you something like this: `OSError: [Errno 48] error while attempting to bind on address ('127.0.0.1', 8080): address already in use`, It means you have another instance which is using the the port needed by the Plugin Engine. You need to find it out and kill that task if you don't known which one. For example, for port `8080`, you can run `lsof -n -i :8082 | grep LISTEN` in a terminal and you will find the pid of the process which occuping the port, support the pid is `27762`, then you can run `kill 27762` to kill it.
 
 ## Developing Python Plugins for ImJoy
