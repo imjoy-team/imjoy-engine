@@ -11,6 +11,7 @@ import traceback
 import uuid
 from functools import reduce
 import inspect
+import psutil
 # from inspect import isfunction
 from gevent import monkey;
 monkey.patch_socket()
@@ -37,6 +38,7 @@ class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+
 
 class ReferenceStore():
     def __init__(self):
@@ -91,6 +93,14 @@ class API(dict):
         else:
             raise AttributeError("No such attribute: " + name)
 
+def kill(proc_pid):
+    process = psutil.Process(proc_pid)
+    for proc in process.children(recursive=True):
+        proc.kill()
+    process.kill()
+
+api_utils = {'kill': kill}
+
 class PluginConnection():
     def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, namespace='/', api=None):
         self.io = Manager(protocol, host, port)
@@ -106,6 +116,7 @@ class PluginConnection():
         _remote = API()
         _remote["ndarray"] = self._ndarray
         _remote["export"] = self.setInterface
+        _remote["utils"] = api_utils
         self._local = {"api": _remote}
         self._interface = {}
         self._remote_set = False
@@ -120,11 +131,21 @@ class PluginConnection():
 
         @sio.on_disconnect()
         def sio_disconnect():
-            sys.exit(1)
+            self.exit(1)
 
     def start(self):
         self.io.connect()
 
+    def exit(self, code):
+        if 'exit' in self._interface:
+            try:
+                self._interface['exit']()
+            except Exception as e:
+                logger.error('Error when exiting: %s', e)
+                sys.exit(1)
+            else:
+                logger.info('terminating plugin')
+                sys.exit(code)
 
     def _encode(self, aObject, callbacks):
         if aObject is None:
@@ -334,7 +355,7 @@ class PluginConnection():
         if data['type']== 'import':
             self.emit({'type':'importSuccess', 'url': data['url']})
         elif data['type']== 'disconnect':
-            sys.exit(0)
+            self.exit(0)
         else:
             if data['type'] == 'execute':
                 if not self._executed:
