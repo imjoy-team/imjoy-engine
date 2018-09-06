@@ -99,7 +99,7 @@ def kill(proc_pid):
         proc.kill()
     process.kill()
 
-api_utils = {'kill': kill}
+api_utils = dotdict(kill=kill)
 
 class PluginConnection():
     def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, namespace='/', api=None):
