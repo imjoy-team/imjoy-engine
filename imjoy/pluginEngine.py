@@ -236,7 +236,7 @@ async def on_init_plugin(sid, kwargs):
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
         return {'success': True, 'secret': secretKey}
     except Exception as e:
-        print(e)
+        logger.error(e)
         return {'success': False}
 
 
@@ -252,7 +252,7 @@ async def on_kill_plugin(sid, kwargs):
 
 
 @sio.on('register_client', namespace=NAME_SPACE)
-async def on_message(sid, kwargs):
+async def on_register_client(sid, kwargs):
     global attempt_count
     cid = kwargs['id']
     token = kwargs.get('token', None)
@@ -274,10 +274,32 @@ async def on_message(sid, kwargs):
         logger.info("register client: %s", kwargs)
         return {'success': True, 'plugins': [ {"id": p['id'], "name": p['name'], "type": p['type']} for p in plugin_cids[cid] ] if cid in plugin_cids else []}
 
+def scandir(path):
+    file_list = []
+    for f in os.scandir(path):
+        if f.name.startswith('.'):
+            continue
+        if f.is_dir():
+            file_list.append({'name': f.name, 'children': scandir(f.path)})
+        else:
+            file_list.append({'name': f.name})
+    return file_list
+
+@sio.on('list_dir', namespace=NAME_SPACE)
+async def on_list_dir(sid, kwargs):
+    path = kwargs.get('path', '.')
+    files_list = {'success': True}
+    if path == '.':
+        files_list['name'] = os.path.basename(os.getcwd())
+    else:
+        files_list['name'] = os.path.basename(path)
+    files_list['path'] = path
+    files_list['children'] = scandir(path)
+    return files_list
+
 @sio.on('message', namespace=NAME_SPACE)
 async def on_message(sid, kwargs):
     logger.info("message recieved: %s", kwargs)
-
 
 @sio.on('disconnect', namespace=NAME_SPACE)
 async def disconnect(sid):
