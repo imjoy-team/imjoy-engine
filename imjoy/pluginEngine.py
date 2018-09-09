@@ -287,6 +287,9 @@ def scandir(path):
 
 @sio.on('list_dir', namespace=NAME_SPACE)
 async def on_list_dir(sid, kwargs):
+    if sid not in clients_sids:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False}
     path = kwargs.get('path', '.')
     files_list = {'success': True}
     if path == '.':
