@@ -168,6 +168,8 @@ class PluginConnection():
             else:
                 logger.info('terminating plugin')
                 sys.exit(code)
+        else:
+            sys.exit(0)
 
     def _encode(self, aObject, callbacks):
         if aObject is None:
