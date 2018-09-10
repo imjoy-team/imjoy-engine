@@ -236,7 +236,7 @@ class PluginConnection():
                         'type' : 'callback',
                         'id'   : id,
                         'num'  : argNum,
-                        'pid'  : self.id,
+                        # 'pid'  : self.id,
                         'args' : self._wrap(arguments),
                         'promise': self._wrap([resolve, reject])
                     })
@@ -250,7 +250,7 @@ class PluginConnection():
                     'type' : 'callback',
                     'id'   : id,
                     'num'  : argNum,
-                    'pid'  : self.id,
+                    # 'pid'  : self.id,
                     'args' : self._wrap(arguments)
                 })
         return remoteCallback
@@ -368,7 +368,7 @@ class PluginConnection():
                     'type': 'method',
                     'name': name,
                     'args': self._wrap(arguments),
-                    'pid'  : self.id,
+                    # 'pid'  : self.id,
                     'promise': self._wrap([resolve, reject])
                 }
                 self.emit(call_func)
