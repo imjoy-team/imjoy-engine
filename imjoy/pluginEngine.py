@@ -274,27 +274,36 @@ async def on_register_client(sid, kwargs):
         logger.info("register client: %s", kwargs)
         return {'success': True, 'plugins': [ {"id": p['id'], "name": p['name'], "type": p['type']} for p in plugin_cids[cid] ] if cid in plugin_cids else []}
 
-def scandir(path):
+def scandir(path, type=None, recursive=False):
     file_list = []
     for f in os.scandir(path):
         if f.name.startswith('.'):
             continue
-        if os.path.isdir(f.path):
-            file_list.append({'name': f.name, 'children': scandir(f.path)})
-        else:
-            file_list.append({'name': f.name})
+        if type is None or type == 'file':
+            if os.path.isdir(f.path):
+                if recursive:
+                    file_list.append({'name': f.name, 'type': 'dir', 'children': scandir(f.path, type, recursive)})
+                else:
+                    file_list.append({'name': f.name, 'type': 'dir'})
+            else:
+                file_list.append({'name': f.name, 'type': 'file'})
+        elif type == 'directory':
+            if os.path.isdir(f.path):
+                file_list.append({'name': f.name})
     return file_list
 
 @sio.on('list_dir', namespace=NAME_SPACE)
 async def on_list_dir(sid, kwargs):
     path = kwargs.get('path', '.')
+    type = kwargs.get('type', None)
+    recursive = kwargs.get('recursive', False)
     files_list = {'success': True}
-    if path == '.':
-        files_list['name'] = os.path.basename(os.getcwd())
-    else:
-        files_list['name'] = os.path.basename(path)
+    path = os.path.normpath(path)
     files_list['path'] = path
-    files_list['children'] = scandir(path)
+    files_list['name'] = os.path.basename(os.path.abspath(path))
+    files_list['type'] = 'dir'
+
+    files_list['children'] = scandir(files_list['path'], type, recursive)
     return files_list
 
 @sio.on('message', namespace=NAME_SPACE)
