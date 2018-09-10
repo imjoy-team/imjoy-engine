@@ -504,4 +504,16 @@ class UnexpectedEndOfStream(Exception):
     pass
 
 
-web.run_app(app, host=opt.host, port=opt.port)
+try:
+    web.run_app(app, host=opt.host, port=opt.port)
+finally:
+    print('closing plugins...')
+    loop = asyncio.get_event_loop()
+    for sid in plugin_sids:
+        try:
+            loop.run_until_complete(on_kill_plugin(sid, {"id":plugin_sids[sid]['id']}))
+        finally:
+            pass
+    loop.close()
+    time.sleep(0.2)
+    print('done.')
