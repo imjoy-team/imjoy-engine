@@ -279,7 +279,7 @@ def scandir(path):
     for f in os.scandir(path):
         if f.name.startswith('.'):
             continue
-        if f.is_dir():
+        if os.path.isdir(f.path):
             file_list.append({'name': f.name, 'children': scandir(f.path)})
         else:
             file_list.append({'name': f.name})
