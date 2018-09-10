@@ -39,6 +39,44 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
+class Promise(object):
+    def resolve(self, result):
+        try:
+            if self._resolve_handler:
+                self._resolve_handler(result)
+        except Exception as e:
+            if self._catch_handler:
+                self._catch_handler(e)
+        finally:
+            if self._finally_handler:
+                self._finally_handler()
+
+    def reject(self, error):
+        try:
+            if self._catch_handler:
+                self._catch_handler(result)
+        finally:
+            if self._finally_handler:
+                self._finally_handler()
+
+    def then(self, handler):
+        self._resolve_handler = handler
+        return self
+
+    def finally_(self, handler):
+        self._finally_handler = handler
+        return self
+
+    def catch(self, handler):
+        self._catch_handler = handler
+        return self
+
+    def __init__(self, pfunc):
+        self._resolve_handler = None
+        self._finally_handler = None
+        self._catch_handler = None
+        pfunc(self.resolve, self.reject)
+
 
 class ReferenceStore():
     def __init__(self):
@@ -188,16 +226,33 @@ class PluginConnection():
         return bObject
 
     def _genRemoteCallback(self, id, argNum, withPromise):
-        def remoteCallback(*arguments, **kwargs):
-            # wrap keywords to a dictionary and pass to the first argument
-            if len(arguments) == 0 and len(kwargs) > 0:
-                arguments = [kwargs]
-            return self.emit({
-                'type' : 'callback',
-                'id'   : id,
-                'num'  : argNum,
-                'args' : self._wrap(arguments)
-            })
+        if withPromise:
+            def remoteCallback(*arguments, **kwargs):
+                # wrap keywords to a dictionary and pass to the first argument
+                if len(arguments) == 0 and len(kwargs) > 0:
+                    arguments = [kwargs]
+                def p(resolve, reject):
+                    self.emit({
+                        'type' : 'callback',
+                        'id'   : id,
+                        'num'  : argNum,
+                        'pid'  : self.id,
+                        'args' : self._wrap(arguments),
+                        'promise': self._wrap([resolve, reject])
+                    })
+                return Promise(p)
+        else:
+            def remoteCallback(*arguments, **kwargs):
+                # wrap keywords to a dictionary and pass to the first argument
+                if len(arguments) == 0 and len(kwargs) > 0:
+                    arguments = [kwargs]
+                return self.emit({
+                    'type' : 'callback',
+                    'id'   : id,
+                    'num'  : argNum,
+                    'pid'  : self.id,
+                    'args' : self._wrap(arguments)
+                })
         return remoteCallback
 
     def _decode(self, aObject, callbackId, withPromise):
@@ -308,12 +363,17 @@ class PluginConnection():
             # wrap keywords to a dictionary and pass to the first argument
             if len(arguments) == 0 and len(kwargs) > 0:
                 arguments = [kwargs]
-            call_func = {
-                'type': 'method',
-                'name': name,
-                'args': self._wrap(arguments),
-            }
-            self.emit(call_func)
+            def p(resolve, reject):
+                call_func = {
+                    'type': 'method',
+                    'name': name,
+                    'args': self._wrap(arguments),
+                    'pid'  : self.id,
+                    'promise': self._wrap([resolve, reject])
+                }
+                self.emit(call_func)
+            return Promise(p)
+
         return remoteMethod
 
     def _setRemote(self, api):
@@ -384,6 +444,7 @@ class PluginConnection():
                                 resolve, reject = self._unwrap(d['promise'], False)
                                 method = self._interface[d['name']]
                                 args = self._unwrap(d['args'], True)
+                                # args.append({'id': self.id})
                                 result = method(*args)
                                 resolve(result)
                             except Exception as e:
@@ -393,6 +454,7 @@ class PluginConnection():
                             try:
                                 method = self._interface[d['name']]
                                 args = self._unwrap(d['args'], True)
+                                # args.append({'id': self.id})
                                 method(*args)
                             except Exception as e:
                                 logger.info('error in method %s: %s', d['name'], traceback.format_exc())
@@ -404,6 +466,7 @@ class PluginConnection():
                             resolve, reject = self._unwrap(d['promise'], False)
                             method = self._store.fetch(d['id'])[d['num']]
                             args = self._unwrap(d['args'], True)
+                            # args.append({'id': self.id})
                             result = method(*args)
                             resolve(result)
                         except Exception as e:
@@ -413,6 +476,7 @@ class PluginConnection():
                         try:
                             method = self._store.fetch(d['id'])[d['num']]
                             args = self._unwrap(d['args'], True)
+                            # args.append({'id': self.id})
                             method(*args)
                         except Exception as e:
                             logger.info('error in method %s: %s', d['id'], traceback.format_exc())
