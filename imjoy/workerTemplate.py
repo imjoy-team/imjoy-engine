@@ -98,12 +98,14 @@ class PluginConnection():
         self.emit = emit
 
         self.sio = sio
+        self._local = {}
         _remote = dotdict()
         self._setLocalAPI(_remote)
         self._interface = {}
         self._remote_set = False
         self._store = ReferenceStore()
         self._executed = False
+
 
         @sio.on_connect()
         def sio_connect():
@@ -186,7 +188,10 @@ class PluginConnection():
         return bObject
 
     def _genRemoteCallback(self, id, argNum, withPromise):
-        def remoteCallback(*arguments):
+        def remoteCallback(*arguments, **kwargs):
+            # wrap keywords to a dictionary and pass to the first argument
+            if len(arguments) == 0 and len(kwargs) > 0:
+                arguments = [kwargs]
             return self.emit({
                 'type' : 'callback',
                 'id'   : id,
@@ -299,7 +304,10 @@ class PluginConnection():
         self.emit({'type':'setInterface', 'api': names})
 
     def _genRemoteMethod(self, name):
-        def remoteMethod(*arguments):
+        def remoteMethod(*arguments, **kwargs):
+            # wrap keywords to a dictionary and pass to the first argument
+            if len(arguments) == 0 and len(kwargs) > 0:
+                arguments = [kwargs]
             call_func = {
                 'type': 'method',
                 'name': name,
@@ -334,7 +342,7 @@ class PluginConnection():
         _remote["ndarray"] = self._ndarray
         _remote["export"] = self.setInterface
         _remote["utils"] = api_utils
-        self._local = {"api": _remote}
+        self._local["api"] = _remote
 
     def sio_plugin_message(self, data):
         if data['type']== 'import':
