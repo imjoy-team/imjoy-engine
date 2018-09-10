@@ -15,9 +15,9 @@ The plugin engine used for running python plugins in https://imjoy.io
   * Now you can start to use plugins written in Python.
 
 ## Going offline
-  ImJoy is designed to be offline ready, the engine serve a mirror site of ImJoy.IO locally. In order to do that, you need to first start the Python Plugin Engine by adding `--offline` in the command line:
+  ImJoy is designed to be offline ready, the engine serve a mirror site of ImJoy.IO locally. In order to do that, you need to first start the Python Plugin Engine by adding `--serve` in the command line:
   ```
-  python -m imjoy --offline
+  python -m imjoy --serve
   ```
 Once it's done, you will be able to access your personal ImJoy web app through: [http://localhost:8080](http://localhost:8080).
 
@@ -26,7 +26,7 @@ Also notice that, although the main ImJoy app can go offline, and most of the pl
 ## Use the engine remotely.
 You can use the Plugin Engine remotely on another computer. Due to security restrictions enforced by the browser, you won't be able to connect your remote plugin engine with https://imjoy.io , however, you can do it with the offline version of ImJoy. In addition to the instructions in **Go Offline**, you need to specify the host in order to allow outside connection:
 ```
-  python -m imjoy --offline --host=0.0.0.0
+  python -m imjoy --serve --host=0.0.0.0
 ```
 Then go to [http://localhost:8080](http://localhost:8080) to connect to the offline ImJoy. Then click the settings button, and you will be able set a remote url for the remote access.
 
@@ -45,9 +45,9 @@ Then go to [http://localhost:8080](http://localhost:8080) to connect to the offl
  First, you needs to make sure the other computer with plugin engine can be accessed from your current network and not blocked by a firewall for example.
 
  Second, currently you can't use ImJoy.io loaded with `https` with the Plugin Engine, because modern browsers do not allow you to make a insecured connection within a SSL secured website. So, you will have to switch to the offline version.
- 
+
  * Getting "address already in use error"?
- 
+
  If you something like this: `OSError: [Errno 48] error while attempting to bind on address ('127.0.0.1', 8080): address already in use`, It means you have another instance which is using the the port needed by the Plugin Engine. You need to find it out and kill that task if you don't known which one. For example, for port `8080`, you can run `lsof -n -i :8082 | grep LISTEN` in a terminal and you will find the pid of the process which occuping the port, support the pid is `27762`, then you can run `kill 27762` to kill it.
 
 ## Developing Python Plugins for ImJoy

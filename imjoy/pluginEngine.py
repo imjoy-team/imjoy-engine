@@ -35,26 +35,26 @@ def get_token():
 parser = argparse.ArgumentParser()
 parser.add_argument('--token', type=str, default=get_token(), help='connection token')
 parser.add_argument('--debug', action="store_true", help='debug mode')
-parser.add_argument('--offline', action="store_true", help='prepare for offline access')
+parser.add_argument('--serve', action="store_true", help='download ImJoy web app and serve it locally')
 parser.add_argument('--host', type=str, default='localhost', help='socketio host')
 parser.add_argument('--port', type=str, default='8080', help='socketio port')
 opt = parser.parse_args()
 
-if opt.offline:
+if opt.serve:
     imjpath = '__ImJoy__'
     if os.path.exists(imjpath) and os.path.isdir(imjpath):
         ret = subprocess.Popen('cd '+imjpath+' && git pull', shell=True).wait()
         if ret != 0:
             shutil.rmtree(imjpath)
     if not os.path.exists(imjpath):
-        print('Downloading files for offline access...')
+        print('Downloading files for serving ImJoy locally...')
         ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__', shell=True).wait()
         if ret != 0:
             ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy", shell=True).wait()
             if ret != 0:
-                print('Failed to download files for offline access, please check whether you have internet access.')
+                print('Failed to download files, please check whether you have internet access.')
                 sys.exit(3)
-    print('Now you can access the offline version of Imjoy by http://localhost:8080 , imjoy!')
+    print('Now you can access your local ImJoy web app through http://localhost:8080 , imjoy!')
 
 MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'
@@ -77,10 +77,10 @@ if os.path.exists('__ImJoy__/docs') and os.path.exists('__ImJoy__/docs/index.htm
         with open('__ImJoy__/docs/index.html') as f:
             return web.Response(text=f.read(), content_type='text/html')
     app.router.add_static('/static', path=str('__ImJoy__/docs/static'))
-    print('An offline version of Imjoy is available at http://localhost:8080')
+    print('A local version of Imjoy web app is available at http://localhost:8080')
 else:
     async def index(request):
-        return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>For offline mode, you need to run "python -m imjoy --offline" before you can access it.</p>', content_type="text/html")
+        return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>You can run "python -m imjoy --serve" to serve ImJoy web app locally.</p>', content_type="text/html")
 app.router.add_get('/', index)
 
 
