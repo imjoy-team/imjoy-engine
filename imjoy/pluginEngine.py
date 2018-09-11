@@ -170,12 +170,13 @@ async def on_init_plugin(sid, kwargs):
             await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to create environment."})
             raise
 
-    requirements += (default_requirements_py2 if is_py2 else default_requirements_py3)
-    requirements_pip = [r for r in requirements if not r.startswith('conda:')]
-    requirements_conda = [r.replace('conda:', '') for r in requirements if r.startswith('conda:')]
-    requirements_cmd = "pip install "+" ".join(requirements_pip)
-    if len(requirements_conda) > 0:
-        requirements_cmd = 'conda install -y ' + " ".join(requirements_conda) + " && " + requirements_cmd
+    if type(requirements) is list:
+        requirements_pip = " ".join(requirements)
+    elif type(requirements) is str:
+        requirements_pip = "&& " + requirements
+    else:
+        raise Exception('wrong requirements type.')
+    requirements_cmd = "pip install "+" ".join(default_requirements_py2 if is_py2 else default_requirements_py3) + ' ' + requirements_pip
     if env_name is not None:
         requirements_cmd = "source activate " + env_name + " || activate " + env_name + " && " + requirements_cmd
     if env_name is not None:
