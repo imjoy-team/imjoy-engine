@@ -32,13 +32,8 @@ if __name__ == '__main__':
 
         if sys.platform == "linux" or sys.platform == "linux2":
             # linux
-            conda_activate = "conda activate"
-            try:
-                ret = subprocess.call(['conda', 'activate'])
-                if ret != 0:
-                    sys.exit('Please activate `conda activate` feature according to the above instructions.')
-            except OSError as e:
-                sys.exit('Sorry, ImJoy plugin engine can only run with a conda environment.')
+            command_template = '/bin/bash -c "source {}/bin/activate"'
+            conda_activate = command_template.format(os.environ['CONDA_PREFIX'])
         elif sys.platform == "darwin":
             # OS X
             conda_activate = "source activate"
