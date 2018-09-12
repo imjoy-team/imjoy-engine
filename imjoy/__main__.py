@@ -33,7 +33,7 @@ if __name__ == '__main__':
         if sys.platform == "linux" or sys.platform == "linux2":
             # linux
             command_template = '/bin/bash -c "source {}/bin/activate"'
-            conda_activate = command_template.format(os.environ['CONDA_PREFIX'])
+            conda_activate = command_template.format("$(conda info --json -s | python -c \"import sys, json; print(json.load(sys.stdin)['conda_prefix']);\")") #os.environ['CONDA_PREFIX'])
         elif sys.platform == "darwin":
             # OS X
             conda_activate = "source activate"
