@@ -2,7 +2,7 @@
 The plugin engine used for running python plugins in https://imjoy.io
 
 ## Installation
-  * Download and install [Miniconda with Python 3.6](https://conda.io/miniconda.html) (or [Anaconda with Python 3.6](https://www.anaconda.com/download/) if you prefer a full installation). If you have installed any of these, please skip this step.
+  * Download and install [Miniconda with Python 3.7](https://conda.io/miniconda.html) (or [Anaconda with Python 3.6](https://www.anaconda.com/download/) if you prefer a full installation). If you have installed any of these, please skip this step.
   * Start a **Terminal**(Mac and Linux) or **Anaconda Prompt**(Windows), then run the following command:
 
     ```conda -V && pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy```
@@ -49,6 +49,10 @@ Then go to [http://localhost:8080](http://localhost:8080) to connect to the offl
  * Getting "address already in use error"?
 
  If you something like this: `OSError: [Errno 48] error while attempting to bind on address ('127.0.0.1', 8080): address already in use`, It means you have another instance which is using the the port needed by the Plugin Engine. You need to find it out and kill that task if you don't known which one. For example, for port `8080`, you can run `lsof -n -i :8082 | grep LISTEN` in a terminal and you will find the pid of the process which occuping the port, support the pid is `27762`, then you can run `kill 27762` to kill it.
+
+ * CommandNotFoundError with 'conda activate'
+
+ By default, ImJoy uses `conda activate` to activate conda environments if it's available. However, you may need to setup `conda activate` according to here: https://github.com/conda/conda/releases/tag/4.4.0
 
 ## Developing Python Plugins for ImJoy
 
