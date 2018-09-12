@@ -26,7 +26,7 @@ if __name__ == '__main__':
         if ret == 0:
             print('conda environment is now ready, installing pip requirements and start the engine...')
         else:
-            print('conda environment failed to setup, please make sure you are running in a conda environment...')
+            print('conda environment failed to setup, maybe it already exists. Otherwise, please make sure you are running in a conda environment...')
         requirements = imjoy_requirements
         pip_cmd = "pip install -U "+" ".join(requirements)
 
