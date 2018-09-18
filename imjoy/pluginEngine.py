@@ -168,7 +168,7 @@ async def on_init_plugin(sid, kwargs):
                 logger.debug('skip command: %s', env)
         except Exception as e:
             await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to create environment."})
-            raise
+            logger.error('failed to execute plugin: %s', str(e))
 
     requirements += (default_requirements_py2 if is_py2 else default_requirements_py3)
     requirements_pip = [r for r in requirements if not r.startswith('conda:')]
