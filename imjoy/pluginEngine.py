@@ -227,7 +227,7 @@ async def on_init_plugin(sid, kwargs):
             logger.debug('skip command: %s', requirements_cmd)
     except Exception as e:
         await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
-        raise
+        logger.error('failed to execute plugin: %s', str(e))
 
     secretKey = str(uuid.uuid4())
     plugins[pid] = {'secret': secretKey, 'id': pid, 'name': config['name'], 'type': config['type'], 'client_id': client_id}
