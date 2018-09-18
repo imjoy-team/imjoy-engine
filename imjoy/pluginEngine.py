@@ -7,7 +7,6 @@ import threading
 import sys
 import traceback
 import time
-import platform
 import subprocess
 import signal
 import random
@@ -42,6 +41,12 @@ opt = parser.parse_args()
 
 if opt.serve:
     imjpath = '__ImJoy__'
+    if shutil.which('git') is None:
+        print('Installing git...')
+        ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy", shell=True).wait()
+        if ret != 0:
+            print('Failed to install git, please check whether you have internet access.')
+            sys.exit(3)
     if os.path.exists(imjpath) and os.path.isdir(imjpath):
         ret = subprocess.Popen('cd '+imjpath+' && git pull', shell=True).wait()
         if ret != 0:
@@ -50,10 +55,8 @@ if opt.serve:
         print('Downloading files for serving ImJoy locally...')
         ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__', shell=True).wait()
         if ret != 0:
-            ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy", shell=True).wait()
-            if ret != 0:
-                print('Failed to download files, please check whether you have internet access.')
-                sys.exit(3)
+            print('Failed to download files, please check whether you have internet access.')
+            sys.exit(4)
     print('Now you can access your local ImJoy web app through http://localhost:8080 , imjoy!')
 
 MAX_ATTEMPTS = 1000
@@ -101,6 +104,20 @@ default_requirements_py3 = ["psutil", "six", "requests", "gevent", "websocket-cl
 script_dir = os.path.dirname(os.path.normpath(__file__))
 template_script = os.path.join(script_dir, 'workerTemplate.py')
 
+if sys.platform == "linux" or sys.platform == "linux2":
+    # linux
+    command_template = '/bin/bash -c "source {}/bin/activate"'
+    conda_activate = command_template.format("$(conda info --json -s | python -c \"import sys, json; print(json.load(sys.stdin)['conda_prefix']);\")")
+elif sys.platform == "darwin":
+    # OS X
+    conda_activate = "source activate"
+elif sys.platform == "win32":
+    # Windows...
+    conda_activate = "activate"
+else:
+    conda_activate = "conda activate"
+
+
 @sio.on('connect', namespace=NAME_SPACE)
 def connect(sid, environ):
     logger.info("connect %s", sid)
@@ -139,7 +156,7 @@ async def on_init_plugin(sid, kwargs):
         await sio.emit('message_from_plugin_'+pid, {"type": "initialized", "dedicatedThread": True})
         return {'success': True, 'secret': plugins[pid]['secret']}
 
-    env_name = None
+    env_name = ''
     is_py2 = False
 
     if env is not None:
@@ -170,31 +187,41 @@ async def on_init_plugin(sid, kwargs):
             await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to create environment."})
             logger.error('failed to execute plugin: %s', str(e))
 
-    requirements += (default_requirements_py2 if is_py2 else default_requirements_py3)
-    requirements_pip = [r for r in requirements if not r.startswith('conda:')]
-    requirements_conda = [r.replace('conda:', '') for r in requirements if r.startswith('conda:')]
-    requirements_cmd = "pip install "+" ".join(requirements_pip)
-    if len(requirements_conda) > 0:
-        requirements_cmd = 'conda install -y ' + " ".join(requirements_conda) + " && " + requirements_cmd
-    if env_name is not None:
-        requirements_cmd = "source activate " + env_name + " || activate " + env_name + " && " + requirements_cmd
-    if env_name is not None:
-        cmd = "source activate " + env_name + " || activate "+env_name + " && " + cmd
+    if type(requirements) is list:
+        requirements_pip = " ".join(requirements)
+    elif type(requirements) is str:
+        requirements_pip = "&& " + requirements
+    else:
+        raise Exception('wrong requirements type.')
+    requirements_cmd = "pip install "+" ".join(default_requirements_py2 if is_py2 else default_requirements_py3) + ' ' + requirements_pip
+
+    # if env_name is not None:
+    requirements_cmd = conda_activate + " "+ env_name + " && " + requirements_cmd
+    # if env_name is not None:
+    cmd = conda_activate + " " + env_name + " && " + cmd
     try:
         logger.info('installing requirements: %s', requirements_cmd)
         if requirements_cmd not in cmd_history:
             ret = subprocess.Popen(requirements_cmd, shell=True).wait()
             if ret != 0:
-                logger.info('pip command failed, trying to install git and pip...')
-                # try to install git and pip
-                git_cmd = "conda install -y git pip"
-                ret = subprocess.Popen(git_cmd, shell=True).wait()
-                if ret != 0:
-                    raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
-                else:
-                    ret = subprocess.Popen(requirements_cmd, shell=True).wait()
+                git_cmd = ''
+                if shutil.which('git') is None:
+                    git_cmd += " git"
+                if shutil.which('pip') is None:
+                    git_cmd += " pip"
+                if git_cmd != '':
+                    logger.info('pip command failed, trying to install git and pip...')
+                    # try to install git and pip
+                    git_cmd = "conda install -y" + git_cmd
+                    ret = subprocess.Popen(git_cmd, shell=True).wait()
                     if ret != 0:
-                        raise Exception('Failed to install dependencies with exit code: '+str(ret))
+                        raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
+                    else:
+                        ret = subprocess.Popen(requirements_cmd, shell=True).wait()
+                        if ret != 0:
+                            raise Exception('Failed to install dependencies with exit code: '+str(ret))
+                else:
+                    raise Exception('Failed to install dependencies with exit code: '+str(ret))
             cmd_history.append(requirements_cmd)
         else:
             logger.debug('skip command: %s', requirements_cmd)
@@ -358,25 +385,14 @@ def execute(args, workdir, abort, name):
     unrecognized_output = []
     env['PYTHONPATH'] = os.pathsep.join(
         ['.', workdir, env.get('PYTHONPATH', '')] + sys.path)
-    # https://docs.python.org/2/library/subprocess.html#converting-argument-sequence
-    #if platform.system() == 'Windows':
-        #args = ' '.join(args)
+
     args = ' '.join(args)
     logger.info('Task subprocess args: %s', args)
 
-
     # set system/version dependent "start_new_session" analogs
+    # https://docs.python.org/2/library/subprocess.html#converting-argument-sequence
     kwargs = {}
-    if platform.system() == 'Windows':
-        # from msdn [1]
-        # CREATE_NEW_PROCESS_GROUP = 0x00000200  # note: could get it from subprocess
-        # DETACHED_PROCESS = 0x00000008          # 0x8 | 0x200 == 0x208
-        # kwargs.update(creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
-        pass
-    # elif sys.version_info < (3, 2):  # assume posix
-    #     kwargs.update(preexec_fn=os.setsid)
-    else:  # Python 3.2+ and Unix
-        # kwargs.update(start_new_session=True)
+    if sys.platform != "win32":
         kwargs.update(preexec_fn=os.setsid)
 
     try:
