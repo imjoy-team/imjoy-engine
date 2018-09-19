@@ -54,7 +54,9 @@ class Promise(object):
     def reject(self, error):
         try:
             if self._catch_handler:
-                self._catch_handler(result)
+                self._catch_handler(error)
+            elif not self._finally_handler:
+                print('Uncaught Exception: '+ str(error))
         finally:
             if self._finally_handler:
                 self._finally_handler()
