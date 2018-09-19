@@ -47,6 +47,8 @@ class Promise(object):
         except Exception as e:
             if self._catch_handler:
                 self._catch_handler(e)
+            elif not self._finally_handler:
+                print('Uncaught Exception: '+ str(e))
         finally:
             if self._finally_handler:
                 self._finally_handler()
