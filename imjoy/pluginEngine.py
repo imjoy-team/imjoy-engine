@@ -194,40 +194,11 @@ async def on_init_plugin(sid, kwargs):
     else:
         raise Exception('wrong requirements type.')
     requirements_cmd = "pip install "+" ".join(default_requirements_py2 if is_py2 else default_requirements_py3) + ' ' + requirements_pip
-
     # if env_name is not None:
     requirements_cmd = conda_activate + " "+ env_name + " && " + requirements_cmd
     # if env_name is not None:
     cmd = conda_activate + " " + env_name + " && " + cmd
-    try:
-        logger.info('installing requirements: %s', requirements_cmd)
-        if requirements_cmd not in cmd_history:
-            ret = subprocess.Popen(requirements_cmd, shell=True).wait()
-            if ret != 0:
-                git_cmd = ''
-                if shutil.which('git') is None:
-                    git_cmd += " git"
-                if shutil.which('pip') is None:
-                    git_cmd += " pip"
-                if git_cmd != '':
-                    logger.info('pip command failed, trying to install git and pip...')
-                    # try to install git and pip
-                    git_cmd = "conda install -y" + git_cmd
-                    ret = subprocess.Popen(git_cmd, shell=True).wait()
-                    if ret != 0:
-                        raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
-                    else:
-                        ret = subprocess.Popen(requirements_cmd, shell=True).wait()
-                        if ret != 0:
-                            raise Exception('Failed to install dependencies with exit code: '+str(ret))
-                else:
-                    raise Exception('Failed to install dependencies with exit code: '+str(ret))
-            cmd_history.append(requirements_cmd)
-        else:
-            logger.debug('skip command: %s', requirements_cmd)
-    except Exception as e:
-        await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
-        logger.error('failed to execute plugin: %s', str(e))
+
 
     secretKey = str(uuid.uuid4())
     plugins[pid] = {'secret': secretKey, 'id': pid, 'name': config['name'], 'type': config['type'], 'client_id': client_id}
@@ -257,7 +228,7 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=execute, args=[cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE, './', abort, pid])
+        taskThread = threading.Thread(target=execute, args=[requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE, './', abort, pid])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
@@ -373,7 +344,37 @@ def process_output(line):
     print(line)
     return True
 
-def execute(args, workdir, abort, name):
+def execute(requirements_cmd, args, workdir, abort, name):
+    try:
+        logger.info('installing requirements: %s', requirements_cmd)
+        if requirements_cmd not in cmd_history:
+            ret = subprocess.Popen(requirements_cmd, shell=True).wait()
+            if ret != 0:
+                git_cmd = ''
+                if shutil.which('git') is None:
+                    git_cmd += " git"
+                if shutil.which('pip') is None:
+                    git_cmd += " pip"
+                if git_cmd != '':
+                    logger.info('pip command failed, trying to install git and pip...')
+                    # try to install git and pip
+                    git_cmd = "conda install -y" + git_cmd
+                    ret = subprocess.Popen(git_cmd, shell=True).wait()
+                    if ret != 0:
+                        raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
+                    else:
+                        ret = subprocess.Popen(requirements_cmd, shell=True).wait()
+                        if ret != 0:
+                            raise Exception('Failed to install dependencies with exit code: '+str(ret))
+                else:
+                    raise Exception('Failed to install dependencies with exit code: '+str(ret))
+            cmd_history.append(requirements_cmd)
+        else:
+            logger.debug('skip command: %s', requirements_cmd)
+    except Exception as e:
+        # await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
+        logger.error('failed to execute plugin: %s', str(e))
+
     env = os.environ.copy()
     if type(args) is str:
         args = args.split()
