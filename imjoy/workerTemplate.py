@@ -14,17 +14,11 @@ import inspect
 import psutil
 import threading
 import gevent.queue
-# try:
-#     import queue
-# except ImportError:
-#     import Queue as queue
-
-# from inspect import isfunction
 from gevent import monkey;
-monkey.patch_socket()
+monkey.patch_all()
+
 from socketio_client.manager import Manager
-# from RestrictedPython import compile_restricted
-# from RestrictedPython import safe_builtins
+
 
 logging.basicConfig()
 logger = logging.getLogger('plugin')
@@ -154,11 +148,7 @@ class PluginConnection():
         self._remote_set = False
         self._store = ReferenceStore()
         self._executed = False
-        # self.q = queue.Queue()
         self.q = gevent.queue.JoinableQueue()
-        # message_worker = threading.Thread(target=self.message_handler, args=(self.q,))
-        # message_worker.daemon = True
-        # message_worker.start()
         self.start_loop(self.message_handler, self.q)
 
         @sio.on_connect()
@@ -306,11 +296,6 @@ class PluginConnection():
                     bObject = np.frombuffer(aObject['__value__'], dtype=aObject['__dtype__']).reshape(tuple(aObject['__shape__']))
                 except Exception as e:
                     logger.debug('Error in converting: %s', e)
-                    # try:
-                    #     tf = self._local['tf']
-                    #     bObject = tf.Tensor(aObject['__value__'], aObject['__shape__'], aObject['__dtype__'])
-                    # except Exception as e:
-                    # keep it as regular if transfered to the main app
                     bObject = aObject
                     raise e
             elif aObject['__jailed_type__'] == 'error':
@@ -471,12 +456,10 @@ class PluginConnection():
 
     def message_handler(self, q):
         while True:
-            logger.debug('Waiting for new task...')
             q.peek()
             try:
                 while True:
                     d = q.get_nowait()
-                    logger.debug('processing task')
                     q.task_done()
                     if d is not None and d['type'] == 'method':
                         if d['name'] in self._interface:
@@ -489,7 +472,7 @@ class PluginConnection():
                                     result = method(*args)
                                     resolve(result)
                                 except Exception as e:
-                                    logger.info('error in method %s: %s', d['name'], traceback.format_exc())
+                                    print('error in method %s: %s'.format(d['name'], traceback.format_exc()))
                                     reject(e)
                             else:
                                 try:
@@ -498,7 +481,7 @@ class PluginConnection():
                                     # args.append({'id': self.id})
                                     method(*args)
                                 except Exception as e:
-                                    logger.info('error in method %s: %s', d['name'], traceback.format_exc())
+                                    print('error in method %s: %s'.format(d['name'], traceback.format_exc()))
                         else:
                             raise Exception('method '+d['name'] +' is not found.')
                     elif d['type'] == 'callback':
@@ -511,7 +494,7 @@ class PluginConnection():
                                 result = method(*args)
                                 resolve(result)
                             except Exception as e:
-                                logger.info('error in method %s: %s', d['id'], traceback.format_exc())
+                                print('error in method %s: %s'.format(d['id'], traceback.format_exc()))
                                 reject(e)
                         else:
                             try:
@@ -520,8 +503,7 @@ class PluginConnection():
                                 # args.append({'id': self.id})
                                 method(*args)
                             except Exception as e:
-                                logger.info('error in method %s: %s', d['id'], traceback.format_exc())
-                    gevent.sleep(0)
+                                print('error in method %s: %s'.format(d['id'], traceback.format_exc()))
             except gevent.queue.Empty:
                 pass
             finally:
