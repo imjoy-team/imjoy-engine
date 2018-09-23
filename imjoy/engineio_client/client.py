@@ -91,7 +91,6 @@ class Client(Emitter):
             logger.debug('Waiting packets')
             self.send_queue.peek()
             logger.debug('Flushing packets')
-
             packets = []
             try:
                 while True:
@@ -100,6 +99,7 @@ class Client(Emitter):
                     self.fail_countdown = MAX_FAIL_COUNT
             except gevent.queue.Empty:
                 pass
+            gevent.sleep(0)
             self.transport_ready_event.wait()
             # self.transport_ready_event.clear()
             self.transport.send(packets)
@@ -107,6 +107,7 @@ class Client(Emitter):
             for packet in packets:
                 self.send_queue.task_done()
             self.fail_countdown = MAX_FAIL_COUNT
+            gevent.sleep(0)
 
     def loop_ping_pong(self):
         while self.state in ['open', 'closing']:
