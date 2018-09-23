@@ -420,90 +420,92 @@ class PluginConnection():
         self._local["api"] = _remote
 
     def sio_plugin_message(self, data):
-        self.q.put(data)
+        if data['type']== 'import':
+            self.emit({'type':'importSuccess', 'url': data['url']})
+        elif data['type']== 'disconnect':
+            self.exit(0)
+        else:
+            if data['type'] == 'execute':
+                if not self._executed:
+                    try:
+                        type = data['code']['type']
+                        content = data['code']['content']
+                        exec(content, self._local)
+                        self.emit({'type':'executeSuccess'})
+                        self._executed = True
+                    except Exception as e:
+                        logger.info('error during execution: %s', traceback.format_exc())
+                        self.emit({'type':'executeFailure', 'error': repr(e)})
+                else:
+                    logger.debug('skip execution.')
+                    self.emit({'type':'executeSuccess'})
+            elif data['type'] == 'message':
+                d = data['data']
+                if d['type'] == 'getInterface':
+                    self._sendInterface()
+                elif d['type'] == 'setInterface':
+                    self._setRemote(d['api'])
+                    self.emit({'type':'interfaceSetAsRemote'})
+                    if not self._init:
+                        self.emit({'type':'getInterface'})
+                        self._init = True
+                elif d['type'] == 'interfaceSetAsRemote':
+                    #self.emit({'type':'getInterface'})
+                    self._remote_set = True
+                else:
+                    self.q.put(d)
+
+                sys.stdout.flush()
 
     def message_handler(self, q):
         while True:
             try:
-                data = q.get()
-                if data['type']== 'import':
-                    self.emit({'type':'importSuccess', 'url': data['url']})
-                elif data['type']== 'disconnect':
-                    self.exit(0)
-                else:
-                    if data['type'] == 'execute':
-                        if not self._executed:
+                d = q.get()
+                if d is not None and d['type'] == 'method':
+                    if d['name'] in self._interface:
+                        if 'promise' in d:
                             try:
-                                type = data['code']['type']
-                                content = data['code']['content']
-                                exec(content, self._local)
-                                self.emit({'type':'executeSuccess'})
-                                self._executed = True
+                                resolve, reject = self._unwrap(d['promise'], False)
+                                method = self._interface[d['name']]
+                                args = self._unwrap(d['args'], True)
+                                # args.append({'id': self.id})
+                                result = method(*args)
+                                resolve(result)
                             except Exception as e:
-                                logger.info('error during execution: %s', traceback.format_exc())
-                                self.emit({'type':'executeFailure', 'error': repr(e)})
+                                logger.info('error in method %s: %s', d['name'], traceback.format_exc())
+                                reject(e)
                         else:
-                            logger.debug('skip execution.')
-                            self.emit({'type':'executeSuccess'})
-                    elif data['type'] == 'message':
-                        d = data['data']
-                        if d['type'] == 'getInterface':
-                            self._sendInterface()
-                        elif d['type'] == 'setInterface':
-                            self._setRemote(d['api'])
-                            self.emit({'type':'interfaceSetAsRemote'})
-                            if not self._init:
-                                self.emit({'type':'getInterface'})
-                                self._init = True
-                        elif d['type'] == 'interfaceSetAsRemote':
-                            #self.emit({'type':'getInterface'})
-                            self._remote_set = True
-                        elif d['type'] == 'method':
-                            if d['name'] in self._interface:
-                                if 'promise' in d:
-                                    try:
-                                        resolve, reject = self._unwrap(d['promise'], False)
-                                        method = self._interface[d['name']]
-                                        args = self._unwrap(d['args'], True)
-                                        # args.append({'id': self.id})
-                                        result = method(*args)
-                                        resolve(result)
-                                    except Exception as e:
-                                        logger.info('error in method %s: %s', d['name'], traceback.format_exc())
-                                        reject(e)
-                                else:
-                                    try:
-                                        method = self._interface[d['name']]
-                                        args = self._unwrap(d['args'], True)
-                                        # args.append({'id': self.id})
-                                        method(*args)
-                                    except Exception as e:
-                                        logger.info('error in method %s: %s', d['name'], traceback.format_exc())
-                            else:
-                                raise Exception('method '+d['name'] +' is not found.')
-                        elif d['type'] == 'callback':
-                            if 'promise' in d:
-                                try:
-                                    resolve, reject = self._unwrap(d['promise'], False)
-                                    method = self._store.fetch(d['id'])[d['num']]
-                                    args = self._unwrap(d['args'], True)
-                                    # args.append({'id': self.id})
-                                    result = method(*args)
-                                    resolve(result)
-                                except Exception as e:
-                                    logger.info('error in method %s: %s', d['id'], traceback.format_exc())
-                                    reject(e)
-                            else:
-                                try:
-                                    method = self._store.fetch(d['id'])[d['num']]
-                                    args = self._unwrap(d['args'], True)
-                                    # args.append({'id': self.id})
-                                    method(*args)
-                                except Exception as e:
-                                    logger.info('error in method %s: %s', d['id'], traceback.format_exc())
-                        sys.stdout.flush()
+                            try:
+                                method = self._interface[d['name']]
+                                args = self._unwrap(d['args'], True)
+                                # args.append({'id': self.id})
+                                method(*args)
+                            except Exception as e:
+                                logger.info('error in method %s: %s', d['name'], traceback.format_exc())
+                    else:
+                        raise Exception('method '+d['name'] +' is not found.')
+                elif d['type'] == 'callback':
+                    if 'promise' in d:
+                        try:
+                            resolve, reject = self._unwrap(d['promise'], False)
+                            method = self._store.fetch(d['id'])[d['num']]
+                            args = self._unwrap(d['args'], True)
+                            # args.append({'id': self.id})
+                            result = method(*args)
+                            resolve(result)
+                        except Exception as e:
+                            logger.info('error in method %s: %s', d['id'], traceback.format_exc())
+                            reject(e)
+                    else:
+                        try:
+                            method = self._store.fetch(d['id'])[d['num']]
+                            args = self._unwrap(d['args'], True)
+                            # args.append({'id': self.id})
+                            method(*args)
+                        except Exception as e:
+                            logger.info('error in method %s: %s', d['id'], traceback.format_exc())
             except queue.Empty:
-                time.sleep(0.1)
+                time.sleep(0)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
