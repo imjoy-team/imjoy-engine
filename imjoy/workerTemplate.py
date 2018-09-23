@@ -256,19 +256,22 @@ class PluginConnection():
                         'args' : self._wrap(arguments),
                         'promise': self._wrap([resolve, reject])
                     })
+                    time.sleep(0)
                 return Promise(p)
         else:
             def remoteCallback(*arguments, **kwargs):
                 # wrap keywords to a dictionary and pass to the first argument
                 if len(arguments) == 0 and len(kwargs) > 0:
                     arguments = [kwargs]
-                return self.emit({
+                ret = self.emit({
                     'type' : 'callback',
                     'id'   : id,
                     'num'  : argNum,
                     # 'pid'  : self.id,
                     'args' : self._wrap(arguments)
                 })
+                time.sleep(0)
+                return ret
         return remoteCallback
 
     def _decode(self, aObject, callbackId, withPromise):
@@ -383,6 +386,7 @@ class PluginConnection():
                     'promise': self._wrap([resolve, reject])
                 }
                 self.emit(call_func)
+                time.sleep(0)
             return Promise(p)
 
         return remoteMethod
