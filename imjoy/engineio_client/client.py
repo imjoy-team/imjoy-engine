@@ -11,7 +11,7 @@ import sys
 import logging
 logger = logging.getLogger(__name__)
 
-MAX_FAIL_COUNT = 100
+MAX_FAIL_COUNT = 1e8
 
 class Client(Emitter):
     TRANSPORTS = {
