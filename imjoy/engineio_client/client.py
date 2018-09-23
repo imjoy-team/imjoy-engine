@@ -118,7 +118,6 @@ class Client(Emitter):
             if not pong_received:
                 self.fail_countdown -= 1
                 logger.warning("Pong timeout: counting down %d/%d", self.fail_countdown, MAX_FAIL_COUNT)
-                sys.stdout.flush()
                 if self.fail_countdown <= 0:
                     logger.warning("Pong timeout, closing...")
                     self.handle_close()
