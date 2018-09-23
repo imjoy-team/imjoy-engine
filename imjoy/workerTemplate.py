@@ -15,7 +15,8 @@ import psutil
 import threading
 import gevent.queue
 from gevent import monkey;
-monkey.patch_all()
+monkey.patch_socket()
+monkey.patch_time()
 
 from socketio_client.manager import Manager
 
@@ -93,7 +94,7 @@ class ReferenceStore():
             self._indices[0] += 1
             id = self._indices[0]
         else:
-            id = self._indices.popleft()
+            id = self._indices.pop(0)
         return id
 
     def _releaseId(self, id):
@@ -256,7 +257,7 @@ class PluginConnection():
                         'args' : self._wrap(arguments),
                         'promise': self._wrap([resolve, reject])
                     })
-                    time.sleep(0)
+                    gevent.sleep(0)
                 return Promise(p)
         else:
             def remoteCallback(*arguments, **kwargs):
@@ -270,7 +271,7 @@ class PluginConnection():
                     # 'pid'  : self.id,
                     'args' : self._wrap(arguments)
                 })
-                time.sleep(0)
+                gevent.sleep(0)
                 return ret
         return remoteCallback
 
@@ -386,7 +387,7 @@ class PluginConnection():
                     'promise': self._wrap([resolve, reject])
                 }
                 self.emit(call_func)
-                time.sleep(0)
+                gevent.sleep(0)
             return Promise(p)
 
         return remoteMethod

@@ -7,10 +7,11 @@ import gevent
 import gevent.event
 import gevent.queue
 import json
-
+import sys
 import logging
 logger = logging.getLogger(__name__)
 
+MAX_FAIL_COUNT = 100
 
 class Client(Emitter):
     TRANSPORTS = {
@@ -41,6 +42,7 @@ class Client(Emitter):
         self.transport = None
         self.ping_pong_loop = None
         self.flush_loop = None
+        self.fail_countdown = MAX_FAIL_COUNT
 
     def open(self):
         self.state = 'opening'
@@ -95,6 +97,7 @@ class Client(Emitter):
                 while True:
                     packet = self.send_queue.get_nowait()
                     packets.append(packet)
+                    self.fail_countdown = MAX_FAIL_COUNT
             except gevent.queue.Empty:
                 pass
             self.transport_ready_event.wait()
@@ -103,16 +106,22 @@ class Client(Emitter):
             # self.transport_ready_event.set()
             for packet in packets:
                 self.send_queue.task_done()
+            self.fail_countdown = MAX_FAIL_COUNT
 
     def loop_ping_pong(self):
         while self.state in ['open', 'closing']:
             self.pong_event.clear()
             self.send_packet(Packet(Packet.PING))
+            gevent.sleep(0)
             pong_received = self.pong_event.wait(timeout=self.ping_timeout/1000)
             if not pong_received:
-                logger.warning("Pong timeout")
-                self.handle_close()
-                break
+                self.fail_countdown -= 1
+                logger.warning("Pong timeout: counting down %d/%d", self.fail_countdown, MAX_FAIL_COUNT)
+                sys.stdout.flush()
+                if self.fail_countdown <= 0:
+                    logger.warning("Pong timeout, closing...")
+                    self.handle_close()
+                    break
             gevent.sleep(self.ping_interval/1000)
 
     def start_loop(self, func, *args, **kwargs):
