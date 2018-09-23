@@ -13,10 +13,11 @@ from functools import reduce
 import inspect
 import psutil
 import threading
-try:
-    import queue
-except ImportError:
-    import Queue as queue
+import gevent.queue
+# try:
+#     import queue
+# except ImportError:
+#     import Queue as queue
 
 # from inspect import isfunction
 from gevent import monkey;
@@ -153,10 +154,12 @@ class PluginConnection():
         self._remote_set = False
         self._store = ReferenceStore()
         self._executed = False
-        self.q = queue.Queue()
-        message_worker = threading.Thread(target=self.message_handler, args=(self.q,))
-        message_worker.daemon = True
-        message_worker.start()
+        # self.q = queue.Queue()
+        self.q = gevent.queue.JoinableQueue()
+        # message_worker = threading.Thread(target=self.message_handler, args=(self.q,))
+        # message_worker.daemon = True
+        # message_worker.start()
+        self.start_loop(self.message_handler, self.q)
 
         @sio.on_connect()
         def sio_connect():
@@ -167,6 +170,14 @@ class PluginConnection():
         @sio.on_disconnect()
         def sio_disconnect():
             self.exit(1)
+
+    def start_loop(self, func, *args, **kwargs):
+        def loop_stopped(g):
+            logger.error("Stop %s", func.__name__)
+        g = gevent.spawn(func, *args, **kwargs)
+        g.rawlink(loop_stopped)
+        logger.debug("Start %s", func.__name__)
+        return g
 
     def start(self):
         self.io.connect()
@@ -454,58 +465,67 @@ class PluginConnection():
                     self._remote_set = True
                 else:
                     self.q.put(d)
-
+                    logger.debug('added task to the queue')
                 sys.stdout.flush()
+                gevent.sleep(0)
 
     def message_handler(self, q):
         while True:
+            logger.debug('Waiting for new task...')
+            q.peek()
             try:
-                d = q.get()
-                if d is not None and d['type'] == 'method':
-                    if d['name'] in self._interface:
+                while True:
+                    d = q.get_nowait()
+                    logger.debug('processing task')
+                    q.task_done()
+                    if d is not None and d['type'] == 'method':
+                        if d['name'] in self._interface:
+                            if 'promise' in d:
+                                try:
+                                    resolve, reject = self._unwrap(d['promise'], False)
+                                    method = self._interface[d['name']]
+                                    args = self._unwrap(d['args'], True)
+                                    # args.append({'id': self.id})
+                                    result = method(*args)
+                                    resolve(result)
+                                except Exception as e:
+                                    logger.info('error in method %s: %s', d['name'], traceback.format_exc())
+                                    reject(e)
+                            else:
+                                try:
+                                    method = self._interface[d['name']]
+                                    args = self._unwrap(d['args'], True)
+                                    # args.append({'id': self.id})
+                                    method(*args)
+                                except Exception as e:
+                                    logger.info('error in method %s: %s', d['name'], traceback.format_exc())
+                        else:
+                            raise Exception('method '+d['name'] +' is not found.')
+                    elif d['type'] == 'callback':
                         if 'promise' in d:
                             try:
                                 resolve, reject = self._unwrap(d['promise'], False)
-                                method = self._interface[d['name']]
+                                method = self._store.fetch(d['id'])[d['num']]
                                 args = self._unwrap(d['args'], True)
                                 # args.append({'id': self.id})
                                 result = method(*args)
                                 resolve(result)
                             except Exception as e:
-                                logger.info('error in method %s: %s', d['name'], traceback.format_exc())
+                                logger.info('error in method %s: %s', d['id'], traceback.format_exc())
                                 reject(e)
                         else:
                             try:
-                                method = self._interface[d['name']]
+                                method = self._store.fetch(d['id'])[d['num']]
                                 args = self._unwrap(d['args'], True)
                                 # args.append({'id': self.id})
                                 method(*args)
                             except Exception as e:
-                                logger.info('error in method %s: %s', d['name'], traceback.format_exc())
-                    else:
-                        raise Exception('method '+d['name'] +' is not found.')
-                elif d['type'] == 'callback':
-                    if 'promise' in d:
-                        try:
-                            resolve, reject = self._unwrap(d['promise'], False)
-                            method = self._store.fetch(d['id'])[d['num']]
-                            args = self._unwrap(d['args'], True)
-                            # args.append({'id': self.id})
-                            result = method(*args)
-                            resolve(result)
-                        except Exception as e:
-                            logger.info('error in method %s: %s', d['id'], traceback.format_exc())
-                            reject(e)
-                    else:
-                        try:
-                            method = self._store.fetch(d['id'])[d['num']]
-                            args = self._unwrap(d['args'], True)
-                            # args.append({'id': self.id})
-                            method(*args)
-                        except Exception as e:
-                            logger.info('error in method %s: %s', d['id'], traceback.format_exc())
-            except queue.Empty:
-                time.sleep(0)
+                                logger.info('error in method %s: %s', d['id'], traceback.format_exc())
+                    gevent.sleep(0)
+            except gevent.queue.Empty:
+                pass
+            finally:
+                gevent.sleep(0)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
