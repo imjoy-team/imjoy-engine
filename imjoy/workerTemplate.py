@@ -14,7 +14,9 @@ import inspect
 import psutil
 import threading
 import gevent.queue
+
 from gevent import monkey;
+# monkey.patch_all()
 monkey.patch_socket()
 monkey.patch_time()
 
@@ -34,6 +36,26 @@ if '' not in sys.path:
 imjoy_path = os.path.dirname(os.path.normpath(__file__))
 if imjoy_path not in sys.path:
     sys.path.insert(0, imjoy_path)
+
+def setInterval(interval):
+    def decorator(function):
+        def wrapper(*args, **kwargs):
+            stopped = threading.Event()
+            def loop(): # executed in another thread
+                while not stopped.wait(interval): # until stopped
+                    function(*args, **kwargs)
+            t = threading.Thread(target=loop)
+            t.daemon = True # stop if the program exits
+            t.start()
+            return stopped
+        return wrapper
+    return decorator
+
+@setInterval(1.0)
+def geventTimer():
+    gevent.idle()
+
+geventTimer()
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -257,7 +279,7 @@ class PluginConnection():
                         'args' : self._wrap(arguments),
                         'promise': self._wrap([resolve, reject])
                     })
-                    gevent.sleep(0)
+                    gevent.idle()
                 return Promise(p)
         else:
             def remoteCallback(*arguments, **kwargs):
@@ -271,7 +293,7 @@ class PluginConnection():
                     # 'pid'  : self.id,
                     'args' : self._wrap(arguments)
                 })
-                gevent.sleep(0)
+                gevent.idle()
                 return ret
         return remoteCallback
 
@@ -387,7 +409,7 @@ class PluginConnection():
                     'promise': self._wrap([resolve, reject])
                 }
                 self.emit(call_func)
-                gevent.sleep(0)
+                gevent.idle()
             return Promise(p)
 
         return remoteMethod
@@ -457,7 +479,7 @@ class PluginConnection():
                     self.q.put(d)
                     logger.debug('added task to the queue')
                 sys.stdout.flush()
-                gevent.sleep(0)
+                gevent.idle()
 
     def message_handler(self, q):
         while True:
@@ -512,7 +534,7 @@ class PluginConnection():
             except gevent.queue.Empty:
                 pass
             finally:
-                gevent.sleep(0)
+                gevent.idle()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

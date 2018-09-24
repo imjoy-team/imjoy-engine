@@ -11,7 +11,7 @@ import sys
 import logging
 logger = logging.getLogger(__name__)
 
-MAX_FAIL_COUNT = 1e8
+MAX_FAIL_COUNT = 10
 
 class Client(Emitter):
     TRANSPORTS = {
@@ -88,9 +88,9 @@ class Client(Emitter):
 
     def loop_flush(self):
         while self.state in ['open', 'closing']:
-            logger.debug('Waiting packets')
+            # logger.debug('Waiting packets')
             self.send_queue.peek()
-            logger.debug('Flushing packets')
+            # logger.debug('Flushing packets')
             packets = []
             try:
                 while True:
@@ -99,7 +99,6 @@ class Client(Emitter):
                     self.fail_countdown = MAX_FAIL_COUNT
             except gevent.queue.Empty:
                 pass
-            gevent.sleep(0)
             self.transport_ready_event.wait()
             # self.transport_ready_event.clear()
             self.transport.send(packets)
@@ -107,13 +106,13 @@ class Client(Emitter):
             for packet in packets:
                 self.send_queue.task_done()
             self.fail_countdown = MAX_FAIL_COUNT
-            gevent.sleep(0)
 
     def loop_ping_pong(self):
         while self.state in ['open', 'closing']:
             self.pong_event.clear()
+            print('sending ping...')
+            sys.stdout.flush()
             self.send_packet(Packet(Packet.PING))
-            gevent.sleep(0)
             pong_received = self.pong_event.wait(timeout=self.ping_timeout/1000)
             if not pong_received:
                 self.fail_countdown -= 1
