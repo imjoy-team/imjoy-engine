@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 $AppName="ImJoy"
 
 # Set your project's install directory name here
-$InstallDir="$env:userprofile\ImJoyPluginEngine"
+$InstallDir="$env:userprofile\ImJoyApp"
 
 # Dependencies installed by Conda
 # Commend out the next line if no Conda dependencies
@@ -124,9 +124,9 @@ if(Test-Path variable:EntryPoint)
 $WshShell = New-Object -comObject WScript.Shell
 strDesktop = WshShell.SpecialFolders("Desktop")
 $Shortcut = $WshShell.CreateShortcut(strDesktop + "ImJoy Plugin Engine.lnk")
-# $Shortcut.IconLocation = "$env:userprofile\ImJoyPluginEngine"
+# $Shortcut.IconLocation = "$env:userprofile\ImJoyApp"
 $Shortcut.WorkingDirectory = "$env:userprofile"
-$Shortcut.TargetPath = "$env:userprofile\ImJoyPluginEngine\bin\python.exe"
+$Shortcut.TargetPath = "$env:userprofile\ImJoyApp\bin\python.exe"
 $Shortcut.Arguments = "-m imjoy"
 $Shortcut.Save()
 

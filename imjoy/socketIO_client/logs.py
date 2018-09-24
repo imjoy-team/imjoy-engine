@@ -2,7 +2,7 @@ import logging
 import time
 from .symmetries import NullHandler
 
-LOGGER = logging.getLogger('socketIO-client-2')
+LOGGER = logging.getLogger('socketIO-client')
 LOGGER.addHandler(NullHandler())
 
 

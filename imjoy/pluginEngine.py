@@ -16,6 +16,7 @@ import logging
 import argparse
 import uuid
 import shutil
+import webbrowser
 
 from subprocess import Popen, PIPE, STDOUT
 try:
@@ -25,6 +26,9 @@ except ImportError:
 
 # add executable path to PATH
 os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
+
+logging.basicConfig()
+logger = logging.getLogger('PluginEngine')
 
 def get_token():
     random.seed(uuid.getnode())
@@ -60,7 +64,17 @@ if opt.serve:
         if ret != 0:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
-    print('Now you can access your local ImJoy web app through http://localhost:8080 , imjoy!')
+    print('Now you can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
+    try:
+        webbrowser.open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
+    except Exception as e:
+        pass
+else:
+    logger.info("Now you can run Python plugins from https://imjoy.io, token: %s", opt.token)
+    try:
+        webbrowser.open('https://imjoy.io/#/app?token='+opt.token, new=0, autoraise=True)
+    except Exception as e:
+        pass
 
 MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'
@@ -69,8 +83,7 @@ sio = socketio.AsyncServer()
 app = web.Application()
 sio.attach(app)
 
-logging.basicConfig()
-logger = logging.getLogger('PluginEngine')
+
 
 if opt.debug:
     logger.setLevel(logging.DEBUG)
@@ -88,10 +101,6 @@ else:
     async def index(request):
         return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>You can run "python -m imjoy --serve" to serve ImJoy web app locally.</p>', content_type="text/html")
 app.router.add_get('/', index)
-
-
-logger.info("Now you can run Python plugins from https://imjoy.io, token: %s", opt.token)
-print('======>> Connection Token: '+opt.token + ' <<======')
 
 plugins = {}
 plugin_cids = {}
@@ -524,6 +533,8 @@ class UnexpectedEndOfStream(Exception):
     pass
 
 
+
+print('======>> Connection Token: '+opt.token + ' <<======')
 try:
     web.run_app(app, host=opt.host, port=opt.port)
 finally:
