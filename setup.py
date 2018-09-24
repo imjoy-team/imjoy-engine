@@ -8,7 +8,7 @@ except OSError as e:
 
 requirements = []
 if sys.version_info > (3, 0):
-    requirements = ['requests','gevent','python-socketio','aiohttp','six','websocket-client-py3']
+    requirements = ['psutil', 'requests','six','websocket-client-py3']
 
 from setuptools import setup, find_packages
 setup(name='imjoy',

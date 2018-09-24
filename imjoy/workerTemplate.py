@@ -302,7 +302,7 @@ class PluginConnection():
                     elif isinstance(aObject['__value__'], list) or isinstance(aObject['__value__'], tuple):
                         aObject['__value__'] = reduce((lambda x, y: x + y), aObject['__value__'])
                     else:
-                        raise Exception('Unsupported data type: ', type(aObject['__value__']))
+                        raise Exception('Unsupported data type: ', type(aObject['__value__']), aObject['__value__'])
                     bObject = np.frombuffer(aObject['__value__'], dtype=aObject['__dtype__']).reshape(tuple(aObject['__shape__']))
                 except Exception as e:
                     logger.debug('Error in converting: %s', e)
@@ -482,7 +482,7 @@ class PluginConnection():
                                 result = method(*args)
                                 resolve(result)
                             except Exception as e:
-                                logger.error('error in method %s: %s'.format(d['name'], traceback.format_exc()))
+                                logger.error('error in method %s: %s', d['name'], traceback.format_exc())
                                 reject(e)
                         else:
                             try:
@@ -491,7 +491,7 @@ class PluginConnection():
                                 # args.append({'id': self.id})
                                 method(*args)
                             except Exception as e:
-                                logger.error('error in method %s: %s'.format(d['name'], traceback.format_exc()))
+                                logger.error('error in method %s: %s', d['name'], traceback.format_exc())
                     else:
                         raise Exception('method '+d['name'] +' is not found.')
                 elif d['type'] == 'callback':
@@ -504,7 +504,7 @@ class PluginConnection():
                             result = method(*args)
                             resolve(result)
                         except Exception as e:
-                            logger.error('error in method %s: %s'.format(d['id'], traceback.format_exc()))
+                            logger.error('error in method %s: %s', d['id'], traceback.format_exc())
                             reject(e)
                     else:
                         try:
@@ -513,7 +513,7 @@ class PluginConnection():
                             # args.append({'id': self.id})
                             method(*args)
                         except Exception as e:
-                            logger.error('error in method %s: %s'.format(d['id'], traceback.format_exc()))
+                            logger.error('error in method %s: %s', d['id'], traceback.format_exc())
             except queue.Empty:
                 time.sleep(0.1)
             finally:
