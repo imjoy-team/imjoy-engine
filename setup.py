@@ -8,11 +8,11 @@ except OSError as e:
 
 requirements = []
 if sys.version_info > (3, 0):
-    requirements = ['psutil', 'requests','six','websocket-client-py3']
+    requirements = ['psutil', 'requests', 'six', 'websocket-client-py3', 'aiohttp', 'numpy']
 
 from setuptools import setup, find_packages
 setup(name='imjoy',
-      version='0.4.0',
+      version='0.4.1',
       description='Python plugin engine for ImJoy.io',
       url='http://github.com/oeway/ImJoy',
       author='Wei OUYANG',

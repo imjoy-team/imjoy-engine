@@ -21,7 +21,7 @@ if __name__ == '__main__':
     else:
         # running in python 2
         print('ImJoy needs to run in Python 3.6+, bootstrapping with conda ...')
-        imjoy_requirements = ['requests','gevent','websocket-client-py3','python-socketio','aiohttp', 'numpy', 'git+https://github.com/oeway/ImJoy-Python#egg=imjoy']
+        imjoy_requirements = ['psutil', 'requests', 'six', 'websocket-client-py3', 'aiohttp', 'numpy', 'git+https://github.com/oeway/ImJoy-Python#egg=imjoy']
         ret = subprocess.Popen('conda create -y -n imjoy python=3.6', shell=True).wait()
         if ret == 0:
             print('conda environment is now ready, installing pip requirements and start the engine...')
