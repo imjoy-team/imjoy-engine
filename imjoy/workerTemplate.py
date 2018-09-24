@@ -13,6 +13,7 @@ import inspect
 import psutil
 import threading
 from socketIO_client import SocketIO, LoggingNamespace
+
 try:
     import queue
 except ImportError:
@@ -62,7 +63,7 @@ class Promise(object):
             if self._catch_handler:
                 self._catch_handler(e)
             elif not self._finally_handler:
-                print('Uncaught Exception: '+ str(e))
+                logger.error('Uncaught Exception: '+ str(e))
         finally:
             if self._finally_handler:
                 self._finally_handler()
@@ -72,7 +73,7 @@ class Promise(object):
             if self._catch_handler:
                 self._catch_handler(error)
             elif not self._finally_handler:
-                print('Uncaught Exception: '+ str(error))
+                logger.error('Uncaught Exception: '+ str(error))
         finally:
             if self._finally_handler:
                 self._finally_handler()
@@ -144,7 +145,6 @@ api_utils = dotdict(kill=kill)
 
 class PluginConnection():
     def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, namespace='/', api=None):
-        print('connecting....')
         socketIO = SocketIO(host, port, LoggingNamespace)
         self.socketIO = socketIO
         self._init = False
@@ -169,7 +169,6 @@ class PluginConnection():
         self.emit({"type": "initialized", "dedicatedThread": True})
 
         def on_disconnect():
-            print('disconnected........')
             self.exit(1)
         socketIO.on('disconnect', on_disconnect)
 
@@ -483,7 +482,7 @@ class PluginConnection():
                                 result = method(*args)
                                 resolve(result)
                             except Exception as e:
-                                print('error in method %s: %s'.format(d['name'], traceback.format_exc()))
+                                logger.error('error in method %s: %s'.format(d['name'], traceback.format_exc()))
                                 reject(e)
                         else:
                             try:
@@ -492,7 +491,7 @@ class PluginConnection():
                                 # args.append({'id': self.id})
                                 method(*args)
                             except Exception as e:
-                                print('error in method %s: %s'.format(d['name'], traceback.format_exc()))
+                                logger.error('error in method %s: %s'.format(d['name'], traceback.format_exc()))
                     else:
                         raise Exception('method '+d['name'] +' is not found.')
                 elif d['type'] == 'callback':
@@ -505,7 +504,7 @@ class PluginConnection():
                             result = method(*args)
                             resolve(result)
                         except Exception as e:
-                            print('error in method %s: %s'.format(d['id'], traceback.format_exc()))
+                            logger.error('error in method %s: %s'.format(d['id'], traceback.format_exc()))
                             reject(e)
                     else:
                         try:
@@ -514,7 +513,7 @@ class PluginConnection():
                             # args.append({'id': self.id})
                             method(*args)
                         except Exception as e:
-                            print('error in method %s: %s'.format(d['id'], traceback.format_exc()))
+                            logger.error('error in method %s: %s'.format(d['id'], traceback.format_exc()))
             except queue.Empty:
                 time.sleep(0.1)
             finally:
