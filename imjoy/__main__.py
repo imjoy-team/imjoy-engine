@@ -25,7 +25,7 @@ if __name__ == '__main__':
             print('ImJoy Python Plugin Engine (version {})'.format(version))
         except:
             pass
-        from pluginEngine import *
+        from .pluginEngine import *
     else:
         # running in python 2
         print('ImJoy needs to run in Python 3.6+, bootstrapping with conda ...')
