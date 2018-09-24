@@ -4,7 +4,6 @@ import time
 import os
 import sys
 import six
-import gevent
 import random
 import math
 import traceback
@@ -13,15 +12,11 @@ from functools import reduce
 import inspect
 import psutil
 import threading
-import gevent.queue
-
-from gevent import monkey;
-# monkey.patch_all()
-monkey.patch_socket()
-monkey.patch_time()
-
-from socketio_client.manager import Manager
-
+from socketIO_client import SocketIO, LoggingNamespace
+try:
+    import queue
+except ImportError:
+    import Queue as queue
 
 logging.basicConfig()
 logger = logging.getLogger('plugin')
@@ -51,11 +46,6 @@ def setInterval(interval):
         return wrapper
     return decorator
 
-@setInterval(1.0)
-def geventTimer():
-    gevent.idle()
-
-geventTimer()
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -154,16 +144,16 @@ api_utils = dotdict(kill=kill)
 
 class PluginConnection():
     def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, namespace='/', api=None):
-        self.io = Manager(protocol, host, port)
-        sio = self.io.socket(namespace)
+        print('connecting....')
+        socketIO = SocketIO(host, port, LoggingNamespace)
+        self.socketIO = socketIO
         self._init = False
         self.secret = secret
         self.id = pid
         def emit(msg):
-            sio.emit('from_plugin_'+ secret, msg)
+            socketIO.emit('from_plugin_'+ secret, msg)
         self.emit = emit
 
-        self.sio = sio
         self._local = {}
         _remote = dotdict()
         self._setLocalAPI(_remote)
@@ -171,29 +161,24 @@ class PluginConnection():
         self._remote_set = False
         self._store = ReferenceStore()
         self._executed = False
-        self.q = gevent.queue.JoinableQueue()
-        self.start_loop(self.message_handler, self.q)
+        self.q = queue.Queue()
 
-        @sio.on_connect()
-        def sio_connect():
-            self._init = False
-            sio.on('to_plugin_'+secret, self.sio_plugin_message)
-            self.emit({"type": "initialized", "dedicatedThread": True})
+        self._init = False
+        sys.stdout.flush()
+        socketIO.on('to_plugin_'+secret, self.sio_plugin_message)
+        self.emit({"type": "initialized", "dedicatedThread": True})
 
-        @sio.on_disconnect()
-        def sio_disconnect():
+        def on_disconnect():
+            print('disconnected........')
             self.exit(1)
+        socketIO.on('disconnect', on_disconnect)
 
-    def start_loop(self, func, *args, **kwargs):
-        def loop_stopped(g):
-            logger.error("Stop %s", func.__name__)
-        g = gevent.spawn(func, *args, **kwargs)
-        g.rawlink(loop_stopped)
-        logger.debug("Start %s", func.__name__)
-        return g
+        t = threading.Thread(target=self.message_handler, args=(self.q,))
+        t.daemon = True
+        t.start()
 
-    def start(self):
-        self.io.connect()
+    def wait_forever(self):
+        self.socketIO.wait()
 
     def exit(self, code):
         if 'exit' in self._interface:
@@ -279,7 +264,7 @@ class PluginConnection():
                         'args' : self._wrap(arguments),
                         'promise': self._wrap([resolve, reject])
                     })
-                    gevent.idle()
+                    time.sleep(0)
                 return Promise(p)
         else:
             def remoteCallback(*arguments, **kwargs):
@@ -293,7 +278,7 @@ class PluginConnection():
                     # 'pid'  : self.id,
                     'args' : self._wrap(arguments)
                 })
-                gevent.idle()
+                time.sleep(0)
                 return ret
         return remoteCallback
 
@@ -409,7 +394,7 @@ class PluginConnection():
                     'promise': self._wrap([resolve, reject])
                 }
                 self.emit(call_func)
-                gevent.idle()
+                time.sleep(0)
             return Promise(p)
 
         return remoteMethod
@@ -442,7 +427,8 @@ class PluginConnection():
         _remote["utils"] = api_utils
         self._local["api"] = _remote
 
-    def sio_plugin_message(self, data):
+    def sio_plugin_message(self, *args):
+        data = args[0]
         if data['type']== 'import':
             self.emit({'type':'importSuccess', 'url': data['url']})
         elif data['type']== 'disconnect':
@@ -479,62 +465,60 @@ class PluginConnection():
                     self.q.put(d)
                     logger.debug('added task to the queue')
                 sys.stdout.flush()
-                gevent.idle()
+                time.sleep(0)
 
     def message_handler(self, q):
         while True:
-            q.peek()
             try:
-                while True:
-                    d = q.get_nowait()
-                    q.task_done()
-                    if d is not None and d['type'] == 'method':
-                        if d['name'] in self._interface:
-                            if 'promise' in d:
-                                try:
-                                    resolve, reject = self._unwrap(d['promise'], False)
-                                    method = self._interface[d['name']]
-                                    args = self._unwrap(d['args'], True)
-                                    # args.append({'id': self.id})
-                                    result = method(*args)
-                                    resolve(result)
-                                except Exception as e:
-                                    print('error in method %s: %s'.format(d['name'], traceback.format_exc()))
-                                    reject(e)
-                            else:
-                                try:
-                                    method = self._interface[d['name']]
-                                    args = self._unwrap(d['args'], True)
-                                    # args.append({'id': self.id})
-                                    method(*args)
-                                except Exception as e:
-                                    print('error in method %s: %s'.format(d['name'], traceback.format_exc()))
-                        else:
-                            raise Exception('method '+d['name'] +' is not found.')
-                    elif d['type'] == 'callback':
+                d = q.get()
+                q.task_done()
+                if d is not None and d['type'] == 'method':
+                    if d['name'] in self._interface:
                         if 'promise' in d:
                             try:
                                 resolve, reject = self._unwrap(d['promise'], False)
-                                method = self._store.fetch(d['id'])[d['num']]
+                                method = self._interface[d['name']]
                                 args = self._unwrap(d['args'], True)
                                 # args.append({'id': self.id})
                                 result = method(*args)
                                 resolve(result)
                             except Exception as e:
-                                print('error in method %s: %s'.format(d['id'], traceback.format_exc()))
+                                print('error in method %s: %s'.format(d['name'], traceback.format_exc()))
                                 reject(e)
                         else:
                             try:
-                                method = self._store.fetch(d['id'])[d['num']]
+                                method = self._interface[d['name']]
                                 args = self._unwrap(d['args'], True)
                                 # args.append({'id': self.id})
                                 method(*args)
                             except Exception as e:
-                                print('error in method %s: %s'.format(d['id'], traceback.format_exc()))
-            except gevent.queue.Empty:
-                pass
+                                print('error in method %s: %s'.format(d['name'], traceback.format_exc()))
+                    else:
+                        raise Exception('method '+d['name'] +' is not found.')
+                elif d['type'] == 'callback':
+                    if 'promise' in d:
+                        try:
+                            resolve, reject = self._unwrap(d['promise'], False)
+                            method = self._store.fetch(d['id'])[d['num']]
+                            args = self._unwrap(d['args'], True)
+                            # args.append({'id': self.id})
+                            result = method(*args)
+                            resolve(result)
+                        except Exception as e:
+                            print('error in method %s: %s'.format(d['id'], traceback.format_exc()))
+                            reject(e)
+                    else:
+                        try:
+                            method = self._store.fetch(d['id'])[d['num']]
+                            args = self._unwrap(d['args'], True)
+                            # args.append({'id': self.id})
+                            method(*args)
+                        except Exception as e:
+                            print('error in method %s: %s'.format(d['id'], traceback.format_exc()))
+            except queue.Empty:
+                time.sleep(0.1)
             finally:
-                gevent.idle()
+                time.sleep(0)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -548,5 +532,4 @@ if __name__ == "__main__":
     if opt.debug:
         logger.setLevel(logging.DEBUG)
     pc = PluginConnection(opt.id, opt.secret, host=opt.host, port=int(opt.port))
-    pc.start()
-    gevent.wait()
+    pc.wait_forever()

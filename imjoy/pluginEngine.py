@@ -98,8 +98,8 @@ clients_sids = {}
 attempt_count = 0
 
 cmd_history = []
-default_requirements_py2 = ["psutil", "six", "requests", "gevent", "websocket-client"]
-default_requirements_py3 = ["psutil", "six", "requests", "gevent", "websocket-client-py3"]
+default_requirements_py2 = ["psutil", "socketIO-client"]
+default_requirements_py3 = ["psutil", "socketIO-client"]
 
 script_dir = os.path.dirname(os.path.normpath(__file__))
 template_script = os.path.join(script_dir, 'workerTemplate.py')
