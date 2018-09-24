@@ -120,6 +120,16 @@ if(Test-Path variable:EntryPoint)
     }
 }
 
+# create a shortcut to the desktop
+$WshShell = New-Object -comObject WScript.Shell
+strDesktop = WshShell.SpecialFolders("Desktop")
+$Shortcut = $WshShell.CreateShortcut(strDesktop + "ImJoy Plugin Engine.lnk")
+# $Shortcut.IconLocation = "$env:userprofile\ImJoyPluginEngine"
+$Shortcut.WorkingDirectory = "$env:userprofile"
+$Shortcut.TargetPath = "$env:userprofile\ImJoyPluginEngine\bin\python.exe"
+$Shortcut.Arguments = "-m imjoy"
+$Shortcut.Save()
+
 Write-Host "`n$AppName Successfully Installed"
 
 Write-Host "Press any key to continue ..."

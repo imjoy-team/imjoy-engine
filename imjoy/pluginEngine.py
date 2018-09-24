@@ -23,6 +23,9 @@ try:
 except ImportError:
     from queue import Queue, Empty  # python 3.x
 
+# add executable path to PATH
+os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
+
 def get_token():
     random.seed(uuid.getnode())
     a = "%32x" % random.getrandbits(128)
@@ -43,17 +46,17 @@ if opt.serve:
     imjpath = '__ImJoy__'
     if shutil.which('git') is None:
         print('Installing git...')
-        ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy", shell=True).wait()
+        ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy".split(), shell=False).wait()
         if ret != 0:
             print('Failed to install git, please check whether you have internet access.')
             sys.exit(3)
     if os.path.exists(imjpath) and os.path.isdir(imjpath):
-        ret = subprocess.Popen('cd '+imjpath+' && git pull', shell=True).wait()
+        ret = subprocess.Popen('cd '+imjpath+' && git pull'.split(), shell=False).wait()
         if ret != 0:
             shutil.rmtree(imjpath)
     if not os.path.exists(imjpath):
         print('Downloading files for serving ImJoy locally...')
-        ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__', shell=True).wait()
+        ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False).wait()
         if ret != 0:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
@@ -179,7 +182,7 @@ async def on_init_plugin(sid, kwargs):
 
             logger.info('creating environment: %s', env)
             if env not in cmd_history:
-                subprocess.Popen(env, shell=True).wait()
+                subprocess.Popen(env.split(), shell=False).wait()
                 cmd_history.append(env)
             else:
                 logger.debug('skip command: %s', env)
@@ -359,7 +362,7 @@ def execute(requirements_cmd, args, workdir, abort, name):
                     logger.info('pip command failed, trying to install git and pip...')
                     # try to install git and pip
                     git_cmd = "conda install -y" + git_cmd
-                    ret = subprocess.Popen(git_cmd, shell=True).wait()
+                    ret = subprocess.Popen(git_cmd.split(), shell=False).wait()
                     if ret != 0:
                         raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
                     else:

@@ -3,26 +3,34 @@ import os
 import subprocess
 
 if __name__ == '__main__':
+    # add executable path to PATH
+    os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
 
     try:
-        subprocess.call(["conda", "-V"])
+        subprocess.call(["conda", "-V"], shell=False)
     except OSError as e:
         sys.exit('Sorry, ImJoy plugin engine can only run with Anaconda or Miniconda.')
 
     if sys.version_info > (3, 0):
         # running in python 3
         try:
+            print('Upgrading ImJoy Plugin Engine...')
+            subprocess.call("pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy".split(), shell=False)
+        except OSError as e:
+            print('Failed to upgrade ImJoy code.')
+
+        try:
             import pkg_resources  # part of setuptools
             version = pkg_resources.require("imjoy")[0].version
             print('ImJoy Python Plugin Engine (version {})'.format(version))
         except:
             pass
-        from .pluginEngine import *
+        from pluginEngine import *
     else:
         # running in python 2
         print('ImJoy needs to run in Python 3.6+, bootstrapping with conda ...')
         imjoy_requirements = ['psutil', 'requests', 'six', 'websocket-client-py3', 'aiohttp', 'numpy', 'git+https://github.com/oeway/ImJoy-Python#egg=imjoy']
-        ret = subprocess.Popen('conda create -y -n imjoy python=3.6', shell=True).wait()
+        ret = subprocess.Popen('conda create -y -n imjoy python=3.6'.split(), shell=False).wait()
         if ret == 0:
             print('conda environment is now ready, installing pip requirements and start the engine...')
         else:
@@ -44,7 +52,7 @@ if __name__ == '__main__':
             conda_activate = "conda activate"
 
         pip_cmd = conda_activate + " imjoy && " + pip_cmd + " && python -m imjoy"
-        ret = subprocess.Popen(pip_cmd, shell=True).wait()
+        ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
         if ret != 0:
             git_cmd = ''
             import distutils.spawn
@@ -56,11 +64,11 @@ if __name__ == '__main__':
                 logger.info('pip command failed, trying to install git and pip...')
                 # try to install git and pip
                 git_cmd = "conda install -y" + git_cmd
-                ret = subprocess.Popen(git_cmd, shell=True).wait()
+                ret = subprocess.Popen(git_cmd.split(), shell=False).wait()
                 if ret != 0:
                     raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
                 else:
-                    ret = subprocess.Popen(pip_cmd, shell=True).wait()
+                    ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
                     if ret != 0:
                         print('ImJoy failed with exit code: '+str(ret))
                         sys.exit(2)
