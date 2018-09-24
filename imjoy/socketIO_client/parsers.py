@@ -36,7 +36,10 @@ class SocketIOPacket():
 
     def replace_placeholders(self):
         def predicate(obj):
-            return '_placeholder' in obj and 'num' in obj
+            if type(obj) is dict:
+                return '_placeholder' in obj and 'num' in obj
+            else:
+                return False
 
         def fn(obj):
             return bytearray(self.binary_packets[obj['num']])
