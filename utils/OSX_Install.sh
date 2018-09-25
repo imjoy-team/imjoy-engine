@@ -30,11 +30,11 @@ echo
 echo "Installing $AppName"
 
 echo
-echo "Installing into: $(pwd)/$InstallDir"
+echo "Installing into: $InstallDir"
 echo
 
 # Miniconda doesn't work for directory structures with spaces
-if [[ $(pwd) == *" "* ]]
+if [[ $InstallDir == *" "* ]]
 then
     echo "ERROR: Cannot install into a directory with a space in its path" >&2
     echo "Exiting..."
@@ -43,10 +43,10 @@ then
 fi
 
 # Test if new directory is empty.  Exit if it's not
-if [ -d $(pwd)/$InstallDir ]; then
-    if [ "$(ls -A $(pwd)/$InstallDir)" ]; then
+if [ -d $InstallDir ]; then
+    if [ "$(ls -A $InstallDir)" ]; then
         echo "ERROR: Directory is not empty" >&2
-        echo "If you want to install into $(pwd)/$InstallDir, "
+        echo "If you want to install into $InstallDir, "
         echo "clear the directory first and run this script again."
         echo "Exiting..."
         echo
@@ -65,7 +65,7 @@ set -e
 bash Miniconda_Install.sh -b -f -p $InstallDir
 
 # Activate the new environment
-PATH="$(pwd)/$InstallDir/bin":$PATH
+PATH="$InstallDir/bin":$PATH
 
 # Make the new python environment completely independent
 # Modify the site.py file so that USER_SITE is not imported
@@ -109,7 +109,7 @@ if [[ $EntryPoint ]]; then
     mkdir Scripts
     ln -s ../bin/$EntryPoint Scripts/$EntryPoint
 
-    echo "$EntryPoint script installed to $(pwd)/Scripts"
+    echo "$EntryPoint script installed to $InstallDir/Scripts"
     echo
     echo "Add folder to path by appending to .bash_profile?"
     read -p "[y/n] >>> " -r
@@ -117,7 +117,7 @@ if [[ $EntryPoint ]]; then
     if [[ ($REPLY == "yes") || ($REPLY == "Yes") || ($REPLY == "YES") ||
         ($REPLY == "y") || ($REPLY == "Y")]]
     then
-        echo "export PATH=\"$(pwd)/Scripts\":\$PATH" >> ~/.bash_profile
+        echo "export PATH=\"$InstallDir/Scripts\":\$PATH" >> ~/.bash_profile
         echo "Your PATH was updated."
         echo "Restart the terminal for the change to take effect"
     else

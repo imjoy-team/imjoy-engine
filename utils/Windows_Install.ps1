@@ -35,10 +35,10 @@ Write-Host "`nDownloading Miniconda Installer...`n"
 
 # Install Python environment through Miniconda
 Write-Host "Installing Miniconda...`n"
-Start-Process Miniconda_Install.exe "/S /AddToPath=0 /D=$pwd\$InstallDir" -Wait
+Start-Process Miniconda_Install.exe "/S /AddToPath=0 /D=$InstallDir" -Wait
 
 # Install Dependences to the new Python environment
-$env:Path = "$pwd\$InstallDir\Scripts;" + $env:Path
+$env:Path = "$InstallDir\Scripts;" + $env:Path
 
 # Make the new python environment completely independent
 # Modify the site.py file so that USER_SITE is not imported
@@ -84,9 +84,9 @@ conda clean -iltp --yes
 if(Test-Path variable:EntryPoint)
 {
     # Move entry-point executable to an isolated folder
-    $script_folder = "$pwd\$InstallDir\PathScripts"
+    $script_folder = "$InstallDir\PathScripts"
     New-Item $script_folder -type directory | Out-Null
-    Move-Item $pwd\$InstallDir\Scripts\$EntryPoint.exe $script_folder
+    Move-Item $InstallDir\Scripts\$EntryPoint.exe $script_folder
 
     # Ask user if they want to update path
     $title = "Update Path"
