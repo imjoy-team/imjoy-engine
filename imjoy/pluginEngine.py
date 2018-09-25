@@ -55,7 +55,7 @@ if opt.serve:
             print('Failed to install git, please check whether you have internet access.')
             sys.exit(3)
     if os.path.exists(imjpath) and os.path.isdir(imjpath):
-        ret = subprocess.Popen('cd '+imjpath+' && git pull', shell=False).wait()
+        ret = subprocess.Popen('git pull', cwd=imjpath, shell=False).wait()
         if ret != 0:
             shutil.rmtree(imjpath)
     if not os.path.exists(imjpath):
