@@ -23,8 +23,7 @@ if [ "$condaPath" = "" ]; then
   else
     echo "Unsupported OS."
   fi
-
-$HOME/ImJoyApp/python -m imjoy
+  $HOME/ImJoyApp/bin/python -m imjoy
 else
 condaRoot=`dirname "$condaPath"`
 $condaRoot/python -m imjoy
