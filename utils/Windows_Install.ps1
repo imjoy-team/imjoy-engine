@@ -1,3 +1,11 @@
+# For Windows 7, Windows 8, Windows Server 2008 R2 or Windows Server 2012, run the following commands as Administrator:
+# x86 (32 bit)
+# Open C:\Windows\SysWOW64\cmd.exe
+# Run the command powershell Set-ExecutionPolicy RemoteSigned
+# x64 (64 bit)
+# Open C:\Windows\system32\cmd.exe
+# Run the command powershell Set-ExecutionPolicy RemoteSigned
+
 $ErrorActionPreference = "Stop"
 
 # Name of application to install
@@ -26,16 +34,16 @@ $PyPiPackage="git+https://github.com/oeway/ImJoy-Python#egg=imjoy"
 $EntryPoint=""
 
 Write-Host ("`nInstalling $AppName to "+"$InstallDir")
-New-Item $InstallDir -ErrorAction Ignore -type directory | Out-Null
+New-Item $InstallDir -type directory -Force | Out-Null
 
 # Download Latest Miniconda Installer
 Write-Host "`nDownloading Miniconda Installer...`n"
-
 (New-Object System.Net.WebClient).DownloadFile("https://repo.continuum.io/miniconda/Miniconda3-latest-Windows-x86_64.exe", "$InstallDir\Miniconda_Install.exe")
 
-# Install Python environment through Miniconda
 Write-Host "Installing Miniconda...`n"
 Start-Process $InstallDir\Miniconda_Install.exe "/S /AddToPath=0 /D=$InstallDir" -Wait
+
+$env:Path = "$InstallDir;" + $env:Path
 
 # Install Dependences to the new Python environment
 $env:Path = "$InstallDir\Scripts;" + $env:Path
@@ -57,16 +65,15 @@ with open(site_file,'w') as fout:
 "@
 python -c $site_program
 
+Write-Host "Upgrading PyPi and conda...`n"
+pip install pip --upgrade
+conda update conda
+
 if(Test-Path variable:CondaDeps)
 {
     Write-Host "Installing Conda dependencies...`n"
     conda install $CondaDeps -y
 }
-
-Write-Host "Upgrading PyPi and conda...`n"
-pip install pip --upgrade
-conda update conda
-
 
 if(Test-Path variable:PyPiPackage)
 {
@@ -84,54 +91,15 @@ if(Test-Path variable:LocalPackage)
 Remove-Item "$InstallDir\Miniconda_Install.exe"
 conda clean -iltp --yes
 
-# Add Entry Point to path
-
-if(Test-Path variable:EntryPoint)
-{
-    # Move entry-point executable to an isolated folder
-    $script_folder = "$InstallDir\PathScripts"
-    New-Item $script_folder -type directory | Out-Null
-    Move-Item $InstallDir\Scripts\$EntryPoint.exe $script_folder
-
-    # Ask user if they want to update path
-    $title = "Update Path"
-    $message = "`nDo you want to add the $EntryPoint script to your User PATH?"
-
-    $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes", `
-        "Prepends the User PATH variable with the location of the $EntryPoint script"
-
-    $no = New-Object System.Management.Automation.Host.ChoiceDescription "&No", `
-        "User PATH is not modified"
-
-    $options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
-
-    $result = $host.ui.PromptForChoice($title, $message, $options, 0)
-
-    if($result -eq 0)
-    {
-        # Update the user's path
-        $old_path = (Get-ItemProperty -Path HKCU:\Environment).Path
-        $new_path = $script_folder + ";" + $old_path
-        cmd /c "setx PATH $new_path"
-        Set-ItemProperty -Path HKCU:\Environment -Name PATH -Value $new_path
-        Write-Host "User PATH has been updated"
-        Write-Host "Open a new command prompt to see the change"
-    }
-    else
-    {
-        Write-Host "User PATH was not modified.`n"
-        Write-Host "You may want to add the $EntryPoint script to your path."
-        Write-Host "It is located in: $script_folder`n"
-    }
-}
+Write-Host "Downloading ImJoy Icon...`n"
+(New-Object System.Net.WebClient).DownloadFile("https://raw.githubusercontent.com/oeway/ImJoy-Python/master/utils/imjoy.ico", "$InstallDir\imjoy.ico")
 
 # create a shortcut to the desktop
 $WshShell = New-Object -comObject WScript.Shell
-strDesktop = WshShell.SpecialFolders("Desktop")
-$Shortcut = $WshShell.CreateShortcut(strDesktop + "ImJoy Plugin Engine.lnk")
-# $Shortcut.IconLocation = "$env:userprofile\ImJoyApp"
+$Shortcut = $WshShell.CreateShortcut("$Home\Desktop\ImJoy Plugin Engine.lnk")
+$Shortcut.IconLocation = "$InstallDir\imjoy.ico, 0"
 $Shortcut.WorkingDirectory = "$env:userprofile"
-$Shortcut.TargetPath = "$env:userprofile\ImJoyApp\bin\python.exe"
+$Shortcut.TargetPath = "$env:userprofile\ImJoyApp\python.exe"
 $Shortcut.Arguments = "-m imjoy"
 $Shortcut.Save()
 
