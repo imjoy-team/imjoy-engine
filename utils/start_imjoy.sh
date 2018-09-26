@@ -2,12 +2,16 @@
 export PATH=$HOME/ImJoyApp/bin:/anaconda/bin/:$HOME/miniconda/bin/:$HOME/anaconda/bin/:$PATH
 condaPath=`which conda`
 if [ "$condaPath" = "" ]; then
+  if [ -d "$HOME/ImJoyApp" ]; then
+    DATE_WITH_TIME=`date "+%Y%m%d-%H%M%S"`
+    mv "$HOME/ImJoyApp" "$HOME/ImJoyApp-$DATE_WITH_TIME"
+  fi
   if [[ "$OSTYPE" == "linux-gnu" ]]; then
     # Linux
     bash ./Linux_Install.sh || bash ./ImJoy.app/Contents/Resources/Linux_Install.sh
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     # Mac OSX
-    bash ./Linux_Install.sh || bash ./ImJoy.app/Contents/Resources/OSX_Install.sh
+    bash ./OSX_Install.sh || bash ./ImJoy.app/Contents/Resources/OSX_Install.sh
   elif [[ "$OSTYPE" == "freebsd"* ]]; then
     # ...
     bash ./Linux_Install.sh || bash ./ImJoy.app/Contents/Resources/Linux_Install.sh
