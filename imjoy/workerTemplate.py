@@ -3,7 +3,6 @@ import logging
 import time
 import os
 import sys
-import six
 import random
 import math
 import traceback
@@ -248,7 +247,7 @@ class PluginConnection():
                 vObj = {'__jailed_type__': 'ndarray', '__value__' : v_bytes, '__shape__': v.shape, '__dtype__': str(v.dtype)}
             elif type(v) is dict or type(v) is list:
                 vObj = self._encode(v, callbacks)
-            elif not isinstance(v, six.string_types) and type(v) is bytes:
+            elif not isinstance(v, basestring) and type(v) is bytes:
                 vObj = v.decode() # covert python3 bytes to str
             elif isinstance(v, Exception):
                 vObj = {'__jailed_type__': 'error', '__value__' : str(v)}
