@@ -91,8 +91,8 @@ if(Test-Path variable:LocalPackage)
 Remove-Item "$InstallDir\Miniconda_Install.exe"
 conda clean -iltp --yes
 
-Write-Host "Downloading ImJoy Icon...`n"
-(New-Object System.Net.WebClient).DownloadFile("https://raw.githubusercontent.com/oeway/ImJoy-Python/master/utils/imjoy.ico", "$InstallDir\imjoy.ico")
+$WorkingDir = Convert-Path .
+Copy-Item $WorkingDir\imjoy.ico -Destination $InstallDir\imjoy.ico
 
 # create a shortcut to the desktop
 $WshShell = New-Object -comObject WScript.Shell

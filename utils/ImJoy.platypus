@@ -14,6 +14,8 @@
 	<array>
 		<string>OSX_Install.sh</string>
 		<string>Windows_Install.ps1</string>
+		<string>Linux_Install.ps1</string>
+		<string>imjoy.ico</string>
 	</array>
 	<key>Creator</key>
 	<string>Platypus-5.2</string>
