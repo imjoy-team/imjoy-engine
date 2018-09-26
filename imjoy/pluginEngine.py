@@ -70,15 +70,22 @@ if opt.serve:
             sys.exit(4)
     print('Now you can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
     try:
-        webbrowser.open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
+        webbrowser.get(using='google-chrome').ope('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
     except Exception as e:
-        pass
+        try:
+            webbrowser.ope('http://'+opt.host+':'+opt.port+'/browser', new=0, autoraise=True)
+        except Exception as e:
+            print('Failed to open the browser.')
+
 else:
     logger.info("Now you can run Python plugins from https://imjoy.io, token: %s", opt.token)
     try:
-        webbrowser.open('https://imjoy.io/#/app?token='+opt.token, new=0, autoraise=True)
+        webbrowser.get(using='google-chrome').open('https://imjoy.io/#/app?token='+opt.token, new=0, autoraise=True)
     except Exception as e:
-        pass
+        try:
+            webbrowser.ope('http://'+opt.host+':'+opt.port+'/browser', new=0, autoraise=True)
+        except Exception as e:
+            print('Failed to open the browser.')
 
 MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'
@@ -104,7 +111,12 @@ if os.path.exists('__ImJoy__/docs') and os.path.exists('__ImJoy__/docs/index.htm
 else:
     async def index(request):
         return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>You can run "python -m imjoy --serve" to serve ImJoy web app locally.</p>', content_type="text/html")
+
+async def browser_support(request):
+    return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>Currently, you need to install Google Chrome browser for access all the features of ImJoy. <a href="https://www.google.com/chrome/">Download Chrome</a></p>', content_type="text/html")
+
 app.router.add_get('/', index)
+app.router.add_get('/browser', browser_support)
 
 plugins = {}
 plugin_cids = {}
@@ -118,7 +130,7 @@ default_requirements_py2 = ["psutil", "requests", "six", "websocket-client"]
 default_requirements_py3 = ["psutil", "requests", "six", "websocket-client-py3"]
 
 script_dir = os.path.dirname(os.path.normpath(__file__))
-template_script = os.path.join(script_dir, 'workerTemplate.py')
+template_script = os.path.abspath(os.path.join(script_dir, 'workerTemplate.py'))
 
 if sys.platform == "linux" or sys.platform == "linux2":
     # linux
@@ -201,7 +213,7 @@ async def on_init_plugin(sid, kwargs):
 
             logger.info('creating environment: %s', env)
             if env not in cmd_history:
-                subprocess.Popen(env.split(), shell=False, env=plugin_env).wait()
+                subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir).wait()
                 cmd_history.append(env)
             else:
                 logger.debug('skip command: %s', env)
@@ -250,7 +262,7 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=execute, args=[requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --workspace='+workspace, './', abort, pid, plugin_env])
+        taskThread = threading.Thread(target=execute, args=[requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --workspace='+workspace, work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
@@ -366,11 +378,11 @@ def process_output(line):
     print(line)
     return True
 
-def execute(requirements_cmd, args, workdir, abort, name, plugin_env):
+def execute(requirements_cmd, args, work_dir, abort, name, plugin_env):
     try:
         logger.info('installing requirements: %s', requirements_cmd)
         if requirements_cmd not in cmd_history:
-            ret = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env).wait()
+            ret = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir).wait()
             if ret != 0:
                 git_cmd = ''
                 if shutil.which('git') is None:
@@ -381,11 +393,11 @@ def execute(requirements_cmd, args, workdir, abort, name, plugin_env):
                     logger.info('pip command failed, trying to install git and pip...')
                     # try to install git and pip
                     git_cmd = "conda install -y" + git_cmd
-                    ret = subprocess.Popen(git_cmd.split(), shell=False, env=plugin_env).wait()
+                    ret = subprocess.Popen(git_cmd.split(), shell=False, env=plugin_env, cwd=work_dir).wait()
                     if ret != 0:
                         raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
                     else:
-                        ret = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env).wait()
+                        ret = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir).wait()
                         if ret != 0:
                             raise Exception('Failed to install dependencies with exit code: '+str(ret))
                 else:
@@ -407,7 +419,7 @@ def execute(requirements_cmd, args, workdir, abort, name, plugin_env):
     logger.info('%s task started.', name)
     unrecognized_output = []
     env['PYTHONPATH'] = os.pathsep.join(
-        ['.', workdir, env.get('PYTHONPATH', '')] + sys.path)
+        ['.', work_dir, env.get('PYTHONPATH', '')] + sys.path)
 
     args = ' '.join(args)
     logger.info('Task subprocess args: %s', args)
@@ -421,7 +433,7 @@ def execute(requirements_cmd, args, workdir, abort, name, plugin_env):
     try:
         # we use shell mode, so it won't work nicely on windows
         p = subprocess.Popen(args, bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                  shell=True, universal_newlines=True, env=plugin_env, **kwargs)
+                  shell=True, universal_newlines=True, env=plugin_env, cwd=work_dir, **kwargs)
         pid = p.pid
     except Exception as e:
         print('error from task:', e)
