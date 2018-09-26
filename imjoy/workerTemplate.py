@@ -219,6 +219,10 @@ class PluginConnection():
         for k in keys:
             v = aObject[k]
             value = None
+            try:
+                basestring
+            except NameError:
+                basestring = str
             if callable(v):
                 interfaceFuncName = None
                 for name in self._interface:
