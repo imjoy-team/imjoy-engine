@@ -99,8 +99,8 @@ $WshShell = New-Object -comObject WScript.Shell
 $Shortcut = $WshShell.CreateShortcut("$Home\Desktop\ImJoy Plugin Engine.lnk")
 $Shortcut.IconLocation = "$InstallDir\imjoy.ico, 0"
 $Shortcut.WorkingDirectory = "$env:userprofile"
-$Shortcut.TargetPath = "$env:userprofile\ImJoyApp\python.exe"
-$Shortcut.Arguments = "-m imjoy"
+$Shortcut.TargetPath = "$PsHome\powershell.exe"
+$Shortcut.Arguments = "-command ""& {`$env:Path = '$InstallDir;$InstallDir\Scripts;' + `$env:Path ; python -m imjoy}"""
 $Shortcut.Save()
 
 Write-Host "`n$AppName Successfully Installed"
