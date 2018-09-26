@@ -1,7 +1,6 @@
 #!/bin/bash
 export PATH=$HOME/ImJoyApp/bin:/anaconda/bin/:$HOME/miniconda/bin/:$HOME/anaconda/bin/:$PATH
 condaPath=`which conda`
-echo $condaPath
 if [ "$condaPath" = "" ]; then
   if [[ "$OSTYPE" == "linux-gnu" ]]; then
     # Linux
@@ -26,5 +25,5 @@ if [ "$condaPath" = "" ]; then
   $HOME/ImJoyApp/bin/python -m imjoy
 else
 condaRoot=`dirname "$condaPath"`
-$condaRoot/python -m imjoy
+$condaRoot/python -m imjoy || pip install git+https://github.com/oeway/ImJoy-Python#egg=imjoy && $condaRoot/python -m imjoy
 fi

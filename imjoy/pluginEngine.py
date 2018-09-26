@@ -70,20 +70,20 @@ if opt.serve:
             sys.exit(4)
     print('Now you can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
     try:
-        webbrowser.get(using='google-chrome').open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
+        webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
     except Exception as e:
         try:
-            webbrowser.open('http://'+opt.host+':'+opt.port+'/browser', new=0, autoraise=True)
+            webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
         except Exception as e:
             print('Failed to open the browser.')
 
 else:
     logger.info("Now you can run Python plugins from https://imjoy.io, token: %s", opt.token)
     try:
-        webbrowser.get(using='google-chrome').open('https://imjoy.io/#/app?token='+opt.token, new=0, autoraise=True)
+        webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
     except Exception as e:
         try:
-            webbrowser.open('http://'+opt.host+':'+opt.port+'/browser', new=0, autoraise=True)
+            webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
         except Exception as e:
             print('Failed to open the browser.')
 
@@ -112,11 +112,15 @@ else:
     async def index(request):
         return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>You can run "python -m imjoy --serve" to serve ImJoy web app locally.</p>', content_type="text/html")
 
-async def browser_support(request):
-    return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>Currently, you need to install Google Chrome browser for access all the features of ImJoy. <a href="https://www.google.com/chrome/">Download Chrome</a></p>', content_type="text/html")
+async def about(request):
+    params = request.rel_url.query
+    body = '<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>Currently, you need to install Google Chrome browser for access all the features of ImJoy. <a href="https://www.google.com/chrome/">Download Chrome</a></p>'
+    if 'token' in params:
+        body += '<H2>Open ImJoy App with connection token:'+params['token'] + '   <a href="https://imjoy.io/#/app?token="'+params['token']+'>ImJoy.IO</a></H2>'
+    return web.Response(body=body, content_type="text/html")
 
 app.router.add_get('/', index)
-app.router.add_get('/browser', browser_support)
+app.router.add_get('/about', about)
 
 plugins = {}
 plugin_cids = {}
