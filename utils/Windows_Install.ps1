@@ -92,7 +92,12 @@ Remove-Item "$InstallDir\Miniconda_Install.exe"
 conda clean -iltp --yes
 
 $WorkingDir = Convert-Path .
-Copy-Item $WorkingDir\imjoy.ico -Destination $InstallDir\imjoy.ico
+if([System.IO.File]::Exists($WorkingDir\imjoy.ico)){
+    Copy-Item $WorkingDir\imjoy.ico -Destination $InstallDir\imjoy.ico
+}
+if([System.IO.File]::Exists($WorkingDir\ImJoy.app\Contents\Resources\imjoy.ico)){
+    Copy-Item $WorkingDir\ImJoy.app\Contents\Resources\imjoy.ico -Destination $InstallDir\imjoy.ico
+}
 
 # create a shortcut to the desktop
 $WshShell = New-Object -comObject WScript.Shell
