@@ -18,7 +18,6 @@ import uuid
 import shutil
 import webbrowser
 
-from subprocess import Popen, PIPE, STDOUT
 try:
     from Queue import Queue, Empty
 except ImportError:
@@ -162,6 +161,11 @@ async def on_init_plugin(sid, kwargs):
     pname = config.get('name', None)
     requirements = config.get('requirements', []) or []
     workspace = config.get('workspace', 'default')
+    work_dir = os.path.join(WORKSPACES_DIR, workspace)
+    if not os.path.exists(work_dir):
+        os.makedirs(work_dir)
+    plugin_env = os.environ.copy()
+    plugin_env['WORK_DIR'] = work_dir
 
     logger.info("initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s", pname, id, cmd, workspace)
 
@@ -197,7 +201,7 @@ async def on_init_plugin(sid, kwargs):
 
             logger.info('creating environment: %s', env)
             if env not in cmd_history:
-                subprocess.Popen(env.split(), shell=False).wait()
+                subprocess.Popen(env.split(), shell=False, env=plugin_env).wait()
                 cmd_history.append(env)
             else:
                 logger.debug('skip command: %s', env)
@@ -246,7 +250,7 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=execute, args=[requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --workspace='+workspace, './', abort, pid])
+        taskThread = threading.Thread(target=execute, args=[requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --workspace='+workspace, './', abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
@@ -362,11 +366,11 @@ def process_output(line):
     print(line)
     return True
 
-def execute(requirements_cmd, args, workdir, abort, name):
+def execute(requirements_cmd, args, workdir, abort, name, plugin_env):
     try:
         logger.info('installing requirements: %s', requirements_cmd)
         if requirements_cmd not in cmd_history:
-            ret = subprocess.Popen(requirements_cmd, shell=True).wait()
+            ret = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env).wait()
             if ret != 0:
                 git_cmd = ''
                 if shutil.which('git') is None:
@@ -377,11 +381,11 @@ def execute(requirements_cmd, args, workdir, abort, name):
                     logger.info('pip command failed, trying to install git and pip...')
                     # try to install git and pip
                     git_cmd = "conda install -y" + git_cmd
-                    ret = subprocess.Popen(git_cmd.split(), shell=False).wait()
+                    ret = subprocess.Popen(git_cmd.split(), shell=False, env=plugin_env).wait()
                     if ret != 0:
                         raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
                     else:
-                        ret = subprocess.Popen(requirements_cmd, shell=True).wait()
+                        ret = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env).wait()
                         if ret != 0:
                             raise Exception('Failed to install dependencies with exit code: '+str(ret))
                 else:
@@ -416,8 +420,8 @@ def execute(requirements_cmd, args, workdir, abort, name):
 
     try:
         # we use shell mode, so it won't work nicely on windows
-        p = Popen(args, bufsize=0, stdout=PIPE, stderr=STDOUT,
-                  shell=True, universal_newlines=True, **kwargs)
+        p = subprocess.Popen(args, bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                  shell=True, universal_newlines=True, env=plugin_env, **kwargs)
         pid = p.pid
     except Exception as e:
         print('error from task:', e)
