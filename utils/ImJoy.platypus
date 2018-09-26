@@ -12,14 +12,15 @@
 	<string>Wei Ouyang</string>
 	<key>BundledFiles</key>
 	<array>
-		<string>./OSX_Install.sh</string>
+		<string>OSX_Install.sh</string>
+		<string>Windows_Install.ps1</string>
 	</array>
 	<key>Creator</key>
 	<string>Platypus-5.2</string>
 	<key>DeclareService</key>
 	<false/>
 	<key>Destination</key>
-	<string>./Application.app</string>
+	<string>/Users/wei/Desktop/Application.app</string>
 	<key>DevelopmentVersion</key>
 	<false/>
 	<key>DocIconPath</key>
@@ -29,7 +30,7 @@
 	<key>ExecutablePath</key>
 	<string>/usr/local/share/platypus/ScriptExec</string>
 	<key>IconPath</key>
-	<string>./imjoy-icon.png</string>
+	<string>imjoy.icns</string>
 	<key>Identifier</key>
 	<string>org.imod.imjoy</string>
 	<key>InterfaceType</key>
@@ -55,7 +56,7 @@
 	<key>ScriptArgs</key>
 	<array/>
 	<key>ScriptPath</key>
-	<string>./start_imjoy.sh</string>
+	<string>start_imjoy.sh</string>
 	<key>StatusItemDisplayType</key>
 	<string>Text</string>
 	<key>StatusItemIconIsTemplate</key>
@@ -84,6 +85,6 @@
 	<key>UseXMLPlistFormat</key>
 	<false/>
 	<key>Version</key>
-	<string>0.4.2</string>
+	<string>0.4.3</string>
 </dict>
 </plist>
