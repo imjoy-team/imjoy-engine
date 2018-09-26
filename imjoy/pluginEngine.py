@@ -116,7 +116,7 @@ async def about(request):
     params = request.rel_url.query
     body = '<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>Currently, you need to install Google Chrome browser for access all the features of ImJoy. <a href="https://www.google.com/chrome/">Download Chrome</a></p>'
     if 'token' in params:
-        body += '<H2>Open ImJoy App with connection token:'+params['token'] + '   <a href="https://imjoy.io/#/app?token="'+params['token']+'>ImJoy.IO</a></H2>'
+        body += '<H2>Open ImJoy App with connection token:'+params['token'] + '   <a href="https://imjoy.io/#/app?token='+params['token']+'">ImJoy.IO</a></H2>'
     return web.Response(body=body, content_type="text/html")
 
 app.router.add_get('/', index)
