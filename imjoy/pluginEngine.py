@@ -27,7 +27,7 @@ except ImportError:
 # add executable path to PATH
 os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
 
-logging.basicConfig()
+logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger('PluginEngine')
 
 def get_token():
@@ -44,7 +44,12 @@ parser.add_argument('--debug', action="store_true", help='debug mode')
 parser.add_argument('--serve', action="store_true", help='download ImJoy web app and serve it locally')
 parser.add_argument('--host', type=str, default='localhost', help='socketio host')
 parser.add_argument('--port', type=str, default='8080', help='socketio port')
+parser.add_argument('--workspaces', type=str, default='~/ImJoyApp/workspaces', help='workspaces for plugins')
 opt = parser.parse_args()
+
+WORKSPACES_DIR = os.path.expanduser(opt.workspaces)
+if not os.path.exists(WORKSPACES_DIR):
+    os.makedirs(WORKSPACES_DIR)
 
 if opt.serve:
     imjpath = '__ImJoy__'
@@ -156,8 +161,9 @@ async def on_init_plugin(sid, kwargs):
     cmd = config.get('cmd', 'python')
     pname = config.get('name', None)
     requirements = config.get('requirements', []) or []
+    workspace = config.get('workspace', 'default')
 
-    logger.info("initialize the plugin. name=%s, id=%s, cmd=%s", pname, id, cmd)
+    logger.info("initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s", pname, id, cmd, workspace)
 
     if pid in plugins:
         if client_id in plugin_cids:
@@ -240,7 +246,7 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=execute, args=[requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE, './', abort, pid])
+        taskThread = threading.Thread(target=execute, args=[requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --workspace='+workspace, './', abort, pid])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)

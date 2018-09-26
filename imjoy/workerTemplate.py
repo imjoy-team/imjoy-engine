@@ -19,12 +19,16 @@ try:
 except ImportError:
     import Queue as queue
 
-logging.basicConfig()
+logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger('plugin')
 logger.setLevel(logging.INFO)
 # import logging
 # logging.basicConfig(level=logging.DEBUG)
 ARRAY_CHUNK = 1000000
+
+WORKSPACES_DIR = os.path.expanduser("~/ImJoyApp/workspaces")
+if not os.path.exists(WORKSPACES_DIR):
+    os.makedirs(WORKSPACES_DIR)
 
 if '' not in sys.path:
     sys.path.insert(0, '')
@@ -32,6 +36,8 @@ if '' not in sys.path:
 imjoy_path = os.path.dirname(os.path.normpath(__file__))
 if imjoy_path not in sys.path:
     sys.path.insert(0, imjoy_path)
+
+
 
 def setInterval(interval):
     def decorator(function):
@@ -144,7 +150,15 @@ def kill(proc_pid):
 api_utils = dotdict(kill=kill)
 
 class PluginConnection():
-    def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, namespace='/', api=None):
+    def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, namespace='/', workspace='', api=None):
+        self.workspace = workspace
+        if workspace is None or workspace == '':
+            self.work_dir = os.getcwd()
+        else:
+            self.work_dir = os.path.join(WORKSPACES_DIR, workspace)
+            if not os.path.exists(self.work_dir):
+                os.makedirs(self.work_dir)
+            os.chdir(self.work_dir)
         socketIO = SocketIO(host, port, LoggingNamespace)
         self.socketIO = socketIO
         self._init = False
@@ -424,6 +438,7 @@ class PluginConnection():
         _remote["ndarray"] = self._ndarray
         _remote["export"] = self.setInterface
         _remote["utils"] = api_utils
+        _remote["WORK_DIR"] = self.work_dir
         self._local["api"] = _remote
 
     def sio_plugin_message(self, *args):
@@ -524,11 +539,12 @@ if __name__ == "__main__":
     parser.add_argument('--id', type=str, required=True, help='plugin id')
     parser.add_argument('--secret', type=str, required=True, help='plugin secret')
     parser.add_argument('--namespace', type=str, default='/', help='socketio namespace')
+    parser.add_argument('--workspace', type=str, default='', help='plugin workspace')
     parser.add_argument('--host', type=str, default='localhost', help='socketio host')
     parser.add_argument('--port', type=str, default='8080', help='socketio port')
     parser.add_argument('--debug', action="store_true", help='debug mode')
     opt = parser.parse_args()
     if opt.debug:
         logger.setLevel(logging.DEBUG)
-    pc = PluginConnection(opt.id, opt.secret, host=opt.host, port=int(opt.port))
+    pc = PluginConnection(opt.id, opt.secret, host=opt.host, port=int(opt.port), workspace=opt.workspace)
     pc.wait_forever()
