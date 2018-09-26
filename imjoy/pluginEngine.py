@@ -70,10 +70,10 @@ if opt.serve:
             sys.exit(4)
     print('Now you can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
     try:
-        webbrowser.get(using='google-chrome').ope('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
+        webbrowser.get(using='google-chrome').open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
     except Exception as e:
         try:
-            webbrowser.ope('http://'+opt.host+':'+opt.port+'/browser', new=0, autoraise=True)
+            webbrowser.open('http://'+opt.host+':'+opt.port+'/browser', new=0, autoraise=True)
         except Exception as e:
             print('Failed to open the browser.')
 
@@ -83,7 +83,7 @@ else:
         webbrowser.get(using='google-chrome').open('https://imjoy.io/#/app?token='+opt.token, new=0, autoraise=True)
     except Exception as e:
         try:
-            webbrowser.ope('http://'+opt.host+':'+opt.port+'/browser', new=0, autoraise=True)
+            webbrowser.open('http://'+opt.host+':'+opt.port+'/browser', new=0, autoraise=True)
         except Exception as e:
             print('Failed to open the browser.')
 
