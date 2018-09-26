@@ -114,9 +114,10 @@ else:
 
 async def about(request):
     params = request.rel_url.query
-    body = '<H1><a href="https://imjoy.io">ImJoy.IO</a></H1>'
     if 'token' in params:
-        body += '<H2>Connection token: '+params['token'] + ' <br> <a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></H2>'
+        body = '<H1><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></H1><br> <p>Connection token: '+params['token'] + '</p>'
+    else:
+        body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
     body += '<p>Note: you need to install Google Chrome browser for access all the features of ImJoy. <a href="https://www.google.com/chrome/">Download Chrome</a></p>'
     return web.Response(body=body, content_type="text/html")
 
