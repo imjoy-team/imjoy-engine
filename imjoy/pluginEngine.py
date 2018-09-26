@@ -297,6 +297,10 @@ async def on_register_client(sid, kwargs):
     if token != opt.token:
         logger.debug('token mismatch: %s != %s', token, opt.token)
         print('======== Connection Token: '+opt.token + ' ========')
+        try:
+            webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
+        except Exception as e:
+            print('Failed to open the browser.')
         attempt_count += 1
         if attempt_count>= MAX_ATTEMPTS:
             logger.info("Client exited because max attemps exceeded: %s", attempt_count)
