@@ -11,7 +11,7 @@ goto:eof
   pause
   powershell Set-ExecutionPolicy RemoteSigned
   IF NOT %ERRORLEVEL%==0 GOTO RequirePermission
-  powershell -file ImJoy.app\Contents\Resources\Windows_Install.ps1
+  powershell -ExecutionPolicy Bypass -file ImJoy.app\Contents\Resources\Windows_Install.ps1
   pause
   goto:eof
 :RequirePermission
