@@ -25,8 +25,8 @@ $PyPiPackage="git+https://github.com/oeway/ImJoy-Python#egg=imjoy"
 #   (Though not sure why this script would be useful otherwise)
 $EntryPoint=""
 
-Write-Host ("`nInstalling $AppName to "+(get-location).path+"\$InstallDir")
-
+Write-Host ("`nInstalling $AppName to "+"$InstallDir")
+New-Item $InstallDir -ErrorAction Ignore -type directory | Out-Null
 
 # Download Latest Miniconda Installer
 Write-Host "`nDownloading Miniconda Installer...`n"
@@ -63,6 +63,11 @@ if(Test-Path variable:CondaDeps)
     conda install $CondaDeps -y
 }
 
+Write-Host "Upgrading PyPi and conda...`n"
+pip install pip --upgrade
+conda update conda
+
+
 if(Test-Path variable:PyPiPackage)
 {
     Write-Host "Installing PyPi dependencies...`n"
@@ -76,7 +81,7 @@ if(Test-Path variable:LocalPackage)
 }
 
 # Cleanup
-Remove-Item "Miniconda_Install.exe"
+Remove-Item "$InstallDir\Miniconda_Install.exe"
 conda clean -iltp --yes
 
 # Add Entry Point to path

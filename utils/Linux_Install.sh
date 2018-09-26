@@ -5,7 +5,7 @@ set -e
 AppName="ImJoy"
 
 # Set your project's install directory name here
-InstallDir="~/ImJoyApp"
+InstallDir="$HOME/ImJoyApp"
 
 # Dependencies installed by Conda
 # Comment out the next line if no Conda dependencies
@@ -52,6 +52,8 @@ if [ -d $InstallDir ]; then
         echo
         exit 1
     fi
+else
+    mkdir $InstallDir
 fi
 
 # Download and install Miniconda
@@ -83,6 +85,10 @@ with open(site_file,'w') as fout:
     fout.writelines(lines)
 END
 
+# Upgrade pip and conda
+pip install pip --upgrade
+conda update conda
+
 # Install Conda Dependencies
 if [[ $CondaDeps ]]; then
     conda install $CondaDeps -y
@@ -99,7 +105,7 @@ if [[ $LocalPackage ]]; then
 fi
 
 # Cleanup
-rm Miniconda_Install.sh
+rm $InstallDir/Miniconda_Install.sh
 conda clean -iltp --yes
 
 # Add Entry Point to the path
