@@ -1,5 +1,4 @@
 import os
-from aiohttp import web
 import asyncio
 import socketio
 import logging
@@ -17,6 +16,8 @@ import argparse
 import uuid
 import shutil
 import webbrowser
+import psutil
+from aiohttp import web, WSCloseCode
 
 try:
     from Queue import Queue, Empty
@@ -217,12 +218,6 @@ async def on_init_plugin(sid, kwargs):
             if '-y' not in parms:
                 env = env.replace('create', 'create -y')
 
-            logger.info('creating environment: %s', env)
-            if env not in cmd_history:
-                subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir).wait()
-                cmd_history.append(env)
-            else:
-                logger.debug('skip command: %s', env)
         except Exception as e:
             await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to create environment."})
             logger.error('failed to execute plugin: %s', str(e))
@@ -268,7 +263,7 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=execute, args=[requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --work_dir='+work_dir, work_dir, abort, pid, plugin_env])
+        taskThread = threading.Thread(target=launch_plugin, args=[env, requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --work_dir='+work_dir, work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
@@ -285,7 +280,7 @@ async def on_kill_plugin(sid, kwargs):
     if pid in plugins:
         print('killing plugin ' + pid)
         await sio.emit('to_plugin_'+plugins[pid]['secret'], {'type': 'disconnect'})
-
+        plugins[pid]['abort'].set()
     return {'success': True}
 
 
@@ -389,8 +384,22 @@ def process_output(line):
     sys.stdout.flush()
     return True
 
-def execute(requirements_cmd, args, work_dir, abort, name, plugin_env):
+def launch_plugin(env, requirements_cmd, args, work_dir, abort, name, plugin_env):
+    if abort.is_set():
+        logger.info('plugin aborting...')
+        return False
     try:
+        logger.info('creating environment: %s', env)
+        if env not in cmd_history:
+            subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir).wait()
+            cmd_history.append(env)
+        else:
+            logger.debug('skip command: %s', env)
+
+        if abort.is_set():
+            logger.info('plugin aborting...')
+            return False
+
         logger.info('installing requirements: %s', requirements_cmd)
         if requirements_cmd not in cmd_history:
             ret = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir).wait()
@@ -420,6 +429,9 @@ def execute(requirements_cmd, args, work_dir, abort, name, plugin_env):
         # await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
         logger.error('failed to execute plugin: %s', str(e))
 
+    if abort.is_set():
+        logger.info('plugin aborting...')
+        return False
     # env = os.environ.copy()
     if type(args) is str:
         args = args.split()
@@ -451,6 +463,14 @@ def execute(requirements_cmd, args, work_dir, abort, name, plugin_env):
             break
         sys.stdout.write(nextline)
         sys.stdout.flush()
+        if abort.is_set():
+            logger.info('plugin aborting...')
+            p = psutil.Process(process.pid)
+            for proc in p.children(recursive=True):
+                proc.kill()
+            p.kill()
+            logger.info('plugin process is killed.')
+            return False
 
     output = process.communicate()[0]
     exitCode = process.returncode
@@ -461,17 +481,13 @@ def execute(requirements_cmd, args, work_dir, abort, name, plugin_env):
         logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n output:%s\n', str(command), str(exitCode), str(output))
 
 print('======>> Connection Token: '+opt.token + ' <<======')
-
-try:
-    web.run_app(app, host=opt.host, port=opt.port)
-finally:
-    print('closing plugins...')
-    loop = asyncio.get_event_loop()
+async def on_shutdown(app):
+    print('shutting down...')
     for sid in plugin_sids:
         try:
-            loop.run_until_complete(on_kill_plugin(sid, {"id":plugin_sids[sid]['id']}))
+            await on_kill_plugin(sid, {"id":plugin_sids[sid]['id']})
         finally:
             pass
-    loop.close()
-    time.sleep(0.2)
-    print('done.')
+    print('Plugin engine exited!')
+app.on_shutdown.append(on_shutdown)
+web.run_app(app, host=opt.host, port=opt.port)
