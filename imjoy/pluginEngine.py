@@ -458,7 +458,7 @@ def execute(requirements_cmd, args, work_dir, abort, name, plugin_env):
     if (exitCode == 0):
         return output
     else:
-        logger.info('error occured during terminating a process, code: ' + str(ProcessException(command, exitCode, output)))
+        logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n output:%s\n', str(command), str(exitCode), str(output))
 
 print('======>> Connection Token: '+opt.token + ' <<======')
 
