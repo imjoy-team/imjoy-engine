@@ -419,7 +419,7 @@ def execute(requirements_cmd, args, work_dir, abort, name, plugin_env):
         # await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
         logger.error('failed to execute plugin: %s', str(e))
 
-    env = os.environ.copy()
+    # env = os.environ.copy()
     if type(args) is str:
         args = args.split()
     if not args:
@@ -428,8 +428,8 @@ def execute(requirements_cmd, args, work_dir, abort, name, plugin_env):
     args = [str(x) for x in args if str(x) != '']
     logger.info('%s task started.', name)
     unrecognized_output = []
-    env['PYTHONPATH'] = os.pathsep.join(
-        ['.', work_dir, env.get('PYTHONPATH', '')] + sys.path)
+    # env['PYTHONPATH'] = os.pathsep.join(
+    #     ['.', work_dir, env.get('PYTHONPATH', '')] + sys.path)
 
     args = ' '.join(args)
     logger.info('Task subprocess args: %s', args)
