@@ -386,6 +386,7 @@ async def disconnect(sid):
 
 def process_output(line):
     print(line)
+    sys.stdout.flush()
     return True
 
 def execute(requirements_cmd, args, work_dir, abort, name, plugin_env):
@@ -440,87 +441,24 @@ def execute(requirements_cmd, args, work_dir, abort, name, plugin_env):
     if sys.platform != "win32":
         kwargs.update(preexec_fn=os.setsid)
 
-    try:
-        # we use shell mode, so it won't work nicely on windows
-        p = subprocess.Popen(args, bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                  shell=True, universal_newlines=True, env=plugin_env, cwd=work_dir, **kwargs)
-        pid = p.pid
-    except Exception as e:
-        print('error from task:', e)
-        # traceback.print_exc()
-        #task.set('status.error', # traceback.format_exc())
-        # end(force_quit=True)
-        return False
-    # run the shell as a subprocess:
+    process = subprocess.Popen(args, bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+              shell=True, universal_newlines=True, env=plugin_env, cwd=work_dir, **kwargs)
 
-    nbsr = NonBlockingStreamReader(p.stdout)
-    try:
-        sigterm_time = None  # When was the SIGTERM signal sent
-        sigterm_timeout = 2  # When should the SIGKILL signal be sent
-        # get the output
-        endofstream = False
-        while p.poll() is None or not endofstream:
-            try:
-                line = nbsr.readline(0.1)
-            except(UnexpectedEndOfStream):
-                line = None
-                endofstream = True
+    # Poll process for new output until finished
+    while True:
+        nextline = process.stdout.readline()
+        if nextline == '' and process.poll() is not None:
+            break
+        sys.stdout.write(nextline)
+        sys.stdout.flush()
 
-            if line is not None:
-                # Remove whitespace
-                line = line.strip()
-            if line:
-                try:
-                    if not process_output(line):
-                        logger.warning('%s unrecognized output: %s' % (name, line.strip()))
-                        unrecognized_output.append(line)
-                except Exception as e:
-                    print('error from task:', e)
-                    # traceback.print_exc()
-                    #task.set('status.error', # traceback.format_exc())
-            else:
-                time.sleep(0.05)
+    output = process.communicate()[0]
+    exitCode = process.returncode
 
-            if abort.is_set():
-                if sigterm_time is None:
-                    # Attempt graceful shutdown
-                    p.send_signal(signal.SIGINT)
-                    p.send_signal(signal.SIGTERM)
-                    try:
-                        os.killpg(os.getpgid(pid), signal.SIGTERM)
-                    except Exception as e:
-                        pass
-                    sigterm_time = time.time()
-            if sigterm_time is not None and (time.time() - sigterm_time > sigterm_timeout):
-                p.send_signal(signal.SIGKILL)
-                logger.warning('Sent SIGKILL to task "%s"' % name)
-                time.sleep(0.1)
-    except:
-        # traceback.print_exc()
-        try:
-            p.terminate()
-        except Exception as e:
-            logger.info('error occured during terminating a process.')
-        raise
-    if abort.is_set():
-        return False
-    elif p.returncode != 0:
-        # Report that this task is finished
-        logger.error('%s task failed with error code %s' %
-                          (name, str(p.returncode)))
-        # if exception is None:
-        #     exception = 'error code %s' % str(p.returncode)
-        #     if unrecognized_output:
-        #         if traceback is None:
-        #             traceback = '\n'.join(unrecognized_output)
-        #         else:
-        #             traceback = traceback + \
-        #                 ('\n'.join(unrecognized_output))
-        logger.info('error from task %s', p.returncode)
-        return False
+    if (exitCode == 0):
+        return output
     else:
-        logger.info('%s task completed.', name)
-        return True
+        logger.info('error occured during terminating a process, code: ' + str(ProcessException(command, exitCode, output)))
 
 class NonBlockingStreamReader:
 
