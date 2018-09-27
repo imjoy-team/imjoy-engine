@@ -216,7 +216,7 @@ async def on_init_plugin(sid, kwargs):
 
             if '-y' not in parms:
                 env = env.replace('create', 'create -y')
-            env += ' && pip install --upgrade pip'
+
             logger.info('creating environment: %s', env)
             if env not in cmd_history:
                 subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir).wait()
