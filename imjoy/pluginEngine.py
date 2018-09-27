@@ -43,12 +43,12 @@ parser.add_argument('--debug', action="store_true", help='debug mode')
 parser.add_argument('--serve', action="store_true", help='download ImJoy web app and serve it locally')
 parser.add_argument('--host', type=str, default='localhost', help='socketio host')
 parser.add_argument('--port', type=str, default='8080', help='socketio port')
-parser.add_argument('--workspaces', type=str, default='~/ImJoyApp/workspaces', help='workspaces for plugins')
+parser.add_argument('--workspace', type=str, default='~/ImJoyWorkspace', help='workspace folder for plugins')
 opt = parser.parse_args()
 
-WORKSPACES_DIR = os.path.expanduser(opt.workspaces)
-if not os.path.exists(WORKSPACES_DIR):
-    os.makedirs(WORKSPACES_DIR)
+WORKSPACE_DIR = os.path.expanduser(opt.workspace)
+if not os.path.exists(WORKSPACE_DIR):
+    os.makedirs(WORKSPACE_DIR)
 
 if opt.serve:
     imjpath = '__ImJoy__'
@@ -179,7 +179,7 @@ async def on_init_plugin(sid, kwargs):
     pname = config.get('name', None)
     requirements = config.get('requirements', []) or []
     workspace = config.get('workspace', 'default')
-    work_dir = os.path.join(WORKSPACES_DIR, workspace)
+    work_dir = os.path.join(WORKSPACE_DIR, workspace)
     if not os.path.exists(work_dir):
         os.makedirs(work_dir)
     plugin_env = os.environ.copy()
@@ -268,7 +268,7 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=execute, args=[requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --workspace='+workspace, work_dir, abort, pid, plugin_env])
+        taskThread = threading.Thread(target=execute, args=[requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --work_dir='+work_dir, work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)

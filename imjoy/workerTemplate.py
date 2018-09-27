@@ -25,10 +25,6 @@ logger.setLevel(logging.INFO)
 # logging.basicConfig(level=logging.DEBUG)
 ARRAY_CHUNK = 1000000
 
-WORKSPACES_DIR = os.path.expanduser("~/ImJoyApp/workspaces")
-if not os.path.exists(WORKSPACES_DIR):
-    os.makedirs(WORKSPACES_DIR)
-
 if '' not in sys.path:
     sys.path.insert(0, '')
 
@@ -36,7 +32,18 @@ imjoy_path = os.path.dirname(os.path.normpath(__file__))
 if imjoy_path not in sys.path:
     sys.path.insert(0, imjoy_path)
 
-
+def debounce(s):
+    """Decorator ensures function that can only be called once every `s` seconds.
+    """
+    def decorate(f):
+        d = {'t': None}
+        def wrapped(*args, **kwargs):
+            if d['t'] is None or time.time() - d['t'] >= s:
+                result = f(*args, **kwargs)
+                d['t'] = time.time()
+                return result
+        return wrapped
+    return decorate
 
 def setInterval(interval):
     def decorator(function):
@@ -146,15 +153,14 @@ def kill(proc_pid):
         proc.kill()
     process.kill()
 
-api_utils = dotdict(kill=kill)
+api_utils = dotdict(kill=kill, debounce=debounce, setInterval=setInterval)
 
 class PluginConnection():
-    def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, namespace='/', workspace='', api=None):
-        self.workspace = workspace
-        if workspace is None or workspace == '':
+    def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, namespace='/', work_dir=None, api=None):
+        if work_dir is None or work_dir == '' or work_dir == '.':
             self.work_dir = os.getcwd()
         else:
-            self.work_dir = os.path.join(WORKSPACES_DIR, workspace)
+            self.work_dir = work_dir
             if not os.path.exists(self.work_dir):
                 os.makedirs(self.work_dir)
             os.chdir(self.work_dir)
@@ -163,6 +169,7 @@ class PluginConnection():
         self._init = False
         self.secret = secret
         self.id = pid
+
         def emit(msg):
             socketIO.emit('from_plugin_'+ secret, msg)
         self.emit = emit
@@ -542,12 +549,12 @@ if __name__ == "__main__":
     parser.add_argument('--id', type=str, required=True, help='plugin id')
     parser.add_argument('--secret', type=str, required=True, help='plugin secret')
     parser.add_argument('--namespace', type=str, default='/', help='socketio namespace')
-    parser.add_argument('--workspace', type=str, default='', help='plugin workspace')
+    parser.add_argument('--work_dir', type=str, default='', help='plugin working directory')
     parser.add_argument('--host', type=str, default='localhost', help='socketio host')
     parser.add_argument('--port', type=str, default='8080', help='socketio port')
     parser.add_argument('--debug', action="store_true", help='debug mode')
     opt = parser.parse_args()
     if opt.debug:
         logger.setLevel(logging.DEBUG)
-    pc = PluginConnection(opt.id, opt.secret, host=opt.host, port=int(opt.port), workspace=opt.workspace)
+    pc = PluginConnection(opt.id, opt.secret, host=opt.host, port=int(opt.port), work_dir=opt.work_dir)
     pc.wait_forever()
