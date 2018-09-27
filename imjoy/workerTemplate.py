@@ -11,7 +11,7 @@ from functools import reduce
 import inspect
 import psutil
 import threading
-from socketIO_client import SocketIO, LoggingNamespace
+from socketIO_client import SocketIO, LoggingNamespace, find_callback
 
 try:
     import queue
@@ -156,7 +156,7 @@ def kill(proc_pid):
 api_utils = dotdict(kill=kill, debounce=debounce, setInterval=setInterval)
 
 class PluginConnection():
-    def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, namespace='/', work_dir=None, api=None):
+    def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, namespace='/', work_dir=None, daemon=False, api=None):
         if work_dir is None or work_dir == '' or work_dir == '.':
             self.work_dir = os.getcwd()
         else:
@@ -169,6 +169,7 @@ class PluginConnection():
         self._init = False
         self.secret = secret
         self.id = pid
+        self.daemon = daemon
 
         def emit(msg):
             socketIO.emit('from_plugin_'+ secret, msg)
@@ -189,10 +190,11 @@ class PluginConnection():
         self.emit({"type": "initialized", "dedicatedThread": True})
 
         def on_disconnect():
-            self.exit(1)
+            if not self.daemon:
+                self.exit(1)
         socketIO.on('disconnect', on_disconnect)
-
-        t = threading.Thread(target=self.message_handler, args=(self.q,))
+        self.abort = threading.Event()
+        t = threading.Thread(target=self.task_worker, args=(self.q, self.abort))
         t.daemon = True
         t.start()
 
@@ -456,47 +458,58 @@ class PluginConnection():
         if data['type']== 'import':
             self.emit({'type':'importSuccess', 'url': data['url']})
         elif data['type']== 'disconnect':
-            self.exit(0)
-        else:
-            if data['type'] == 'execute':
-                if not self._executed:
-                    try:
-                        type = data['code']['type']
-                        content = data['code']['content']
-                        exec(content, self._local)
-                        self.emit({'type':'executeSuccess'})
-                        self._executed = True
-                    except Exception as e:
-                        logger.info('error during execution: %s', traceback.format_exc())
-                        self.emit({'type':'executeFailure', 'error': repr(e)})
-                else:
-                    logger.debug('skip execution.')
-                    self.emit({'type':'executeSuccess'})
-            elif data['type'] == 'message':
-                d = data['data']
-                if d['type'] == 'getInterface':
-                    self._sendInterface()
-                elif d['type'] == 'setInterface':
-                    self._setRemote(d['api'])
-                    self.emit({'type':'interfaceSetAsRemote'})
-                    if not self._init:
-                        self.emit({'type':'getInterface'})
-                        self._init = True
-                elif d['type'] == 'interfaceSetAsRemote':
-                    #self.emit({'type':'getInterface'})
-                    self._remote_set = True
-                else:
-                    self.q.put(d)
-                    logger.debug('added task to the queue')
-                sys.stdout.flush()
-                time.sleep(0)
+            self.abort.set()
+            callback, args = find_callback(args)
+            try:
+                if 'exit' in self._interface and callable(self._interface['exit']):
+                    self._interface['exit']()
+            except Exception as e:
+                logger.error('Error when exiting: %s', e)
+            if callback:
+                callback(*args)
+        elif data['type'] == 'execute':
+            if not self._executed:
+                self.q.put(data)
+            else:
+                logger.debug('skip execution.')
+                self.emit({'type':'executeSuccess'})
+        elif data['type'] == 'message':
+            d = data['data']
+            if d['type'] == 'getInterface':
+                self._sendInterface()
+            elif d['type'] == 'setInterface':
+                self._setRemote(d['api'])
+                self.emit({'type':'interfaceSetAsRemote'})
+                if not self._init:
+                    self.emit({'type':'getInterface'})
+                    self._init = True
+            elif d['type'] == 'interfaceSetAsRemote':
+                #self.emit({'type':'getInterface'})
+                self._remote_set = True
+            else:
+                self.q.put(d)
+                logger.debug('added task to the queue')
+        sys.stdout.flush()
 
-    def message_handler(self, q):
+    def task_worker(self, q, abort):
         while True:
             try:
+                if abort.is_set():
+                    break
                 d = q.get()
                 q.task_done()
-                if d is not None and d['type'] == 'method':
+                if d is not None and d['type'] == 'execute':
+                    if not self._executed:
+                        try:
+                            type = d['code']['type']
+                            content = d['code']['content']
+                            exec(content, self._local)
+                            self._executed = True
+                            self.emit({'type':'executeSuccess'})
+                        except Exception as e:
+                            logger.info('error during execution: %s', traceback.format_exc())
+                            self.emit({'type':'executeFailure', 'error': repr(e)})
+                elif d is not None and d['type'] == 'method':
                     if d['name'] in self._interface:
                         if 'promise' in d:
                             try:
@@ -542,7 +555,8 @@ class PluginConnection():
             except queue.Empty:
                 time.sleep(0.1)
             finally:
-                time.sleep(0)
+                if abort.is_set():
+                    break
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -552,6 +566,7 @@ if __name__ == "__main__":
     parser.add_argument('--work_dir', type=str, default='', help='plugin working directory')
     parser.add_argument('--host', type=str, default='localhost', help='socketio host')
     parser.add_argument('--port', type=str, default='8080', help='socketio port')
+    parser.add_argument('--daemon', action="store_true", help='daemon mode')
     parser.add_argument('--debug', action="store_true", help='debug mode')
     opt = parser.parse_args()
     if opt.debug:

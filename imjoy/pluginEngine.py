@@ -44,9 +44,11 @@ parser.add_argument('--debug', action="store_true", help='debug mode')
 parser.add_argument('--serve', action="store_true", help='download ImJoy web app and serve it locally')
 parser.add_argument('--host', type=str, default='localhost', help='socketio host')
 parser.add_argument('--port', type=str, default='8080', help='socketio port')
+parser.add_argument('--force_quit_timeout', type=int, default=5, help='the time (in second) for waiting before kill a plugin process, default: 5 s')
 parser.add_argument('--workspace', type=str, default='~/ImJoyWorkspace', help='workspace folder for plugins')
 opt = parser.parse_args()
 
+FORCE_QUIT_TIMEOUT = opt.force_quit_timeout
 WORKSPACE_DIR = os.path.expanduser(opt.workspace)
 if not os.path.exists(WORKSPACE_DIR):
     os.makedirs(WORKSPACE_DIR)
@@ -263,7 +265,7 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=launch_plugin, args=[env, requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --work_dir='+work_dir, work_dir, abort, pid, plugin_env])
+        taskThread = threading.Thread(target=launch_plugin, args=[pid, env, requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --work_dir='+work_dir, work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
@@ -272,17 +274,44 @@ async def on_init_plugin(sid, kwargs):
         logger.error(e)
         return {'success': False}
 
-
+async def force_kill_timeout(t, obj):
+    pid = obj['pid']
+    for i in range(int(t*10)):
+        if obj['force_kill']:
+            await asyncio.sleep(0.1)
+        else:
+            return
+    try:
+        logger.warning('Timeout, force quitting %s', pid)
+        plugins[pid]['abort'].set()
+        p = psutil.Process(plugins[pid]['process_id'])
+        for proc in p.children(recursive=True):
+            proc.kill()
+        p.kill()
+    except Exception as e:
+        logger.error(e)
+    finally:
+        return
 
 @sio.on('kill_plugin', namespace=NAME_SPACE)
 async def on_kill_plugin(sid, kwargs):
     pid = kwargs['id']
+    timeout_kill = None
     if pid in plugins:
-        print('killing plugin ' + pid)
-        await sio.emit('to_plugin_'+plugins[pid]['secret'], {'type': 'disconnect'})
-        plugins[pid]['abort'].set()
+        print('Killing plugin ', pid)
+        obj = {'force_kill': True, 'pid': pid}
+        def exited(result):
+            obj['force_kill'] = False
+            logger.info('Plugin %s exited normally.', pid)
+            # kill the plugin now
+            plugins[pid]['abort'].set()
+            p = psutil.Process(plugins[pid]['process_id'])
+            for proc in p.children(recursive=True):
+                proc.kill()
+            p.kill()
+        await sio.emit('to_plugin_'+plugins[pid]['secret'], {'type': 'disconnect'}, callback=exited)
+        await force_kill_timeout(FORCE_QUIT_TIMEOUT, obj)
     return {'success': True}
-
 
 @sio.on('register_client', namespace=NAME_SPACE)
 async def on_register_client(sid, kwargs):
@@ -352,6 +381,7 @@ async def on_message(sid, kwargs):
 
 @sio.on('disconnect', namespace=NAME_SPACE)
 async def disconnect(sid):
+    tasks = []
     if sid in clients_sids:
         cid = clients_sids[sid]
         del clients_sids[sid]
@@ -360,7 +390,7 @@ async def disconnect(sid):
         if cid in clients or len(clients[cid])==0:
             if cid in plugin_cids:
                 for plugin in plugin_cids[cid]:
-                    await on_kill_plugin(sid, plugin)
+                    tasks.append(on_kill_plugin(sid, plugin))
                 del plugin_cids[cid]
 
     # plugin is terminating
@@ -376,33 +406,34 @@ async def disconnect(sid):
                     exist = p
             if exist:
                 plugin_cids[cid].remove(exist)
+                tasks.append(on_kill_plugin(sid, exist))
+    asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
 
-
-def process_output(line):
-    print(line)
-    sys.stdout.flush()
-    return True
-
-def launch_plugin(env, requirements_cmd, args, work_dir, abort, name, plugin_env):
+def launch_plugin(pid, env, requirements_cmd, args, work_dir, abort, name, plugin_env):
     if abort.is_set():
         logger.info('plugin aborting...')
         return False
     try:
-        logger.info('creating environment: %s', env)
-        if env not in cmd_history:
-            subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir).wait()
-            cmd_history.append(env)
-        else:
-            logger.debug('skip command: %s', env)
+        if env is not None and env != '':
+            logger.info('creating environment: %s', env)
+            if env not in cmd_history:
+                process = subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir)
+                plugins[pid]['process_id'] = process.pid
+                process.wait()
+                cmd_history.append(env)
+            else:
+                logger.debug('skip command: %s', env)
 
-        if abort.is_set():
-            logger.info('plugin aborting...')
-            return False
+            if abort.is_set():
+                logger.info('plugin aborting...')
+                return False
 
         logger.info('installing requirements: %s', requirements_cmd)
         if requirements_cmd not in cmd_history:
-            ret = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir).wait()
+            process = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir)
+            plugins[pid]['process_id'] = process.pid
+            ret = process.wait()
             if ret != 0:
                 git_cmd = ''
                 if shutil.which('git') is None:
@@ -413,11 +444,15 @@ def launch_plugin(env, requirements_cmd, args, work_dir, abort, name, plugin_env
                     logger.info('pip command failed, trying to install git and pip...')
                     # try to install git and pip
                     git_cmd = "conda install -y" + git_cmd
-                    ret = subprocess.Popen(git_cmd.split(), shell=False, env=plugin_env, cwd=work_dir).wait()
+                    process = subprocess.Popen(git_cmd.split(), shell=False, env=plugin_env, cwd=work_dir)
+                    plugins[pid]['process_id'] = process.pid
+                    ret = process.wait()
                     if ret != 0:
                         raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
                     else:
-                        ret = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir).wait()
+                        process = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir)
+                        plugins[pid]['process_id'] = process.pid
+                        ret = process.wait()
                         if ret != 0:
                             raise Exception('Failed to install dependencies with exit code: '+str(ret))
                 else:
@@ -455,7 +490,7 @@ def launch_plugin(env, requirements_cmd, args, work_dir, abort, name, plugin_env
 
     process = subprocess.Popen(args, bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
               shell=True, universal_newlines=True, env=plugin_env, cwd=work_dir, **kwargs)
-
+    plugins[pid]['process_id'] = process.pid
     # Poll process for new output until finished
     while True:
         nextline = process.stdout.readline()
@@ -464,7 +499,7 @@ def launch_plugin(env, requirements_cmd, args, work_dir, abort, name, plugin_env
         sys.stdout.write(nextline)
         sys.stdout.flush()
         if abort.is_set():
-            logger.info('plugin aborting...')
+            logger.info('Plugin aborting...')
             p = psutil.Process(process.pid)
             for proc in p.children(recursive=True):
                 proc.kill()
@@ -474,20 +509,23 @@ def launch_plugin(env, requirements_cmd, args, work_dir, abort, name, plugin_env
 
     output = process.communicate()[0]
     exitCode = process.returncode
-
     if (exitCode == 0):
         return output
     else:
-        logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n output:%s\n', str(command), str(exitCode), str(output))
+        logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n output:%s\n', str(args), str(exitCode), str(output))
 
 print('======>> Connection Token: '+opt.token + ' <<======')
 async def on_shutdown(app):
-    print('shutting down...')
+    print('Shutting down...')
+    logger.info('Shutting down the plugin engine...')
+    tasks = []
     for sid in plugin_sids:
         try:
-            await on_kill_plugin(sid, {"id":plugin_sids[sid]['id']})
+            tasks.append(on_kill_plugin(sid, {"id":plugin_sids[sid]['id']}))
         finally:
             pass
-    print('Plugin engine exited!')
+    asyncio.gather(*tasks)
+    print('Shutting down the plugins, you may need to wait for a while. \n Press CTRL+C again to quit.')
+    logger.info('done.')
 app.on_shutdown.append(on_shutdown)
 web.run_app(app, host=opt.host, port=opt.port)
