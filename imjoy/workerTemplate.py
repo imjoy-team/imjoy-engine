@@ -427,22 +427,24 @@ class PluginConnection():
     def _setRemote(self, api):
         _remote = dotdict()
         for i in range(len(api)):
-            name = api[i]["name"]
-            data = api[i]["data"]
-            if data is not None:
-                if type(data) == 'dict':
-                    data2 = {}
-                    for key in data:
-                        if key in data:
-                            if data[key] == "**@@FUNCTION@@**:"+key:
-                                data2[key] = self._genRemoteMethod(name+'.'+key)
-                            else:
-                                data2[key] = data[key]
-                    _remote[name] = data2
+            if type(api[i]) is dict and "name" in api[i]:
+                name = api[i]["name"]
+                data = api[i].get("data", None)
+                if data is not None:
+                    if type(data) == 'dict':
+                        data2 = {}
+                        for key in data:
+                            if key in data:
+                                if data[key] == "**@@FUNCTION@@**:"+key:
+                                    data2[key] = self._genRemoteMethod(name+'.'+key)
+                                else:
+                                    data2[key] = data[key]
+                        _remote[name] = data2
+                    else:
+                        _remote[name] = data
                 else:
-                    _remote[name] = data
-            else:
-                _remote[name] = self._genRemoteMethod(name)
+                    _remote[name] = self._genRemoteMethod(name)
+
         self._setLocalAPI(_remote)
         return _remote
 
