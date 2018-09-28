@@ -536,7 +536,12 @@ async def on_shutdown(app):
         print("Force shutting down now!")
         sys.stdout.flush()
         logger.debug('Plugin engine is killed.')
-        os._exit(1)
+
+        cp = psutil.Process(os.getpid())
+        for proc in cp.children(recursive=True):
+            proc.kill()
+        cp.kill()
+        # os._exit(1)
     t = threading.Thread(target=loop)
     t.daemon = True # stop if the program exits
     t.start()
