@@ -1,6 +1,12 @@
 #!/bin/bash
-export PATH=$HOME/ImJoyApp/bin:$PATH
+export PATH_BK=$PATH
+export DEFAULT_PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# detect conda in ImJoyApp
+
+export PATH=$HOME/ImJoyApp/bin:$DEFAULT_PATH
 condaPath=`which conda`
+
+export PATH=$HOME/ImJoyApp/bin:$PATH_BK:$DEFAULT_PATH
 if [ "$condaPath" = "" ]; then
   if [ -d "$HOME/ImJoyApp" ]; then
     DATE_WITH_TIME=`date "+%Y%m%d-%H%M%S"`
@@ -18,6 +24,13 @@ if [ "$condaPath" = "" ]; then
   else
     echo "Unsupported OS."
   fi
+  # detect conda in ImJoyApp
+  export PATH=$HOME/ImJoyApp/bin:$DEFAULT_PATH
+  condaPath=`which conda`
+  if [ "$condaPath" = "" ]; then
+    echo "Failed to install Miniconda for ImJoy."
+  fi
+  export PATH=$HOME/ImJoyApp/bin:$PATH_BK:$DEFAULT_PATH
   $HOME/ImJoyApp/bin/python -m imjoy
 else
 condaRoot=`dirname "$condaPath"`
