@@ -11,6 +11,7 @@ from functools import reduce
 import inspect
 import psutil
 import threading
+import copy
 from socketIO_client import SocketIO, LoggingNamespace, find_callback
 
 try:
@@ -65,6 +66,9 @@ class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+
+    def __deepcopy__(self, memo=None):
+        return dotdict(copy.deepcopy(dict(self), memo=memo))
 
 class Promise(object):
     def resolve(self, result):
