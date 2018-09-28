@@ -493,31 +493,56 @@ def launch_plugin(pid, env, requirements_cmd, args, work_dir, abort, name, plugi
     plugins[pid]['process_id'] = process.pid
     # Poll process for new output until finished
     while True:
-        nextline = process.stdout.readline()
-        if nextline == '' and process.poll() is not None:
+        out = process.stdout.read(1)
+        if out == '' and process.poll() != None:
             break
-        sys.stdout.write(nextline)
-        sys.stdout.flush()
+        if out != '':
+            sys.stdout.write(out)
+            sys.stdout.flush()
         if abort.is_set():
-            logger.info('Plugin aborting...')
-            p = psutil.Process(process.pid)
-            for proc in p.children(recursive=True):
-                proc.kill()
-            p.kill()
-            logger.info('plugin process is killed.')
+            break
+
+    try:
+        logger.info('Plugin aborting...')
+        p = psutil.Process(process.pid)
+        for proc in p.children(recursive=True):
+            proc.kill()
+        p.kill()
+        logger.info('plugin process is killed.')
+        output = process.communicate()[0]
+        exitCode = process.returncode
+    except Exception as e:
+        exitCode = 100
+    finally:
+        if (exitCode == 0):
+            return True
+        else:
+            logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n output:%s\n', str(args), str(exitCode))
             return False
 
-    output = process.communicate()[0]
-    exitCode = process.returncode
-    if (exitCode == 0):
-        return output
-    else:
-        logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n output:%s\n', str(args), str(exitCode), str(output))
 
 print('======>> Connection Token: '+opt.token + ' <<======')
 async def on_shutdown(app):
     print('Shutting down...')
     logger.info('Shutting down the plugin engine...')
+    stopped = threading.Event()
+    def loop(): # executed in another thread
+        for i in range(10):
+            print("Exiting: " + str(10 - i))
+            sys.stdout.flush()
+            time.sleep(1)
+            if stopped.is_set():
+                break
+        print("Force shutting down now!")
+        sys.stdout.flush()
+        logger.debug('Plugin engine is killed.')
+        os._exit(1)
+    t = threading.Thread(target=loop)
+    t.daemon = True # stop if the program exits
+    t.start()
+
+    print('Shutting down the plugins...')
+    sys.stdout.flush()
     tasks = []
     for sid in plugin_sids:
         try:
@@ -525,7 +550,8 @@ async def on_shutdown(app):
         finally:
             pass
     asyncio.gather(*tasks)
-    print('Shutting down the plugins, you may need to wait for a while. \n Press CTRL+C again to quit.')
-    logger.info('done.')
+    stopped.set()
+    logger.info('Plugin engine exited.')
+
 app.on_shutdown.append(on_shutdown)
 web.run_app(app, host=opt.host, port=opt.port)
