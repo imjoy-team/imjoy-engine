@@ -1,5 +1,5 @@
 #!/bin/bash
-export PATH=$HOME/ImJoyApp/bin:/anaconda/bin/:$HOME/miniconda/bin/:$HOME/anaconda/bin/:$PATH
+export PATH=$HOME/ImJoyApp/bin:$PATH
 condaPath=`which conda`
 if [ "$condaPath" = "" ]; then
   if [ -d "$HOME/ImJoyApp" ]; then
