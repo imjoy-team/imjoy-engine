@@ -21,6 +21,7 @@ from aiohttp import web
 from aiohttp import WSCloseCode
 from aiohttp import streamer
 from urllib.parse import urlparse
+from mimetypes import MimeTypes
 
 try:
     from Queue import Queue, Empty
@@ -365,7 +366,7 @@ def scandir(path, type=None, recursive=False):
 async def on_list_dir(sid, kwargs):
     if sid not in clients_sids:
         logger.debug('client %s is not registered.', sid)
-        return {'success': False}
+        return {'success': False, 'error': 'client has not been registered.'}
     path = kwargs.get('path', '~')
     type = kwargs.get('type', None)
     recursive = kwargs.get('recursive', False)
@@ -431,9 +432,10 @@ async def download_file(request):
                 return web.json_response(file_list)
             else:
                 _, file_name = os.path.split(file_path)
+                mime_type = MimeTypes().guess_type(file_name)[0] or 'application/octet-stream'
                 return web.Response(
                     body=file_sender(file_path=file_path),
-                    headers= headers or {'Content-disposition': 'inline; filename="{filename}"'.format(filename=file_name)}
+                    headers= headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=file_name), 'Content-Type': mime_type}
                 )
     elif fileInfo['type'] == 'file':
         file_path = fileInfo['path']
@@ -445,23 +447,35 @@ async def download_file(request):
                 body='File <{file_name}> does not exist'.format(file_name=file_path),
                 status=404
             )
+        mime_type = MimeTypes().guess_type(file_name)[0] or 'application/octet-stream'
         return web.Response(
             body=file_sender(file_path=file_path),
-            headers= headers or {'Content-disposition': 'inline; filename="{filename}"'.format(filename=file_name)}
+            headers = headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=file_name), 'Content-Type': mime_type}
         )
     else:
         return web.Response(text='Unsupported file type: '+ fileInfo['type'])
 
 app.router.add_get('/file/{urlid}', download_file)
 
-@sio.on('generate_file_url', namespace=NAME_SPACE)
-async def on_generate_file_url(sid, kwargs):
+@sio.on('get_file_url', namespace=NAME_SPACE)
+async def on_get_file_url(sid, kwargs):
     logger.info("generating file url: %s", kwargs)
-    pid = kwargs['pid']
-    secret = kwargs['secret']
+
+    pid = kwargs.get('pid', None)
+    secret = kwargs.get('secret', None)
+    if pid is None and secret is None:
+        if sid not in clients_sids:
+            logger.debug('client %s is not registered.', sid)
+            return {'success': False, 'error': 'client has not been registered'}
+    elif pid is not None and secret is not None:
+        if plugins[pid]['secret'] != secret:
+            return {'success': False, 'error': 'invalid secret.' }
+    else:
+        return {'success': False, 'error': 'invalid inputs'}
+
     path = os.path.abspath(kwargs['path'])
     if not os.path.exists(path):
-        return {'sucess': False, 'error': 'file does not exist.'}
+        return {'success': False, 'error': 'file does not exist.'}
     fileInfo = {'path': path}
     if os.path.isdir(path):
         fileInfo['type'] = 'dir'
@@ -471,35 +485,42 @@ async def on_generate_file_url(sid, kwargs):
         fileInfo['headers'] = kwargs['headers']
     _, name = os.path.split(path)
     fileInfo['name'] = name
-    if plugins[pid]['secret'] == secret:
-        if path in generatedUrlFiles:
-            return {'sucess': True, 'url': generatedUrlFiles[path]}
-        else:
-            urlid = str(uuid.uuid4())
-            generatedUrls[urlid] = fileInfo
-            generatedUrlFiles[path] = f'http://{opt.host}:{opt.port}/file/{urlid}?name={name}'
-            if kwargs.get('password', None):
-                fileInfo['password'] = kwargs['password']
-                generatedUrlFiles[path] +='&password=' + fileInfo['password']
-            return {'sucess': True, 'url': generatedUrlFiles[path]}
-    else:
-        return {'sucess': False, 'error': f'invalid secret.' }
 
-@sio.on('convert_file_url', namespace=NAME_SPACE)
-async def on_convert_file_url(sid, kwargs):
-    logger.info("generating file url: %s", kwargs)
-    pid = kwargs['pid']
-    secret = kwargs['secret']
-    url = kwargs['url']
-    if plugins[pid]['secret'] == secret:
-        urlid = urlparse(url).path.replace('/file/', '')
-        if urlid in generatedUrls:
-            fileInfo = generatedUrls[urlid]
-            return {'sucess': True, 'path': fileInfo['path']}
-        else:
-            return {'sucess': False, 'error': 'url not found.' }
+    if path in generatedUrlFiles:
+        return {'success': True, 'url': generatedUrlFiles[path]}
     else:
-        return {'sucess': False, 'error': 'invalid secret.' }
+        urlid = str(uuid.uuid4())
+        generatedUrls[urlid] = fileInfo
+        generatedUrlFiles[path] = f'http://{opt.host}:{opt.port}/file/{urlid}?name={name}'
+        if kwargs.get('password', None):
+            fileInfo['password'] = kwargs['password']
+            generatedUrlFiles[path] +='&password=' + fileInfo['password']
+        return {'success': True, 'url': generatedUrlFiles[path]}
+
+
+@sio.on('get_file_path', namespace=NAME_SPACE)
+async def on_get_file_path(sid, kwargs):
+    logger.info("generating file url: %s", kwargs)
+
+    pid = kwargs.get('pid', None)
+    secret = kwargs.get('secret', None)
+    if pid is None and secret is None:
+        if sid not in clients_sids:
+            logger.debug('client %s is not registered.', sid)
+            return {'success': False, 'error': 'client has not been registered'}
+    elif pid is not None and secret is not None:
+        if plugins[pid]['secret'] != secret:
+            return {'success': False, 'error': 'invalid secret.' }
+    else:
+        return {'success': False, 'error': 'invalid inputs'}
+
+    url = kwargs['url']
+    urlid = urlparse(url).path.replace('/file/', '')
+    if urlid in generatedUrls:
+        fileInfo = generatedUrls[urlid]
+        return {'success': True, 'path': fileInfo['path']}
+    else:
+        return {'success': False, 'error': 'url not found.' }
 
 @sio.on('message', namespace=NAME_SPACE)
 async def on_message(sid, kwargs):
