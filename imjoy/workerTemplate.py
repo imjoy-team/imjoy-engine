@@ -157,7 +157,14 @@ def kill(proc_pid):
         proc.kill()
     process.kill()
 
-api_utils = dotdict(kill=kill, debounce=debounce, setInterval=setInterval)
+def ndarray(typedArray, shape, dtype):
+    _dtype = type(typedArray)
+    if dtype and dtype != _dtype:
+        raise Exception("dtype doesn't match the type of the array: "+_dtype+' != '+dtype)
+    shape = shape or (len(typedArray), )
+    return {"__jailed_type__": 'ndarray', "__value__" : typedArray, "__shape__": shape, "__dtype__": _dtype}
+
+api_utils = dotdict(ndarray=ndarray, kill=kill, debounce=debounce, setInterval=setInterval)
 
 class PluginConnection():
     def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, namespace='/', work_dir=None, daemon=False, api=None):
@@ -377,13 +384,6 @@ class PluginConnection():
         result = self._decode(args["args"], args["callbackId"], withPromise)
         return result
 
-    def _ndarray(self, typedArray, shape, dtype):
-        _dtype = type(typedArray)
-        if dtype and dtype != _dtype:
-            raise Exception("dtype doesn't match the type of the array: "+_dtype+' != '+dtype)
-        shape = shape or (len(typedArray), )
-        return {"__jailed_type__": 'ndarray', "__value__" : typedArray, "__shape__": shape, "__dtype__": _dtype}
-
     def setInterface(self, api):
         if inspect.isclass(type(api)):
             api = {a:getattr(api, a) for a in dir(api) if not a.startswith('_')}
@@ -452,9 +452,34 @@ class PluginConnection():
         self._setLocalAPI(_remote)
         return _remote
 
+    def _generate_file_url(self, path, password=None, headers=None):
+        def p(resolve, reject):
+            def cb(res):
+                if res['sucess']:
+                    resolve(res['url'])
+                else:
+                    reject(res['error'])
+            if not self.socketIO:
+                reject("The connection is not available.")
+            self.socketIO.emit('generate_file_url', {'pid': self.id, 'secret': self.secret, 'path': os.path.abspath(path), 'password': password, 'headers': headers}, cb)
+        return Promise(p)
+
+    def _convert_file_url(self, url):
+        def p(resolve, reject):
+            def cb(res):
+                if res['sucess']:
+                    resolve(res['path'])
+                else:
+                    reject(res['error'])
+            if not self.socketIO:
+                reject("The connection is not available.")
+            self.socketIO.emit('convert_file_url', {'pid': self.id, 'secret': self.secret, 'url': url}, cb)
+        return Promise(p)
+
     def _setLocalAPI(self, _remote):
-        _remote["ndarray"] = self._ndarray
         _remote["export"] = self.setInterface
+        _remote['generateFileUrl'] = self._generate_file_url
+        _remote['convertFileUrl'] = self._convert_file_url
         _remote["utils"] = api_utils
         _remote["WORK_DIR"] = self.work_dir
         self._local["api"] = _remote
@@ -569,11 +594,12 @@ if __name__ == "__main__":
     parser.add_argument('--id', type=str, required=True, help='plugin id')
     parser.add_argument('--secret', type=str, required=True, help='plugin secret')
     parser.add_argument('--namespace', type=str, default='/', help='socketio namespace')
-    parser.add_argument('--work_dir', type=str, default='', help='plugin working directory')
+    parser.add_argument('--work_dir', type=str, default='.', help='plugin working directory')
     parser.add_argument('--host', type=str, default='localhost', help='socketio host')
     parser.add_argument('--port', type=str, default='8080', help='socketio port')
     parser.add_argument('--daemon', action="store_true", help='daemon mode')
     parser.add_argument('--debug', action="store_true", help='debug mode')
+
     opt = parser.parse_args()
     if opt.debug:
         logger.setLevel(logging.DEBUG)

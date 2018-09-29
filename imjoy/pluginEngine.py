@@ -17,7 +17,10 @@ import uuid
 import shutil
 import webbrowser
 import psutil
-from aiohttp import web, WSCloseCode
+from aiohttp import web
+from aiohttp import WSCloseCode
+from aiohttp import streamer
+from urllib.parse import urlparse
 
 try:
     from Queue import Queue, Empty
@@ -363,17 +366,140 @@ async def on_list_dir(sid, kwargs):
     if sid not in clients_sids:
         logger.debug('client %s is not registered.', sid)
         return {'success': False}
-    path = kwargs.get('path', '.')
+    path = kwargs.get('path', '~')
     type = kwargs.get('type', None)
     recursive = kwargs.get('recursive', False)
     files_list = {'success': True}
-    path = os.path.normpath(path)
+    path = os.path.normpath(os.path.expanduser(path))
     files_list['path'] = path
     files_list['name'] = os.path.basename(os.path.abspath(path))
     files_list['type'] = 'dir'
 
     files_list['children'] = scandir(files_list['path'], type, recursive)
     return files_list
+
+generatedUrls = {}
+generatedUrlFiles = {}
+@streamer
+async def file_sender(writer, file_path=None):
+    """
+    This function will read large file chunk by chunk and send it through HTTP
+    without reading them into memory
+    """
+    with open(file_path, 'rb') as f:
+        chunk = f.read(2 ** 16)
+        while chunk:
+            await writer.write(chunk)
+            chunk = f.read(2 ** 16)
+
+async def download_file(request):
+    urlid = request.match_info['urlid']  # Could be a HUGE file
+    if urlid not in generatedUrls:
+        return web.Response(text='Invalid URL')
+    fileInfo = generatedUrls[urlid]
+    name = request.rel_url.query.get('name', None)
+    if fileInfo.get('password', False):
+        password = request.rel_url.query.get('password', None)
+        if password != fileInfo['password']:
+            return web.Response(text='Incorrect password for accessing this file.')
+    headers = fileInfo.get('headers', None)
+    if fileInfo['type'] == 'dir':
+        dirname = os.path.dirname(name)
+        # list the folder
+        if dirname == '' or dirname is None:
+            if name != fileInfo['name']:
+                return web.Response(text='File name does not match server record!')
+            folder_path = fileInfo['path']
+            if not os.path.exists(folder_path):
+                return web.Response(
+                    body='Folder <{folder_path}> does not exist'.format(folder_path=folder_path),
+                    status=404
+                )
+            else:
+                file_list = scandir(folder_path, 'file', False)
+                return web.json_response(file_list)
+        # list the subfolder or get a file in the folder
+        else:
+            file_path = os.path.join(fileInfo['path'], os.sep.join(name.split('/')[1:]))
+            if not os.path.exists(file_path):
+                return web.Response(
+                    body='File <{file_path}> does not exist'.format(file_path=file_path),
+                    status=404
+                )
+            if os.path.isdir(file_path):
+                file_list = scandir(file_path, 'file', False)
+                return web.json_response(file_list)
+            else:
+                _, file_name = os.path.split(file_path)
+                return web.Response(
+                    body=file_sender(file_path=file_path),
+                    headers= headers or {'Content-disposition': 'inline; filename="{filename}"'.format(filename=file_name)}
+                )
+    elif fileInfo['type'] == 'file':
+        file_path = fileInfo['path']
+        if name != fileInfo['name']:
+            return web.Response(text='File name does not match server record!')
+        file_name = fileInfo['name']
+        if not os.path.exists(file_path):
+            return web.Response(
+                body='File <{file_name}> does not exist'.format(file_name=file_path),
+                status=404
+            )
+        return web.Response(
+            body=file_sender(file_path=file_path),
+            headers= headers or {'Content-disposition': 'inline; filename="{filename}"'.format(filename=file_name)}
+        )
+    else:
+        return web.Response(text='Unsupported file type: '+ fileInfo['type'])
+
+app.router.add_get('/file/{urlid}', download_file)
+
+@sio.on('generate_file_url', namespace=NAME_SPACE)
+async def on_generate_file_url(sid, kwargs):
+    logger.info("generating file url: %s", kwargs)
+    pid = kwargs['pid']
+    secret = kwargs['secret']
+    path = os.path.abspath(kwargs['path'])
+    if not os.path.exists(path):
+        return {'sucess': False, 'error': 'file does not exist.'}
+    fileInfo = {'path': path}
+    if os.path.isdir(path):
+        fileInfo['type'] = 'dir'
+    else:
+        fileInfo['type'] = 'file'
+    if kwargs.get('headers', None):
+        fileInfo['headers'] = kwargs['headers']
+    _, name = os.path.split(path)
+    fileInfo['name'] = name
+    if plugins[pid]['secret'] == secret:
+        if path in generatedUrlFiles:
+            return {'sucess': True, 'url': generatedUrlFiles[path]}
+        else:
+            urlid = str(uuid.uuid4())
+            generatedUrls[urlid] = fileInfo
+            generatedUrlFiles[path] = f'http://{opt.host}:{opt.port}/file/{urlid}?name={name}'
+            if kwargs.get('password', None):
+                fileInfo['password'] = kwargs['password']
+                generatedUrlFiles[path] +='&password=' + fileInfo['password']
+            return {'sucess': True, 'url': generatedUrlFiles[path]}
+    else:
+        return {'sucess': False, 'error': f'invalid secret.' }
+
+@sio.on('convert_file_url', namespace=NAME_SPACE)
+async def on_convert_file_url(sid, kwargs):
+    logger.info("generating file url: %s", kwargs)
+    pid = kwargs['pid']
+    secret = kwargs['secret']
+    url = kwargs['url']
+    if plugins[pid]['secret'] == secret:
+        urlid = urlparse(url).path.replace('/file/', '')
+        if urlid in generatedUrls:
+            fileInfo = generatedUrls[urlid]
+            return {'sucess': True, 'path': fileInfo['path']}
+        else:
+            return {'sucess': False, 'error': 'url not found.' }
+    else:
+        return {'sucess': False, 'error': 'invalid secret.' }
 
 @sio.on('message', namespace=NAME_SPACE)
 async def on_message(sid, kwargs):
