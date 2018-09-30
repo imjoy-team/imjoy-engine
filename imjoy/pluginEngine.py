@@ -473,7 +473,7 @@ async def on_get_file_url(sid, kwargs):
     else:
         return {'success': False, 'error': 'invalid inputs'}
 
-    path = os.path.abspath(kwargs['path'])
+    path = os.path.abspath(os.path.expanduser(kwargs['path']))
     if not os.path.exists(path):
         return {'success': False, 'error': 'file does not exist.'}
     fileInfo = {'path': path}
