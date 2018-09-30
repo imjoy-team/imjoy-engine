@@ -665,8 +665,7 @@ def launch_plugin(pid, env, requirements_cmd, args, work_dir, abort, name, plugi
         if out == '' and process.poll() != None:
             break
         if out != '':
-            sys.stdout.write(out)
-            sys.stdout.flush()
+            print(out, flush=True)
         if abort.is_set():
             break
 
@@ -696,15 +695,12 @@ async def on_shutdown(app):
     stopped = threading.Event()
     def loop(): # executed in another thread
         for i in range(10):
-            print("Exiting: " + str(10 - i))
-            sys.stdout.flush()
+            print("Exiting: " + str(10 - i), flush=True)
             time.sleep(1)
             if stopped.is_set():
                 break
-        print("Force shutting down now!")
-        sys.stdout.flush()
+        print("Force shutting down now!", flush=True)
         logger.debug('Plugin engine is killed.')
-
         cp = psutil.Process(os.getpid())
         for proc in cp.children(recursive=True):
             proc.kill()
@@ -714,8 +710,7 @@ async def on_shutdown(app):
     t.daemon = True # stop if the program exits
     t.start()
 
-    print('Shutting down the plugins...')
-    sys.stdout.flush()
+    print('Shutting down the plugins...', flush=True)
     tasks = []
     for sid in plugin_sids:
         try:
