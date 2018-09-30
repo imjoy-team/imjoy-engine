@@ -217,8 +217,8 @@ async def on_init_plugin(sid, kwargs):
     if env is not None:
         if not opt.freeze and CONDA_AVAILABLE:
             try:
-                if not env.startswith('conda'):
-                    raise Exception('env command must start with conda')
+                # if not env.startswith('conda'):
+                #     raise Exception('env command must start with conda')
                 if 'python=2' in env:
                     is_py2 = True
                 parms = shlex.split(env)
