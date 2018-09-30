@@ -50,10 +50,10 @@ If you used the ImJoyApp we provided in the [releases](https://github.com/oeway/
 For Linux and Mac, launch the following command in a Terminal:
 ```
 # normal usage
-PATH=~/ImJoyApp:$PATH python -m imjoy
+PATH=~/ImJoyApp/bin:$PATH python -m imjoy
 
 # frozen mode
-PATH=~/ImJoyApp:$PATH python -m imjoy --freeze
+PATH=~/ImJoyApp/bin:$PATH python -m imjoy --freeze
 ```
 
 For Windows, search `powershell`, and run the following command:
