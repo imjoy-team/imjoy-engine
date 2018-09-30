@@ -199,7 +199,7 @@ class PluginConnection():
         sys.stdout.flush()
         socketIO.on('to_plugin_'+secret, self.sio_plugin_message)
         self.emit({"type": "initialized", "dedicatedThread": True})
-
+        print(f'Plugin "{pid}" Initialized.')
         def on_disconnect():
             if not self.daemon:
                 self.exit(1)
