@@ -228,10 +228,10 @@ async def on_init_plugin(sid, kwargs):
                     env_name = parms[parms.index('--name') + 1]
                 elif pname is not None:
                     env_name = pname.replace(' ', '_')
-                    env = env.replace('create', 'create -n '+env_name)
+                    env = env.replace('conda create', 'conda create -n '+env_name)
 
                 if '-y' not in parms:
-                    env = env.replace('create', 'create -y')
+                    env = env.replace('conda create', 'conda create -y')
 
             except Exception as e:
                 await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to create environment."})
