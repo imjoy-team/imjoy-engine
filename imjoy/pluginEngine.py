@@ -660,11 +660,12 @@ def launch_plugin(pid, env, requirements_cmd, args, work_dir, abort, name, plugi
               shell=True, env=plugin_env, cwd=work_dir, **kwargs)
     plugins[pid]['process_id'] = process.pid
     # Poll process for new output until finished
+    stdfn = sys.stdout.fileno()
     while True:
         out = process.stdout.read(1)
         if out == '' and process.poll() != None:
             break
-        os.write(1, out)
+        os.write(stdfn, out)
         sys.stdout.flush()
         if abort.is_set():
             break
