@@ -452,34 +452,8 @@ class PluginConnection():
         self._setLocalAPI(_remote)
         return _remote
 
-    def _get_file_url(self, path, password=None, headers=None):
-        def p(resolve, reject):
-            def cb(res):
-                if res['success']:
-                    resolve(res['url'])
-                else:
-                    reject(res['error'])
-            if not self.socketIO:
-                reject("The connection is not available.")
-            self.socketIO.emit('get_file_url', {'pid': self.id, 'secret': self.secret, 'path': os.path.abspath(path), 'password': password, 'headers': headers}, cb)
-        return Promise(p)
-
-    def _get_file_path(self, url):
-        def p(resolve, reject):
-            def cb(res):
-                if res['success']:
-                    resolve(res['path'])
-                else:
-                    reject(res['error'])
-            if not self.socketIO:
-                reject("The connection is not available.")
-            self.socketIO.emit('get_file_path', {'pid': self.id, 'secret': self.secret, 'url': url}, cb)
-        return Promise(p)
-
     def _setLocalAPI(self, _remote):
         _remote["export"] = self.setInterface
-        _remote['getFileUrl'] = self._get_file_url
-        _remote['getFilePath'] = self._get_file_path
         _remote["utils"] = api_utils
         _remote["WORK_DIR"] = self.work_dir
         self._local["api"] = _remote

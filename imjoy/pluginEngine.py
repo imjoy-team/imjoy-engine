@@ -288,11 +288,11 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=launch_plugin, args=[pid, env, requirements_cmd, cmd+' '+template_script+' --id='+pid+' --host='+opt.host+' --port='+opt.port+' --secret='+secretKey+' --namespace='+NAME_SPACE + ' --work_dir='+work_dir, work_dir, abort, pid, plugin_env])
+        taskThread = threading.Thread(target=launch_plugin, args=[pid, env, requirements_cmd, f'{cmd} "{template_script}" --id="{pid}" --host={opt.host} --port={opt.port} --secret="{secretKey}" --namespace={NAME_SPACE}', work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
-        return {'success': True, 'secret': secretKey}
+        return {'success': True, 'secret': secretKey, 'work_dir': os.path.abspath(work_dir)}
     except Exception as e:
         logger.error(e)
         return {'success': False}
@@ -499,18 +499,9 @@ app.router.add_get('/file/{urlid}', download_file)
 @sio.on('get_file_url', namespace=NAME_SPACE)
 async def on_get_file_url(sid, kwargs):
     logger.info("generating file url: %s", kwargs)
-
-    pid = kwargs.get('pid', None)
-    secret = kwargs.get('secret', None)
-    if pid is None and secret is None:
-        if sid not in clients_sids:
-            logger.debug('client %s is not registered.', sid)
-            return {'success': False, 'error': 'client has not been registered'}
-    elif pid is not None and secret is not None:
-        if plugins[pid]['secret'] != secret:
-            return {'success': False, 'error': 'invalid secret.' }
-    else:
-        return {'success': False, 'error': 'invalid inputs'}
+    if sid not in clients_sids:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False, 'error': 'client has not been registered'}
 
     path = os.path.abspath(os.path.expanduser(kwargs['path']))
     if not os.path.exists(path):
@@ -533,25 +524,16 @@ async def on_get_file_url(sid, kwargs):
         generatedUrlFiles[path] = f'http://{opt.host}:{opt.port}/file/{urlid}?name={name}'
         if kwargs.get('password', None):
             fileInfo['password'] = kwargs['password']
-            generatedUrlFiles[path] +='&password=' + fileInfo['password']
+            generatedUrlFiles[path] += ('&password=' + fileInfo['password'])
         return {'success': True, 'url': generatedUrlFiles[path]}
 
 
 @sio.on('get_file_path', namespace=NAME_SPACE)
 async def on_get_file_path(sid, kwargs):
     logger.info("generating file url: %s", kwargs)
-
-    pid = kwargs.get('pid', None)
-    secret = kwargs.get('secret', None)
-    if pid is None and secret is None:
-        if sid not in clients_sids:
-            logger.debug('client %s is not registered.', sid)
-            return {'success': False, 'error': 'client has not been registered'}
-    elif pid is not None and secret is not None:
-        if plugins[pid]['secret'] != secret:
-            return {'success': False, 'error': 'invalid secret.' }
-    else:
-        return {'success': False, 'error': 'invalid inputs'}
+    if sid not in clients_sids:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False, 'error': 'client has not been registered'}
 
     url = kwargs['url']
     urlid = urlparse(url).path.replace('/file/', '')
