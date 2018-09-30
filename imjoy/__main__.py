@@ -8,12 +8,10 @@ if __name__ == '__main__':
 
     if sys.version_info > (3, 0):
         # running in python 3
-        try:
-            print('Upgrading ImJoy Plugin Engine...')
-            subprocess.call("pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy".split(), shell=False)
-        except OSError as e:
-            print('Failed to upgrade ImJoy code.')
-
+        print('Upgrading ImJoy Plugin Engine...')
+        ret = subprocess.Popen('pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy'.split(), shell=False).wait()
+        if ret != 0:
+            print('Failed to upgrade ImJoy Plugin Engine.')
         try:
             import pkg_resources  # part of setuptools
             version = pkg_resources.require("imjoy")[0].version
