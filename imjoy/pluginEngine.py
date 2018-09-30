@@ -215,7 +215,7 @@ async def on_init_plugin(sid, kwargs):
     env_name = ''
     is_py2 = False
     if env is not None:
-        if not opt.freeze and CONDA_AVAILABLE and env is not None:
+        if not opt.freeze and CONDA_AVAILABLE:
             try:
                 if not env.startswith('conda'):
                     raise Exception('env command must start with conda')
@@ -657,7 +657,7 @@ def launch_plugin(pid, env, requirements_cmd, args, work_dir, abort, name, plugi
         kwargs.update(preexec_fn=os.setsid)
 
     process = subprocess.Popen(args, bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-              shell=True, universal_newlines=True, env=plugin_env, cwd=work_dir, **kwargs)
+              shell=True, env=plugin_env, cwd=work_dir, **kwargs)
     plugins[pid]['process_id'] = process.pid
     # Poll process for new output until finished
     while True:
