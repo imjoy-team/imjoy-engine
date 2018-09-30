@@ -214,32 +214,34 @@ async def on_init_plugin(sid, kwargs):
 
     env_name = ''
     is_py2 = False
+    envs = None
     if env is not None:
         if not opt.freeze and CONDA_AVAILABLE:
-            try:
-                # if not env.startswith('conda'):
-                #     raise Exception('env command must start with conda')
-                if 'python=2' in env:
-                    is_py2 = True
-                parms = shlex.split(env)
-                if '-n' in parms:
-                    env_name = parms[parms.index('-n') + 1]
-                elif '--name' in parms:
-                    env_name = parms[parms.index('--name') + 1]
-                elif pname is not None:
-                    env_name = pname.replace(' ', '_')
-                    env = env.replace('conda create', 'conda create -n '+env_name)
+            if type(env) is str:
+                envs = [env]
+            else:
+                envs = env
+            for i, env in enumerate(envs):
+                if 'conda create' in env:
+                    # if not env.startswith('conda'):
+                    #     raise Exception('env command must start with conda')
+                    if 'python=2' in env:
+                        is_py2 = True
+                    parms = shlex.split(env)
+                    if '-n' in parms:
+                        env_name = parms[parms.index('-n') + 1]
+                    elif '--name' in parms:
+                        env_name = parms[parms.index('--name') + 1]
+                    elif pname is not None:
+                        env_name = pname.replace(' ', '_')
+                        envs[i] = env.replace('conda create', 'conda create -n '+env_name)
 
-                if '-y' not in parms:
-                    env = env.replace('conda create', 'conda create -y')
-
-            except Exception as e:
-                await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to create environment."})
-                logger.error('failed to execute plugin: %s', str(e))
+                    if '-y' not in parms:
+                        envs[i] = env.replace('conda create', 'conda create -y')
         else:
             print(f"WARNING: blocked env command: \n{env}\nYou may want to run it yourself.")
             logger.warning(f'env command is blocked because conda is not avaialbe or in `--freeze` mode: {env}')
-            env = None
+
 
     if type(requirements) is list:
         requirements_pip = " ".join(requirements)
@@ -288,7 +290,7 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=launch_plugin, args=[pid, env, requirements_cmd, f'{cmd} "{template_script}" --id="{pid}" --host={opt.host} --port={opt.port} --secret="{secretKey}" --namespace={NAME_SPACE}', work_dir, abort, pid, plugin_env])
+        taskThread = threading.Thread(target=launch_plugin, args=[pid, envs, requirements_cmd, f'{cmd} "{template_script}" --id="{pid}" --host={opt.host} --port={opt.port} --secret="{secretKey}" --namespace={NAME_SPACE}', work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
@@ -578,26 +580,29 @@ async def disconnect(sid):
     asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
 
-def launch_plugin(pid, env, requirements_cmd, args, work_dir, abort, name, plugin_env):
+def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plugin_env):
     if abort.is_set():
         logger.info('plugin aborting...')
         return False
     try:
-        if env is not None and env != '':
-            logger.info('creating environment: %s', env)
-            if env not in cmd_history:
-                process = subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir)
-                plugins[pid]['process_id'] = process.pid
-                process.wait()
-                cmd_history.append(env)
-            else:
-                logger.debug('skip command: %s', env)
+        if envs is not None and len(envs)>0:
+            for env in envs:
+                print('Running env command: ' + env)
+                logger.info('running env command: %s', env)
+                if env not in cmd_history:
+                    process = subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir)
+                    plugins[pid]['process_id'] = process.pid
+                    process.wait()
+                    cmd_history.append(env)
+                else:
+                    logger.debug('skip command: %s', env)
 
-            if abort.is_set():
-                logger.info('plugin aborting...')
-                return False
+                if abort.is_set():
+                    logger.info('plugin aborting...')
+                    return False
 
-        logger.info('installing requirements: %s', requirements_cmd)
+        logger.info('Running requirements command: %s', requirements_cmd)
+        print('Running requirements command: ' + requirements_cmd)
         if requirements_cmd is not None and requirements_cmd not in cmd_history:
             process = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir)
             plugins[pid]['process_id'] = process.pid
