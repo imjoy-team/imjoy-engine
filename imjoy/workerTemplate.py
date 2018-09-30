@@ -557,6 +557,7 @@ class PluginConnection():
                             method(*args)
                         except Exception as e:
                             logger.error('error in method %s: %s', d['id'], traceback.format_exc())
+                sys.stdout.flush()
             except queue.Empty:
                 time.sleep(0.1)
             finally:
