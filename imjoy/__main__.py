@@ -6,16 +6,11 @@ if __name__ == '__main__':
     # add executable path to PATH
     os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
 
-    try:
-        subprocess.call(["conda", "-V"], shell=False)
-    except OSError as e:
-        sys.exit('Sorry, ImJoy plugin engine can only run with Anaconda or Miniconda.')
-
     if sys.version_info > (3, 0):
         # running in python 3
         try:
             print('Upgrading ImJoy Plugin Engine...')
-            subprocess.call("pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy".split(), shell=False)
+            subprocess.call("pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy".split(), shell=True)
         except OSError as e:
             print('Failed to upgrade ImJoy code.')
 

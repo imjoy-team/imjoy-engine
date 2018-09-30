@@ -2,8 +2,8 @@
 The plugin engine used for running python plugins in https://imjoy.io
 
 ## Installation
-  Download the latest ImJoyApp [here](https://github.com/oeway/ImJoy-Python/releases). 
-  
+  Download the latest ImJoyApp [here](https://github.com/oeway/ImJoy-Python/releases).
+
   Follow the instructions according to different operating systems.
 
 ## Installation (alternative solution)
@@ -35,6 +35,35 @@ You can use the Plugin Engine remotely on another computer. Due to security rest
   python -m imjoy --serve --host=0.0.0.0
 ```
 Then go to [http://localhost:8080](http://localhost:8080) to connect to the offline ImJoy. Then click the settings button, and you will be able set a remote url for the remote access.
+
+## Running without conda
+The recommended way of using the plugin engine is using a `conda` environment, however, in case you cannot use a conda environment, it is also possible to launch it. However, you will need at least a `Python 3` and solve all the dependencies yourself. To use it following the instructions in the `Freeze the environment` below.
+
+## Freeze the environment
+
+By default, the plugin engine will try to use `conda` to solve all the requirements and create virtual environments automatically. In some cases, if `conda` is not available, or for security reasons you want to disable this feature, you can pass `--freeze` parameter when running the plugin engine. For example `python -m imjoy --freeze` this will disable all the `conda` and `pip` commands. And this will reduce the plugin startup time and make it more stable.
+
+However, in this case, you need to solve the dependencies yourself.
+
+
+If you used the ImJoyApp we provided in the [releases](https://github.com/oeway/ImJoy-Python/releases), you can launch it manually.
+For Linux and Mac, launch the following command in a Terminal:
+```
+# normal usage
+PATH=~/ImJoyApp:$PATH python -m imjoy
+
+# frozen mode
+PATH=~/ImJoyApp:$PATH python -m imjoy --freeze
+```
+
+For Windows, search `powershell`, and run the following command:
+```
+# normal usage
+$env:Path = '%systemdrive%%homepath%\ImJoyApp;%systemdrive%%homepath%\ImJoyApp\Scripts;' + $env:Path; python -m imjoy
+
+# frozen mode
+$env:Path = '%systemdrive%%homepath%\ImJoyApp;%systemdrive%%homepath%\ImJoyApp\Scripts;' + $env:Path; python -m imjoy --freeze
+```
 
 ## FAQs
  * Can I use my existing python?

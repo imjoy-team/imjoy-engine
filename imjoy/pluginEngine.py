@@ -31,6 +31,17 @@ except ImportError:
 # add executable path to PATH
 os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
 
+
+try:
+    subprocess.call(["conda", "-V"])
+except OSError as e:
+    CONDA_AVAILABLE = False
+    if sys.version_info < (3, 0):
+        sys.exit('Sorry, ImJoy plugin engine can only run within a conda environment or at least in Python 3.')
+    print('WARNING: you are running ImJoy without conda, you may have problem with some plugins.')
+else:
+    CONDA_AVAILABLE = True
+
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger('PluginEngine')
 
@@ -50,7 +61,15 @@ parser.add_argument('--host', type=str, default='localhost', help='socketio host
 parser.add_argument('--port', type=str, default='8080', help='socketio port')
 parser.add_argument('--force_quit_timeout', type=int, default=5, help='the time (in second) for waiting before kill a plugin process, default: 5 s')
 parser.add_argument('--workspace', type=str, default='~/ImJoyWorkspace', help='workspace folder for plugins')
+parser.add_argument('--freeze', action="store_true", help='disable conda and pip commands')
+
 opt = parser.parse_args()
+
+if not CONDA_AVAILABLE and not opt.freeze:
+    print('WARNING: `pip install` command may not work, in that case you may want to add "--freeze".')
+
+if opt.freeze:
+    print('WARNING: you are running the plugin engine with `--freeze`, this means you need to handle all the plugin requirements yourself.')
 
 FORCE_QUIT_TIMEOUT = opt.force_quit_timeout
 WORKSPACE_DIR = os.path.expanduser(opt.workspace)
@@ -169,14 +188,6 @@ async def on_init_plugin(sid, kwargs):
     else:
         logger.debug('client %s is not registered.', sid)
         return {'success': False}
-        # client_id = ''
-        # clients_sids[sid] = client_id
-        # if client_id in clients:
-        #     clients[client_id].append(sid)
-        # else:
-        #     clients[client_id] = [sid]
-
-
     pid = kwargs['id']
     config = kwargs.get('config', {})
     env = config.get('env', None)
@@ -204,7 +215,7 @@ async def on_init_plugin(sid, kwargs):
     env_name = ''
     is_py2 = False
 
-    if env is not None:
+    if not opt.freeze and CONDA_AVAILABLE and env is not None:
         try:
             if not env.startswith('conda'):
                 raise Exception('env command must start with conda')
@@ -225,6 +236,10 @@ async def on_init_plugin(sid, kwargs):
         except Exception as e:
             await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to create environment."})
             logger.error('failed to execute plugin: %s', str(e))
+    else:
+        print(f"WARNING: blocked env command: \n{env}\nYou may want to run it yourself.")
+        logger.warning(f'env command is blocked because conda is not avaialbe or in `--freeze` mode: {env}')
+        env = None
 
     if type(requirements) is list:
         requirements_pip = " ".join(requirements)
@@ -232,12 +247,18 @@ async def on_init_plugin(sid, kwargs):
         requirements_pip = "&& " + requirements
     else:
         raise Exception('wrong requirements type.')
-    requirements_cmd = "pip install "+" ".join(default_requirements_py2 if is_py2 else default_requirements_py3) + ' ' + requirements_pip
-    # if env_name is not None:
-    requirements_cmd = conda_activate + " "+ env_name + " && " + requirements_cmd
-    # if env_name is not None:
-    cmd = conda_activate + " " + env_name + " && " + cmd
 
+    requirements_cmd = "pip install "+" ".join(default_requirements_py2 if is_py2 else default_requirements_py3) + ' ' + requirements_pip
+    if opt.freeze:
+        print(f"WARNING: blocked pip command: \n{requirements_cmd}\nYou may want to run it yourself.")
+        logger.warning(f'pip command is blocked due to `--freeze` mode: {requirements_cmd}')
+        requirements_cmd = None
+
+    if not opt.freeze and CONDA_AVAILABLE:
+        # if env_name is not None:
+        requirements_cmd = conda_activate + " "+ env_name + " && " + requirements_cmd
+        # if env_name is not None:
+        cmd = conda_activate + " " + env_name + " && " + cmd
 
     secretKey = str(uuid.uuid4())
     plugins[pid] = {'secret': secretKey, 'id': pid, 'name': config['name'], 'type': config['type'], 'client_id': client_id}
@@ -595,7 +616,7 @@ def launch_plugin(pid, env, requirements_cmd, args, work_dir, abort, name, plugi
                 return False
 
         logger.info('installing requirements: %s', requirements_cmd)
-        if requirements_cmd not in cmd_history:
+        if requirements_cmd is not None and requirements_cmd not in cmd_history:
             process = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir)
             plugins[pid]['process_id'] = process.pid
             ret = process.wait()

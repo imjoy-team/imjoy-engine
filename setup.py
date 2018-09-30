@@ -4,7 +4,10 @@ import subprocess
 try:
     subprocess.call(["conda", "-V"])
 except OSError as e:
-    sys.exit('Sorry, ImJoy plugin engine can only run with Anaconda or Miniconda.')
+    if sys.version_info > (3, 0):
+        print('WARNING: you are running ImJoy without conda, you may have problem with some plugins.')
+    else:
+        sys.exit('Sorry, ImJoy plugin engine can only run within a conda environment or at least in Python 3.')
 
 requirements = []
 if sys.version_info > (3, 0):
@@ -12,7 +15,7 @@ if sys.version_info > (3, 0):
 
 from setuptools import setup, find_packages
 setup(name='imjoy',
-      version='0.4.8',
+      version='0.5.0',
       description='Python plugin engine for ImJoy.io',
       url='http://github.com/oeway/ImJoy',
       author='Wei OUYANG',
