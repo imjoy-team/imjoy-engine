@@ -665,7 +665,8 @@ def launch_plugin(pid, env, requirements_cmd, args, work_dir, abort, name, plugi
         if out == '' and process.poll() != None:
             break
         if out != '':
-            print(out, flush=True)
+            sys.stdout.write(out)
+            sys.stdout.flush()
         if abort.is_set():
             break
 
