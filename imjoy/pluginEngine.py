@@ -17,7 +17,7 @@ import uuid
 import shutil
 import webbrowser
 import psutil
-from aiohttp import web
+from aiohttp import web, hdrs
 from aiohttp import WSCloseCode
 from aiohttp import streamer
 from urllib.parse import urlparse
@@ -96,12 +96,10 @@ else:
 
 MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'
-
+# ALLOWED_ORIGINS = ['http://'+opt.host+':'+opt.port, 'http://imjoy.io', 'https://imjoy.io']
 sio = socketio.AsyncServer()
 app = web.Application()
 sio.attach(app)
-
-
 
 if opt.debug:
     logger.setLevel(logging.DEBUG)
@@ -394,22 +392,33 @@ async def file_sender(writer, file_path=None):
             chunk = f.read(2 ** 16)
 
 async def download_file(request):
+    # origin = request.headers.get(hdrs.ORIGIN)
+    # if origin is None:
+    #     # Terminate CORS according to CORS 6.2.1.
+    #     raise web.HTTPForbidden(
+    #         text="CORS preflight request failed: "
+    #              "origin header is not specified in the request")
     urlid = request.match_info['urlid']  # Could be a HUGE file
     if urlid not in generatedUrls:
-        return web.Response(text='Invalid URL')
+        raise web.HTTPForbidden(
+            text="Invalid URL")
     fileInfo = generatedUrls[urlid]
     name = request.rel_url.query.get('name', None)
     if fileInfo.get('password', False):
         password = request.rel_url.query.get('password', None)
         if password != fileInfo['password']:
-            return web.Response(text='Incorrect password for accessing this file.')
+            raise web.HTTPForbidden(text="Incorrect password for accessing this file.")
     headers = fileInfo.get('headers', None)
+    default_headers = {'Access-Control-Allow-Origin': '*',
+                       'Access-Control-Allow-Headers': 'origin',
+                       'Access-Control-Allow-Methods': 'GET'
+                      }
     if fileInfo['type'] == 'dir':
         dirname = os.path.dirname(name)
         # list the folder
         if dirname == '' or dirname is None:
             if name != fileInfo['name']:
-                return web.Response(text='File name does not match server record!')
+                raise web.HTTPForbidden(text="File name does not match server record!")
             folder_path = fileInfo['path']
             if not os.path.exists(folder_path):
                 return web.Response(
@@ -418,7 +427,9 @@ async def download_file(request):
                 )
             else:
                 file_list = scandir(folder_path, 'file', False)
-                return web.json_response(file_list)
+                headers = headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=name)}
+                headers.update(default_headers)
+                return web.json_response(file_list, headers=headers)
         # list the subfolder or get a file in the folder
         else:
             file_path = os.path.join(fileInfo['path'], os.sep.join(name.split('/')[1:]))
@@ -428,19 +439,24 @@ async def download_file(request):
                     status=404
                 )
             if os.path.isdir(file_path):
+                _, folder_name = os.path.split(file_path)
                 file_list = scandir(file_path, 'file', False)
-                return web.json_response(file_list)
+                headers = headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=folder_name)}
+                headers.update(default_headers)
+                return web.json_response(file_list, headers=headers)
             else:
                 _, file_name = os.path.split(file_path)
                 mime_type = MimeTypes().guess_type(file_name)[0] or 'application/octet-stream'
+                headers = headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=file_name), 'Content-Type': mime_type}
+                headers.update(default_headers)
                 return web.Response(
                     body=file_sender(file_path=file_path),
-                    headers= headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=file_name), 'Content-Type': mime_type}
+                    headers= headers
                 )
     elif fileInfo['type'] == 'file':
         file_path = fileInfo['path']
         if name != fileInfo['name']:
-            return web.Response(text='File name does not match server record!')
+            raise web.HTTPForbidden(text="File name does not match server record!")
         file_name = fileInfo['name']
         if not os.path.exists(file_path):
             return web.Response(
@@ -448,12 +464,14 @@ async def download_file(request):
                 status=404
             )
         mime_type = MimeTypes().guess_type(file_name)[0] or 'application/octet-stream'
+        headers = headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=file_name), 'Content-Type': mime_type}
+        headers.update(default_headers)
         return web.Response(
             body=file_sender(file_path=file_path),
-            headers = headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=file_name), 'Content-Type': mime_type}
+            headers=headers
         )
     else:
-        return web.Response(text='Unsupported file type: '+ fileInfo['type'])
+        raise web.HTTPForbidden(text='Unsupported file type: '+ fileInfo['type'])
 
 app.router.add_get('/file/{urlid}', download_file)
 
