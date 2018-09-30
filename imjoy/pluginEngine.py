@@ -214,32 +214,32 @@ async def on_init_plugin(sid, kwargs):
 
     env_name = ''
     is_py2 = False
+    if env is not None:
+        if not opt.freeze and CONDA_AVAILABLE and env is not None:
+            try:
+                if not env.startswith('conda'):
+                    raise Exception('env command must start with conda')
+                if 'python=2' in env:
+                    is_py2 = True
+                parms = shlex.split(env)
+                if '-n' in parms:
+                    env_name = parms[parms.index('-n') + 1]
+                elif '--name' in parms:
+                    env_name = parms[parms.index('--name') + 1]
+                elif pname is not None:
+                    env_name = pname.replace(' ', '_')
+                    env = env.replace('create', 'create -n '+env_name)
 
-    if not opt.freeze and CONDA_AVAILABLE and env is not None:
-        try:
-            if not env.startswith('conda'):
-                raise Exception('env command must start with conda')
-            if 'python=2' in env:
-                is_py2 = True
-            parms = shlex.split(env)
-            if '-n' in parms:
-                env_name = parms[parms.index('-n') + 1]
-            elif '--name' in parms:
-                env_name = parms[parms.index('--name') + 1]
-            elif pname is not None:
-                env_name = pname.replace(' ', '_')
-                env = env.replace('create', 'create -n '+env_name)
+                if '-y' not in parms:
+                    env = env.replace('create', 'create -y')
 
-            if '-y' not in parms:
-                env = env.replace('create', 'create -y')
-
-        except Exception as e:
-            await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to create environment."})
-            logger.error('failed to execute plugin: %s', str(e))
-    else:
-        print(f"WARNING: blocked env command: \n{env}\nYou may want to run it yourself.")
-        logger.warning(f'env command is blocked because conda is not avaialbe or in `--freeze` mode: {env}')
-        env = None
+            except Exception as e:
+                await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to create environment."})
+                logger.error('failed to execute plugin: %s', str(e))
+        else:
+            print(f"WARNING: blocked env command: \n{env}\nYou may want to run it yourself.")
+            logger.warning(f'env command is blocked because conda is not avaialbe or in `--freeze` mode: {env}')
+            env = None
 
     if type(requirements) is list:
         requirements_pip = " ".join(requirements)
