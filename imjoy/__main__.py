@@ -10,7 +10,7 @@ if __name__ == '__main__':
         # running in python 3
         try:
             print('Upgrading ImJoy Plugin Engine...')
-            subprocess.call("pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy", shell=True)
+            subprocess.call("pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy".split(), shell=False)
         except OSError as e:
             print('Failed to upgrade ImJoy code.')
 
