@@ -728,4 +728,8 @@ async def on_shutdown(app):
     logger.info('Plugin engine exited.')
 
 app.on_shutdown.append(on_shutdown)
-web.run_app(app, host=opt.host, port=opt.port)
+try:
+    web.run_app(app, host=opt.host, port=opt.port)
+except OSError as e:
+    if e.errno in {48}:
+        print(f"ERROR: Failed to open port {opt.port}, please try to terminate the process which is using that port (e.g. run `kill $(lsof -t -i :{opt.port})` in a terminal), or restart your computer.")
