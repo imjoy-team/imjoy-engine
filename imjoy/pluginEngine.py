@@ -690,7 +690,7 @@ def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plug
         if (exitCode == 0):
             return True
         else:
-            logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n output:%s\n', str(args), str(exitCode))
+            logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n', str(args), str(exitCode))
             return False
 
 
