@@ -373,7 +373,7 @@ class PluginConnection():
         wrapped = self._encode(args, callbacks)
         result = {'args': wrapped}
         if len(callbacks.keys()) > 0:
-            result['callbackId'] = self. _store.put(callbacks)
+            result['callbackId'] = self._store.put(callbacks)
         return result
 
     def _unwrap(self, args, withPromise):
