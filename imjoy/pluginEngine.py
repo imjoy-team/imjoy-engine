@@ -157,7 +157,7 @@ attempt_count = 0
 
 cmd_history = []
 default_requirements_py2 = ["psutil", "requests", "six", "websocket-client"]
-default_requirements_py3 = ["psutil", "requests", "six", "websocket-client-py3"]
+default_requirements_py3 = ["psutil", "requests", "six", "websocket-client-py3", "janus"]
 
 script_dir = os.path.dirname(os.path.normpath(__file__))
 template_script = os.path.abspath(os.path.join(script_dir, 'workerTemplate.py'))
