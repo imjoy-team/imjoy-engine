@@ -91,7 +91,7 @@ async def task_worker(self, async_q, logger, abort=None):
             async_q.task_done()
 
 
-class AsyncPromise(Promise, asyncio.Future):
+class FuturePromise(Promise, asyncio.Future):
     def __init__(self, pfunc, loop):
         self.loop = loop
         Promise.__init__(self, pfunc)

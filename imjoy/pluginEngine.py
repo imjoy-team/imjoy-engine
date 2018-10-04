@@ -95,23 +95,23 @@ if opt.serve:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
     print('Now you can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
-    try:
-        webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
-    except Exception as e:
-        try:
-            webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-        except Exception as e:
-            print('Failed to open the browser.')
+    # try:
+    #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
+    # except Exception as e:
+    #     try:
+    #         webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
+    #     except Exception as e:
+    #         print('Failed to open the browser.')
 
 else:
     logger.info("Now you can run Python plugins from https://imjoy.io, token: %s", opt.token)
-    try:
-        webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-    except Exception as e:
-        try:
-            webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-        except Exception as e:
-            print('Failed to open the browser.')
+    # try:
+    #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
+    # except Exception as e:
+    #     try:
+    #         webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
+    #     except Exception as e:
+    #         print('Failed to open the browser.')
 
 MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'

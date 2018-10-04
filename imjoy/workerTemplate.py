@@ -13,18 +13,16 @@ import psutil
 import threading
 import copy
 from socketIO_client import SocketIO, LoggingNamespace, find_callback
+from utils import debounce, setInterval, dotdict, ReferenceStore
 
 if sys.version_info >= (3, 0):
     import asyncio
     import janus
-    from utils3 import task_worker, AsyncPromise
+    from utils3 import task_worker, FuturePromise
     PYTHON3 = True
 else:
     from utils import task_worker, Promise
     PYTHON3 = False
-from utils import debounce, setInterval, dotdict, ReferenceStore
-
-
 
 try:
     import queue
@@ -296,7 +294,7 @@ class PluginConnection():
                 }
                 self.emit(call_func)
             if PYTHON3:
-                return AsyncPromise(p, self.loop)
+                return FuturePromise(p, self.loop)
             else:
                 return Promise(p)
 
@@ -318,7 +316,7 @@ class PluginConnection():
                         'promise': self._wrap([resolve, reject])
                     })
                 if PYTHON3:
-                    return AsyncPromise(p, self.loop)
+                    return FuturePromise(p, self.loop)
                 else:
                     return Promise(p)
 
