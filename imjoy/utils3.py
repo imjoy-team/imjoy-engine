@@ -41,7 +41,9 @@ async def task_worker(self, async_q, logger, abort=None):
                             method = self._interface[d['name']]
                             args = self._unwrap(d['args'], True)
                             # args.append({'id': self.id})
-                            result = await method(*args)
+                            result = method(*args)
+                            if hasattr(result, '__await__'):
+                                result = await result
                             resolve(result)
                         except Exception as e:
                             logger.error('error in method %s: %s', d['name'], traceback.format_exc())
@@ -51,9 +53,9 @@ async def task_worker(self, async_q, logger, abort=None):
                             method = self._interface[d['name']]
                             args = self._unwrap(d['args'], True)
                             # args.append({'id': self.id})
-                            ret = method(*args)
-                            if hasattr(ret, '__await__'):
-                                await ret
+                            result = method(*args)
+                            if hasattr(result, '__await__'):
+                                await result
                         except Exception as e:
                             logger.error('error in method %s: %s', d['name'], traceback.format_exc())
                 else:
@@ -65,7 +67,9 @@ async def task_worker(self, async_q, logger, abort=None):
                         method = self._store.fetch(d['id'])[d['num']]
                         args = self._unwrap(d['args'], True)
                         # args.append({'id': self.id})
-                        result = await method(*args)
+                        result = method(*args)
+                        if hasattr(result, '__await__'):
+                            result = await result
                         resolve(result)
                     except Exception as e:
                         logger.error('error in method %s: %s', d['id'], traceback.format_exc())
@@ -75,9 +79,9 @@ async def task_worker(self, async_q, logger, abort=None):
                         method = self._store.fetch(d['id'])[d['num']]
                         args = self._unwrap(d['args'], True)
                         # args.append({'id': self.id})
-                        ret = method(*args)
-                        if hasattr(ret, '__await__'):
-                            await ret
+                        result = method(*args)
+                        if hasattr(result, '__await__'):
+                            await reresultt
                     except Exception as e:
                         logger.error('error in method %s: %s', d['id'], traceback.format_exc())
         except Exception as e:
@@ -94,12 +98,17 @@ class AsyncPromise(Promise, asyncio.Future):
         asyncio.Future.__init__(self)
 
     def resolve(self, result):
-        self.loop.call_soon(self.set_result, result)
-        Promise.resolve(self, result)
+        if self._resolve_handler or self._finally_handler:
+            Promise.resolve(self, result)
+        else:
+            self.loop.call_soon(self.set_result, result)
+
 
     def reject(self, error):
-        if error:
-            self.loop.call_soon(self.set_exception, Exception())
+        if self._catch_handler or self._finally_handler:
+            Promise.reject(self, error)
         else:
-            self.loop.call_soon(self.set_exception, Exception(str(error)))
-        Promise.reject(self, error)
+            if error:
+                self.loop.call_soon(self.set_exception, Exception())
+            else:
+                self.loop.call_soon(self.set_exception, Exception(str(error)))
