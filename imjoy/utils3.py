@@ -43,7 +43,7 @@ async def task_worker(self, async_q, logger, abort=None):
                             args = self._unwrap(d['args'], True)
                             # args.append({'id': self.id})
                             result = method(*args)
-                            if inspect.isawaitable(result):
+                            if result is not None and inspect.isawaitable(result):
                                 result = await result
                             resolve(result)
                         except Exception as e:
@@ -55,7 +55,7 @@ async def task_worker(self, async_q, logger, abort=None):
                             args = self._unwrap(d['args'], True)
                             # args.append({'id': self.id})
                             result = method(*args)
-                            if inspect.isawaitable(result):
+                            if result is not None and inspect.isawaitable(result):
                                 await result
                         except Exception as e:
                             logger.error('error in method %s: %s', d['name'], traceback.format_exc())
@@ -69,7 +69,7 @@ async def task_worker(self, async_q, logger, abort=None):
                         args = self._unwrap(d['args'], True)
                         # args.append({'id': self.id})
                         result = method(*args)
-                        if inspect.isawaitable(result):
+                        if result is not None and inspect.isawaitable(result):
                             result = await result
                         resolve(result)
                     except Exception as e:
@@ -81,7 +81,7 @@ async def task_worker(self, async_q, logger, abort=None):
                         args = self._unwrap(d['args'], True)
                         # args.append({'id': self.id})
                         result = method(*args)
-                        if inspect.isawaitable(result):
+                        if result is not None and inspect.isawaitable(result):
                             await reresultt
                     except Exception as e:
                         logger.error('error in method %s: %s', d['id'], traceback.format_exc())
