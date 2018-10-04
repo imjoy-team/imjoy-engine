@@ -25,7 +25,7 @@ The plugin engine used for running python plugins in https://imjoy.io
   ```
   python -m imjoy --serve
   ```
-Once it's done, you will be able to access your personal ImJoy web app through: [http://localhost:8080](http://localhost:8080).
+Once it's done, you will be able to access your personal ImJoy web app through: [http://127.0.0.1:8080](http://127.0.0.1:8080).
 
 Also notice that, although the main ImJoy app can go offline, and most of the plugins support offline, there still plugins require remote access to files, in that case, you won't be able to use those plugins without internet.
 
@@ -34,7 +34,7 @@ You can use the Plugin Engine remotely on another computer. Due to security rest
 ```
   python -m imjoy --serve --host=0.0.0.0
 ```
-Then go to [http://localhost:8080](http://localhost:8080) to connect to the offline ImJoy. Then click the settings button, and you will be able set a remote url for the remote access.
+Then go to http://IP_OF_YOUR_REMOTE:8080 to connect to the offline ImJoy. Then click the settings button, and you will be able set a remote url for the remote access.
 
 ## Running without conda
 The recommended way of using the plugin engine is using a `conda` environment, however, in case you cannot use a conda environment, it is also possible to launch it. However, you will need at least a `Python 3` and solve all the dependencies yourself. To use it following the instructions in the `Freeze the environment` below.

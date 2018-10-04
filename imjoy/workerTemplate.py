@@ -59,7 +59,7 @@ def ndarray(typedArray, shape, dtype):
 api_utils = dotdict(ndarray=ndarray, kill=kill, debounce=debounce, setInterval=setInterval)
 
 class PluginConnection():
-    def __init__(self, pid, secret, protocol='http', host='localhost', port=8080, queue=None, loop=None, worker=None, namespace='/', work_dir=None, daemon=False, api=None):
+    def __init__(self, pid, secret, protocol='http', host='127.0.0.1', port=8080, queue=None, loop=None, worker=None, namespace='/', work_dir=None, daemon=False, api=None):
         if work_dir is None or work_dir == '' or work_dir == '.':
             self.work_dir = os.getcwd()
         else:
@@ -397,7 +397,7 @@ if __name__ == "__main__":
     parser.add_argument('--secret', type=str, required=True, help='plugin secret')
     parser.add_argument('--namespace', type=str, default='/', help='socketio namespace')
     parser.add_argument('--work_dir', type=str, default='.', help='plugin working directory')
-    parser.add_argument('--host', type=str, default='localhost', help='socketio host')
+    parser.add_argument('--host', type=str, default='127.0.0.1', help='socketio host')
     parser.add_argument('--port', type=str, default='8080', help='socketio port')
     parser.add_argument('--daemon', action="store_true", help='daemon mode')
     parser.add_argument('--debug', action="store_true", help='debug mode')
