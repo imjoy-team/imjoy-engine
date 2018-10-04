@@ -110,10 +110,10 @@ class PluginConnection():
             self.loop.run_until_complete(fut)
         else:
             self.sync_q = queue.Queue()
-            t = threading.Thread(target=self.worker, args=(self, self.sync_q, logger, self.abort))
+            t = threading.Thread(target=self.socketIO.wait)
             t.daemon = True
             t.start()
-            self.socketIO.wait()
+            self.worker(self, self.sync_q, logger, self.abort)
 
     def exit(self, code):
         if 'exit' in self._interface:

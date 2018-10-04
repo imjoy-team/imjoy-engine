@@ -1,5 +1,6 @@
 import sys
 import traceback
+import copy
 try:
     import queue
 except ImportError:
