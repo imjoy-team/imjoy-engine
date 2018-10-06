@@ -35,6 +35,7 @@ if([System.IO.File]::Exists("$InstallDir\Scripts\conda.exe")){
     $env:Path = "$InstallDir;" + $env:Path
     # Install Dependences to the new Python environment
     $env:Path = "$InstallDir\Scripts;" + $env:Path
+    $ErrorActionPreference = "Continue"
     Try
     {
         Write-Host "Running ImJoy...`n"
@@ -120,6 +121,7 @@ Remove-Item "$InstallDir\Miniconda_Install.exe"
 conda clean -iltp --yes
 
 Write-Host "`n$AppName Successfully Installed, running ImJoy Plugin Engine..."
+$ErrorActionPreference = "Continue"
 
 python -m imjoy
 
