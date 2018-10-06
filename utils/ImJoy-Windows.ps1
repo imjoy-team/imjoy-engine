@@ -1,3 +1,4 @@
+# Convert PS1 to exe: https://gallery.technet.microsoft.com/scriptcenter/PS2EXE-GUI-Convert-e7cb69d5
 # For Windows 7, Windows 8, Windows Server 2008 R2 or Windows Server 2012, run the following commands as Administrator:
 # x86 (32 bit)
 # Open C:\Windows\SysWOW64\cmd.exe
@@ -27,6 +28,33 @@ $PyPiPackage="git+https://github.com/oeway/ImJoy-Python#egg=imjoy"
 # Distribute this with a .tar.gz and use this variable
 # Comment out the next line if no local package to install
 # $LocalPackage="mypackage.tar.gz"
+
+
+# Check if ImJoyApp exists, run it.
+if([System.IO.File]::Exists("$InstallDir\Scripts\conda.exe")){
+    $env:Path = "$InstallDir;" + $env:Path
+    # Install Dependences to the new Python environment
+    $env:Path = "$InstallDir\Scripts;" + $env:Path
+    Try
+    {
+        Write-Host "Running ImJoy...`n"
+        python -m imjoy
+    }
+    Catch
+    {
+        Write-Host "Failed, Upgrading PyPi...`n"
+        pip install pip --upgrade
+        Write-Host "Installing PyPi dependencies...`n"
+        pip install $PyPiPackage
+        Write-Host "Running ImJoy...`n"
+        python -m imjoy
+    }
+    Write-Host "Press any key to continue ..."
+    $x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit
+}
+
+
 
 # Entry points to add to the path
 # Comment out the next line of no entry point
@@ -91,24 +119,9 @@ if(Test-Path variable:LocalPackage)
 Remove-Item "$InstallDir\Miniconda_Install.exe"
 conda clean -iltp --yes
 
-$WorkingDir = Convert-Path .
-if([System.IO.File]::Exists("$WorkingDir\imjoy.ico")){
-    Copy-Item "$WorkingDir\imjoy.ico" -Destination "$InstallDir\imjoy.ico"
-}
-if([System.IO.File]::Exists("$WorkingDir\ImJoy.app\Contents\Resources\imjoy.ico")){
-    Copy-Item "$WorkingDir\ImJoy.app\Contents\Resources\imjoy.ico" -Destination "$InstallDir\imjoy.ico"
-}
+Write-Host "`n$AppName Successfully Installed, running ImJoy Plugin Engine..."
 
-# create a shortcut to the desktop
-$WshShell = New-Object -comObject WScript.Shell
-$Shortcut = $WshShell.CreateShortcut("$Home\Desktop\ImJoy Plugin Engine.lnk")
-$Shortcut.IconLocation = "$InstallDir\imjoy.ico, 0"
-$Shortcut.WorkingDirectory = "$env:userprofile"
-$Shortcut.TargetPath = "$PsHome\powershell.exe"
-$Shortcut.Arguments = "-command ""& {`$env:Path = '$InstallDir;$InstallDir\Scripts;' + `$env:Path ; python -m imjoy}"""
-$Shortcut.Save()
-
-Write-Host "`n$AppName Successfully Installed"
+python -m imjoy
 
 Write-Host "Press any key to continue ..."
 
