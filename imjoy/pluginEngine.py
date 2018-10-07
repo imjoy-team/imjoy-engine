@@ -45,16 +45,8 @@ else:
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger('PluginEngine')
 
-def get_token():
-    random.seed(uuid.getnode())
-    a = "%32x" % random.getrandbits(128)
-    rd = a[:12] + '4' + a[13:16] + 'a' + a[17:]
-    uuid4 = uuid.UUID(rd)
-    random.seed()
-    return str(uuid4)
-
 parser = argparse.ArgumentParser()
-parser.add_argument('--token', type=str, default=get_token(), help='connection token')
+parser.add_argument('--token', type=str, default=None, help='connection token')
 parser.add_argument('--debug', action="store_true", help='debug mode')
 parser.add_argument('--serve', action="store_true", help='download ImJoy web app and serve it locally')
 parser.add_argument('--host', type=str, default='localhost', help='socketio host')
@@ -75,6 +67,32 @@ FORCE_QUIT_TIMEOUT = opt.force_quit_timeout
 WORKSPACE_DIR = os.path.expanduser(opt.workspace)
 if not os.path.exists(WORKSPACE_DIR):
     os.makedirs(WORKSPACE_DIR)
+
+# generate a new token if not exist
+try:
+    if opt.token is None or opt.token == "":
+        with open(os.path.join(WORKSPACE_DIR, '__imjoy__.token'), 'r') as f:
+            opt.token = f.read()
+except Exception as e:
+    pass
+
+if opt.token is None or opt.token == "":
+    opt.token = str(uuid.uuid4())
+    with open(os.path.join(WORKSPACE_DIR, '__imjoy__.token'), 'w') as f:
+        f.write(opt.token)
+
+# try to kill last process
+try:
+    with open(os.path.join(WORKSPACE_DIR, '__imjoy__.pid'), 'r') as f:
+        p = psutil.Process(int(f.read()))
+        for proc in p.children(recursive=True):
+            proc.kill()
+        p.kill()
+except Exception as e:
+    pass
+pid = str(os.getpid())
+with open(os.path.join(WORKSPACE_DIR, '__imjoy__.pid'), 'w') as f:
+    f.write(pid)
 
 if opt.serve:
     imjpath = '__ImJoy__'
@@ -732,4 +750,4 @@ try:
     web.run_app(app, host=opt.host, port=opt.port)
 except OSError as e:
     if e.errno in {48}:
-        print(f"ERROR: Failed to open port {opt.port}, please try to terminate the process which is using that port (e.g. run `kill $(lsof -t -i :{opt.port})` in a terminal), or restart your computer.")
+        print(f"ERROR: Failed to open port {opt.port}, please try to terminate the process which is using that port, or restart your computer.")
