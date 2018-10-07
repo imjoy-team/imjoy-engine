@@ -49,7 +49,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--token', type=str, default=None, help='connection token')
 parser.add_argument('--debug', action="store_true", help='debug mode')
 parser.add_argument('--serve', action="store_true", help='download ImJoy web app and serve it locally')
-parser.add_argument('--host', type=str, default='localhost', help='socketio host')
+parser.add_argument('--host', type=str, default='127.0.0.1', help='socketio host')
 parser.add_argument('--port', type=str, default='8080', help='socketio port')
 parser.add_argument('--force_quit_timeout', type=int, default=5, help='the time (in second) for waiting before kill a plugin process, default: 5 s')
 parser.add_argument('--workspace', type=str, default='~/ImJoyWorkspace', help='workspace folder for plugins')
@@ -149,7 +149,7 @@ if os.path.exists('__ImJoy__/docs') and os.path.exists('__ImJoy__/docs/index.htm
         with open('__ImJoy__/docs/index.html') as f:
             return web.Response(text=f.read(), content_type='text/html')
     app.router.add_static('/static', path=str('__ImJoy__/docs/static'))
-    print('A local version of Imjoy web app is available at http://localhost:8080')
+    print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
 else:
     async def index(request):
         return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>You can run "python -m imjoy --serve" to serve ImJoy web app locally.</p>', content_type="text/html")
