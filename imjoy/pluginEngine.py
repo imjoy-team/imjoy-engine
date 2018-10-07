@@ -71,27 +71,29 @@ if not os.path.exists(WORKSPACE_DIR):
 # generate a new token if not exist
 try:
     if opt.token is None or opt.token == "":
-        with open(os.path.join(WORKSPACE_DIR, '__imjoy__.token'), 'r') as f:
+        with open(os.path.join(WORKSPACE_DIR, '.token'), 'r') as f:
             opt.token = f.read()
 except Exception as e:
     pass
 
 if opt.token is None or opt.token == "":
     opt.token = str(uuid.uuid4())
-    with open(os.path.join(WORKSPACE_DIR, '__imjoy__.token'), 'w') as f:
+    with open(os.path.join(WORKSPACE_DIR, '.token'), 'w') as f:
         f.write(opt.token)
 
 # try to kill last process
+pid_file = os.path.join(WORKSPACE_DIR, '.pid')
 try:
-    with open(os.path.join(WORKSPACE_DIR, '__imjoy__.pid'), 'r') as f:
-        p = psutil.Process(int(f.read()))
-        for proc in p.children(recursive=True):
-            proc.kill()
-        p.kill()
+    if os.path.exists(pid_file):
+        with open(pid_file, 'r') as f:
+            p = psutil.Process(int(f.read()))
+            for proc in p.children(recursive=True):
+                proc.kill()
+            p.kill()
 except Exception as e:
     pass
 pid = str(os.getpid())
-with open(os.path.join(WORKSPACE_DIR, '__imjoy__.pid'), 'w') as f:
+with open(pid_file, 'w') as f:
     f.write(pid)
 
 if opt.serve:
@@ -744,6 +746,11 @@ async def on_shutdown(app):
     asyncio.gather(*tasks)
     stopped.set()
     logger.info('Plugin engine exited.')
+    try:
+        os.remove(pid_file)
+    except Exception as e:
+        logger.info('Failed to remove the pid file.')
+
 
 app.on_shutdown.append(on_shutdown)
 try:
