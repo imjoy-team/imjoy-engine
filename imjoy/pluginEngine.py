@@ -239,8 +239,8 @@ async def on_init_plugin(sid, kwargs):
                     if '-y' not in parms:
                         envs[i] = env.replace('conda create', 'conda create -y')
         else:
-            print(f"WARNING: blocked env command: \n{env}\nYou may want to run it yourself.")
-            logger.warning(f'env command is blocked because conda is not avaialbe or in `--freeze` mode: {env}')
+            print("WARNING: blocked env command: \n{}\nYou may want to run it yourself.".format(env))
+            logger.warning('env command is blocked because conda is not avaialbe or in `--freeze` mode: %s', env)
 
 
     if type(requirements) is list:
@@ -252,8 +252,8 @@ async def on_init_plugin(sid, kwargs):
 
     requirements_cmd = "pip install "+" ".join(default_requirements_py2 if is_py2 else default_requirements_py3) + ' ' + requirements_pip
     if opt.freeze:
-        print(f"WARNING: blocked pip command: \n{requirements_cmd}\nYou may want to run it yourself.")
-        logger.warning(f'pip command is blocked due to `--freeze` mode: {requirements_cmd}')
+        print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
+        logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
         requirements_cmd = None
 
     if not opt.freeze and CONDA_AVAILABLE:
@@ -290,7 +290,8 @@ async def on_init_plugin(sid, kwargs):
     try:
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
-        taskThread = threading.Thread(target=launch_plugin, args=[pid, envs, requirements_cmd, f'{cmd} "{template_script}" --id="{pid}" --host={opt.host} --port={opt.port} --secret="{secretKey}" --namespace={NAME_SPACE}', work_dir, abort, pid, plugin_env])
+        taskThread = threading.Thread(target=launch_plugin, args=[pid, envs, requirements_cmd,
+                                      '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={NAME_SPACE}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
@@ -523,7 +524,7 @@ async def on_get_file_url(sid, kwargs):
     else:
         urlid = str(uuid.uuid4())
         generatedUrls[urlid] = fileInfo
-        generatedUrlFiles[path] = f'http://{opt.host}:{opt.port}/file/{urlid}?name={name}'
+        generatedUrlFiles[path] = 'http://{}:{}/file/{urlid}?name={name}'.format(opt.host, opt.port, urlid, name)
         if kwargs.get('password', None):
             fileInfo['password'] = kwargs['password']
             generatedUrlFiles[path] += ('&password=' + fileInfo['password'])
@@ -732,4 +733,4 @@ try:
     web.run_app(app, host=opt.host, port=opt.port)
 except OSError as e:
     if e.errno in {48}:
-        print(f"ERROR: Failed to open port {opt.port}, please try to terminate the process which is using that port (e.g. run `kill $(lsof -t -i :{opt.port})` in a terminal), or restart your computer.")
+        print("ERROR: Failed to open port {}, please try to terminate the process which is using that port (e.g. run `kill $(lsof -t -i :{})` in a terminal), or restart your computer.".format(opt.port, opt.port))
