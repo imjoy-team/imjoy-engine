@@ -714,7 +714,7 @@ async def on_startup(app):
         print('You can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
     else:
         print('Please go to https://imjoy.io/#/app with your web browser (Chrome or FireFox)')
-    print("You may be asked for a connection token, use this one: " + opt.token)
+    print("Connection Token: " + opt.token)
     sys.stdout.flush()
     # try:
     #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
