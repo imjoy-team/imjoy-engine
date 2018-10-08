@@ -121,35 +121,6 @@ if opt.serve:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
 
-async def on_startup(app):
-    try:
-        import pkg_resources  # part of setuptools
-        version = pkg_resources.require("imjoy")[0].version
-        print('ImJoy Python Plugin Engine (version {})'.format(version))
-    except:
-        print('ImJoy Plugin Engine is ready.')
-        pass
-    if opt.serve:
-        print('You can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
-    else:
-        print('Please go to https://imjoy.io/#/app with your web browser (Chrome or FireFox)')
-    print("You may be asked for a connection token, use this one: " + opt.token)
-    # try:
-    #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
-    # except Exception as e:
-    #     try:
-    #         webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-    #     except Exception as e:
-    #         print('Failed to open the browser.')
-
-    # try:
-    #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-    # except Exception as e:
-    #     try:
-    #         webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-    #     except Exception as e:
-    #         print('Failed to open the browser.')
-
 MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'
 # ALLOWED_ORIGINS = ['http://'+opt.host+':'+opt.port, 'http://imjoy.io', 'https://imjoy.io']
@@ -731,6 +702,35 @@ def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plug
             logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n', str(args), str(exitCode))
             return False
 
+async def on_startup(app):
+    try:
+        import pkg_resources  # part of setuptools
+        version = pkg_resources.require("imjoy")[0].version
+        print('ImJoy Python Plugin Engine (version {})'.format(version))
+    except:
+        print('ImJoy Plugin Engine is ready.')
+        pass
+    if opt.serve:
+        print('You can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
+    else:
+        print('Please go to https://imjoy.io/#/app with your web browser (Chrome or FireFox)')
+    print("You may be asked for a connection token, use this one: " + opt.token)
+    sys.stdout.flush()
+    # try:
+    #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
+    # except Exception as e:
+    #     try:
+    #         webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
+    #     except Exception as e:
+    #         print('Failed to open the browser.')
+
+    # try:
+    #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
+    # except Exception as e:
+    #     try:
+    #         webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
+    #     except Exception as e:
+    #         print('Failed to open the browser.')
 
 # print('======>> Connection Token: '+opt.token + ' <<======')
 async def on_shutdown(app):
