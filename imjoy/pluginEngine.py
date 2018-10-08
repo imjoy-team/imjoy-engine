@@ -157,10 +157,11 @@ app.router.add_get('/', index)
 app.router.add_get('/about', about)
 
 plugins = {}
-plugin_cids = {}
+plugin_csids = {}
 plugin_sids = {}
+client_sessions = {}
+client_sessions_sids = {}
 clients = {}
-clients_sids = {}
 attempt_count = 0
 
 cmd_history = []
@@ -190,9 +191,8 @@ def connect(sid, environ):
 
 @sio.on('init_plugin', namespace=NAME_SPACE)
 async def on_init_plugin(sid, kwargs):
-
-    if sid in clients_sids:
-        client_id = clients_sids[sid]
+    if sid in client_sessions_sids:
+        client_session_id = client_sessions_sids[sid]
     else:
         logger.debug('client %s is not registered.', sid)
         return {'success': False}
@@ -212,10 +212,10 @@ async def on_init_plugin(sid, kwargs):
     logger.info("initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s", pname, id, cmd, workspace)
 
     if pid in plugins:
-        if client_id in plugin_cids:
-            plugin_cids[client_id].append(plugins[pid])
+        if client_session_id in plugin_csids:
+            plugin_csids[client_session_id].append(plugins[pid])
         else:
-            plugin_cids[client_id] = [plugins[pid]]
+            plugin_csids[client_session_id] = [plugins[pid]]
         logger.debug('plugin already initialized: %s', pid)
         await sio.emit('message_from_plugin_'+pid, {"type": "initialized", "dedicatedThread": True})
         return {'success': True, 'secret': plugins[pid]['secret']}
@@ -271,11 +271,11 @@ async def on_init_plugin(sid, kwargs):
         cmd = conda_activate + " " + env_name + " && " + cmd
 
     secretKey = str(uuid.uuid4())
-    plugins[pid] = {'secret': secretKey, 'id': pid, 'name': config['name'], 'type': config['type'], 'client_id': client_id}
-    if client_id in plugin_cids:
-        plugin_cids[client_id].append(plugins[pid])
+    plugins[pid] = {'secret': secretKey, 'id': pid, 'name': config['name'], 'type': config['type'], 'client_session_id': client_session_id}
+    if client_session_id in plugin_csids:
+        plugin_csids[client_session_id].append(plugins[pid])
     else:
-        plugin_cids[client_id] = [plugins[pid]]
+        plugin_csids[client_session_id] = [plugins[pid]]
 
     @sio.on('from_plugin_'+secretKey, namespace=NAME_SPACE)
     async def message_from_plugin(sid, kwargs):
@@ -350,7 +350,23 @@ async def on_kill_plugin(sid, kwargs):
 @sio.on('register_client', namespace=NAME_SPACE)
 async def on_register_client(sid, kwargs):
     global attempt_count
-    cid = kwargs['id']
+    # use a random session id
+    csid = kwargs.get('session_id', None) or kwargs['id']
+    client_id = kwargs['id']
+    print(clients)
+    if client_id in clients:
+        confirmation = True
+        message = 'You already have one ImJoy instance connected to ImJoy, would you like to continue?'
+        if csid not in clients[client_id]:
+            clients[client_id].append(csid)
+    else:
+        message = None
+        confirmation = False
+        clients[client_id] = [csid]
+    # reject if the client is already registered
+    # if csid in client_sessions:
+    #     return {'plugins': [], 'no_retry': True, 'reason': 'Only one ImJoy instance is allowed to connect, please switch to the other ImJoy instance.', 'success': False}
+
     token = kwargs.get('token', None)
     if token != opt.token:
         logger.debug('token mismatch: %s != %s', token, opt.token)
@@ -363,16 +379,18 @@ async def on_register_client(sid, kwargs):
         if attempt_count>= MAX_ATTEMPTS:
             logger.info("Client exited because max attemps exceeded: %s", attempt_count)
             sys.exit(100)
-        return {'plugins': [], 'success': False}
+        return {'plugins': [], 'reason': 'Token does not match',  'success': False}
     else:
         attempt_count = 0
-        if cid in clients:
-            clients[cid].append(sid)
+        if csid in client_sessions:
+
+            client_sessions[csid].append(sid)
         else:
-            clients[cid] = [sid]
-        clients_sids[sid] = cid
+
+            client_sessions[csid] = [sid]
+        client_sessions_sids[sid] = csid
         logger.info("register client: %s", kwargs)
-        return {'success': True, 'plugins': [ {"id": p['id'], "name": p['name'], "type": p['type']} for p in plugin_cids[cid] ] if cid in plugin_cids else []}
+        return {'success': True, 'message': message, 'confirmation': confirmation,  'plugins': [ {"id": p['id'], "name": p['name'], "type": p['type']} for p in plugin_csids[csid] ] if csid in plugin_csids else []}
 
 def scandir(path, type=None, recursive=False):
     file_list = []
@@ -394,7 +412,7 @@ def scandir(path, type=None, recursive=False):
 
 @sio.on('list_dir', namespace=NAME_SPACE)
 async def on_list_dir(sid, kwargs):
-    if sid not in clients_sids:
+    if sid not in client_sessions_sids:
         logger.debug('client %s is not registered.', sid)
         return {'success': False, 'error': 'client has not been registered.'}
     path = kwargs.get('path', '~')
@@ -510,7 +528,7 @@ app.router.add_get('/file/{urlid}', download_file)
 @sio.on('get_file_url', namespace=NAME_SPACE)
 async def on_get_file_url(sid, kwargs):
     logger.info("generating file url: %s", kwargs)
-    if sid not in clients_sids:
+    if sid not in client_sessions_sids:
         logger.debug('client %s is not registered.', sid)
         return {'success': False, 'error': 'client has not been registered'}
 
@@ -542,7 +560,7 @@ async def on_get_file_url(sid, kwargs):
 @sio.on('get_file_path', namespace=NAME_SPACE)
 async def on_get_file_path(sid, kwargs):
     logger.info("generating file url: %s", kwargs)
-    if sid not in clients_sids:
+    if sid not in client_sessions_sids:
         logger.debug('client %s is not registered.', sid)
         return {'success': False, 'error': 'client has not been registered'}
 
@@ -561,16 +579,29 @@ async def on_message(sid, kwargs):
 @sio.on('disconnect', namespace=NAME_SPACE)
 async def disconnect(sid):
     tasks = []
-    if sid in clients_sids:
-        cid = clients_sids[sid]
-        del clients_sids[sid]
-        if cid in clients and sid in clients[cid]:
-            clients[cid].remove(sid)
-        if cid in clients or len(clients[cid])==0:
-            if cid in plugin_cids:
-                for plugin in plugin_cids[cid]:
+    if sid in client_sessions_sids:
+        csid = client_sessions_sids[sid]
+        del client_sessions_sids[sid]
+        if csid in client_sessions and sid in client_sessions[csid]:
+            client_sessions[csid].remove(sid)
+        if csid in client_sessions or len(client_sessions[csid])==0:
+            if csid in plugin_csids:
+                for plugin in plugin_csids[csid]:
                     tasks.append(on_kill_plugin(sid, plugin))
-                del plugin_cids[cid]
+                del plugin_csids[csid]
+        if len(client_sessions[csid]) == 0:
+            del client_sessions[csid]
+
+        del_dict = None
+        for k in clients:
+            c = clients[k]
+            if csid in c:
+                c.remove(csid)
+                if len(c) == 0:
+                    del_dict = k
+                break
+        if del_dict:
+            del clients[del_dict]
 
     # plugin is terminating
     if sid in plugin_sids:
@@ -578,13 +609,13 @@ async def disconnect(sid):
         if pid in plugins:
             del plugins[pid]
         del plugin_sids[sid]
-        for cid in plugin_cids.keys():
+        for csid in plugin_csids.keys():
             exist = False
-            for p in plugin_cids[cid]:
+            for p in plugin_csids[csid]:
                 if p['id'] == pid:
                     exist = p
             if exist:
-                plugin_cids[cid].remove(exist)
+                plugin_csids[csid].remove(exist)
                 tasks.append(on_kill_plugin(sid, exist))
     asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
