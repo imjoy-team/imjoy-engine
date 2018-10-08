@@ -544,7 +544,7 @@ async def on_get_file_url(sid, kwargs):
     else:
         urlid = str(uuid.uuid4())
         generatedUrls[urlid] = fileInfo
-        generatedUrlFiles[path] = 'http://{}:{}/file/{urlid}?name={name}'.format(opt.host, opt.port, urlid, name)
+        generatedUrlFiles[path] = 'http://{}:{}/file/{}?name={}'.format(opt.host, opt.port, urlid, name)
         if kwargs.get('password', None):
             fileInfo['password'] = kwargs['password']
             generatedUrlFiles[path] += ('&password=' + fileInfo['password'])
