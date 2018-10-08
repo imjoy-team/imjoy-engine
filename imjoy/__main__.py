@@ -12,12 +12,6 @@ if __name__ == '__main__':
         ret = subprocess.Popen('pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy'.split(), shell=False).wait()
         if ret != 0:
             print('Failed to upgrade ImJoy Plugin Engine.')
-        try:
-            import pkg_resources  # part of setuptools
-            version = pkg_resources.require("imjoy")[0].version
-            print('ImJoy Python Plugin Engine (version {})'.format(version))
-        except:
-            pass
         from .pluginEngine import *
     else:
         # running in python 2

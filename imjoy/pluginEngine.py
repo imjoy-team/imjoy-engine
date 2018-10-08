@@ -76,10 +76,13 @@ try:
 except Exception as e:
     pass
 
-if opt.token is None or opt.token == "":
-    opt.token = str(uuid.uuid4())
-    with open(os.path.join(WORKSPACE_DIR, '.token'), 'w') as f:
-        f.write(opt.token)
+try:
+    if opt.token is None or opt.token == "":
+        opt.token = str(uuid.uuid4())
+        with open(os.path.join(WORKSPACE_DIR, '.token'), 'w') as f:
+            f.write(opt.token)
+except Exception as e:
+    logger.error('Falied to save .token file: %s', str(e))
 
 # try to kill last process
 pid_file = os.path.join(WORKSPACE_DIR, '.pid')
@@ -92,9 +95,12 @@ try:
             p.kill()
 except Exception as e:
     pass
-pid = str(os.getpid())
-with open(pid_file, 'w') as f:
-    f.write(pid)
+try:
+    pid = str(os.getpid())
+    with open(pid_file, 'w') as f:
+        f.write(pid)
+except Exception as e:
+    logger.error('Falied to save .pid file: %s', str(e))
 
 if opt.serve:
     imjpath = '__ImJoy__'
@@ -114,7 +120,20 @@ if opt.serve:
         if ret != 0:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
-    print('Now you can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
+
+async def on_startup(app):
+    try:
+        import pkg_resources  # part of setuptools
+        version = pkg_resources.require("imjoy")[0].version
+        print('ImJoy Python Plugin Engine (version {})'.format(version))
+    except:
+        print('ImJoy Plugin Engine is ready.')
+        pass
+    if opt.serve:
+        print('You can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
+    else:
+        print('Please go to https://imjoy.io/#/app with your web browser (Chrome or FireFox)')
+    print("You may be asked for a connection token, use this one: " + opt.token)
     # try:
     #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
     # except Exception as e:
@@ -123,8 +142,6 @@ if opt.serve:
     #     except Exception as e:
     #         print('Failed to open the browser.')
 
-else:
-    logger.info("Now you can run Python plugins from https://imjoy.io, token: %s", opt.token)
     # try:
     #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
     # except Exception as e:
@@ -715,7 +732,7 @@ def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plug
             return False
 
 
-print('======>> Connection Token: '+opt.token + ' <<======')
+# print('======>> Connection Token: '+opt.token + ' <<======')
 async def on_shutdown(app):
     print('Shutting down...')
     logger.info('Shutting down the plugin engine...')
@@ -752,7 +769,7 @@ async def on_shutdown(app):
     except Exception as e:
         logger.info('Failed to remove the pid file.')
 
-
+app.on_startup.append(on_startup)
 app.on_shutdown.append(on_shutdown)
 try:
     web.run_app(app, host=opt.host, port=opt.port)
