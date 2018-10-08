@@ -311,7 +311,7 @@ async def on_init_plugin(sid, kwargs):
         abort = threading.Event()
         plugins[pid]['abort'] = abort #
         taskThread = threading.Thread(target=launch_plugin, args=[pid, envs, requirements_cmd,
-                                      '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={NAME_SPACE}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
+                                      '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         # execute('python pythonWorkerTemplate.py', './', abort, pid)
