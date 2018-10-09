@@ -298,6 +298,7 @@ async def on_init_plugin(sid, kwargs):
     cmd = config.get('cmd', 'python')
     pname = config.get('name', None)
     flags = config.get('flags', [])
+    tag = config.get('tag', '')
     requirements = config.get('requirements', []) or []
     workspace = config.get('workspace', 'default')
     work_dir = os.path.join(WORKSPACE_DIR, workspace)
@@ -308,7 +309,7 @@ async def on_init_plugin(sid, kwargs):
 
     logger.info("initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s", pname, id, cmd, workspace)
 
-    plugin_signature = "{}/{}/{}".format(client_id, pname, workspace)
+    plugin_signature = "{}/{}/{}".format(workspace, pname, tag)
 
     if 'single-instance' in flags:
         secret = resumePluginSession(pid, session_id, plugin_signature)
