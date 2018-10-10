@@ -9,7 +9,7 @@ if __name__ == '__main__':
     if sys.version_info > (3, 0):
         # running in python 3
         print('Upgrading ImJoy Plugin Engine...')
-        ret = subprocess.Popen(sys.executable +' -m pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy'.split(), shell=False).wait()
+        ret = subprocess.Popen(sys.executable +' -m pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy', shell=False).wait()
         if ret != 0:
             print('Failed to upgrade ImJoy Plugin Engine.')
         from .pluginEngine import *
