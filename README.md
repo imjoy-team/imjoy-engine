@@ -71,6 +71,14 @@ $env:Path = '%systemdrive%%homepath%\ImJoyApp;%systemdrive%%homepath%\ImJoyApp\S
 ```
 
 ## FAQs
+ * Cannot start the ImJoy Plugin Engine any more?
+ Try to run the following command in your terminal to upgrade ImJoy manually.
+ 
+ ```python
+export PATH=~/ImJoyApp/bin:$PATH
+pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy
+ ```
+ 
  * Can I use my existing python?
 
   It depends whether it's a conda-compatible distribution or not, try to type `conda -V` command, if you see a version number(e.g:`conda 4.3.30`), it means you can skip the Anaconda/Miniconda installation, and install ImJoy directly with your existing python.
