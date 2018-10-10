@@ -160,8 +160,8 @@ app.router.add_get('/about', about)
 attempt_count = 0
 
 cmd_history = []
-default_requirements_py2 = ["psutil", "requests", "six", "websocket-client"]
-default_requirements_py3 = ["psutil", "requests", "six", "websocket-client-py3", "janus"]
+default_requirements_py2 = ["requests", "six", "websocket-client", "psutil"]
+default_requirements_py3 = ["requests", "six", "websocket-client-py3", "janus", "psutil"]
 
 script_dir = os.path.dirname(os.path.normpath(__file__))
 template_script = os.path.abspath(os.path.join(script_dir, 'workerTemplate.py'))
@@ -354,7 +354,10 @@ async def on_init_plugin(sid, kwargs):
     else:
         raise Exception('wrong requirements type.')
 
-    requirements_cmd = "pip install "+" ".join(default_requirements_py2 if is_py2 else default_requirements_py3) + ' ' + requirements_pip
+    default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
+
+    requirements_cmd = "pip install " + " ".join(default_requirements) + ' ' + requirements_pip
+    requirements_cmd += ' || conda install ' + " ".join(default_requirements) + " " + requirements_pip
     if opt.freeze:
         print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
         logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
