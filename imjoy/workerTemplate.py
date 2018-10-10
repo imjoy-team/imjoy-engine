@@ -9,7 +9,6 @@ import traceback
 import uuid
 from functools import reduce
 import inspect
-import psutil
 import threading
 import copy
 from socketIO_client import SocketIO, LoggingNamespace, find_callback
@@ -44,6 +43,7 @@ if imjoy_path not in sys.path:
     sys.path.insert(0, imjoy_path)
 
 def kill(proc_pid):
+    import psutil
     process = psutil.Process(proc_pid)
     for proc in process.children(recursive=True):
         proc.kill()
