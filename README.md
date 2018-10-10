@@ -6,6 +6,10 @@ The plugin engine used for running python plugins in https://imjoy.io
 
   Follow the instructions according to different operating systems.
 
+  Note: If you failed to start the App, try to manually upgrade the app by running the following command in a **Terminal**(Mac and Linux) or **Anaconda Prompt**(Windows):
+  ```
+  PATH=~/ImJoyApp/bin:$PATH pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy
+  ```
 ## Installation (alternative solution)
   If you you have trouble in using the above ImJoyApp, do the following:
   * Download and install [Miniconda with Python 3.7](https://conda.io/miniconda.html) (or [Anaconda with Python 3.6](https://www.anaconda.com/download/) if you prefer a full installation). If you have installed any of these, please skip this step.
