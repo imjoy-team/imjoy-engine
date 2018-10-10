@@ -15,7 +15,7 @@ requirements = []
 
 try:
     if sys.version_info > (3, 0):
-        requirements = ['psutil', 'aiohttp', 'python-socketio', 'requests', 'six', 'websocket-client-py3']
+        requirements = ['psutil', 'aiohttp', 'python-socketio', 'requests', 'six', 'websocket-client', 'numpy']
     setup(name='imjoy',
           version='0.6.7',
           description='Python plugin engine for ImJoy.io',
@@ -32,7 +32,7 @@ except Exception as e:
     if sys.version_info > (3, 0) and CONDA_AVAILABLE:
         try:
             print('Trying to install package with conda...')
-            requirements = ['psutil', 'aiohttp', 'python-socketio', 'requests', 'six', 'websocket-client-py3']
+            requirements = ['psutil', 'aiohttp', 'python-socketio', 'requests', 'six', 'websocket-client', 'numpy']
             subprocess.call(["conda", "install"] + requirements)
         except Exception as e:
             print("Failed to install dependencies.")

@@ -16,7 +16,6 @@ import argparse
 import uuid
 import shutil
 import webbrowser
-import psutil
 from aiohttp import web, hdrs
 from aiohttp import WSCloseCode
 from aiohttp import streamer
@@ -89,6 +88,7 @@ pid_file = os.path.join(WORKSPACE_DIR, '.pid')
 try:
     if os.path.exists(pid_file):
         with open(pid_file, 'r') as f:
+            import psutil
             p = psutil.Process(int(f.read()))
             for proc in p.children(recursive=True):
                 proc.kill()
@@ -160,8 +160,8 @@ app.router.add_get('/about', about)
 attempt_count = 0
 
 cmd_history = []
-default_requirements_py2 = ["requests", "six", "websocket-client", "psutil"]
-default_requirements_py3 = ["requests", "six", "websocket-client-py3", "janus", "psutil"]
+default_requirements_py2 = ["requests", "six", "websocket-client", "numpy", "psutil"]
+default_requirements_py3 = ["requests", "six", "websocket-client", "janus", "numpy", "psutil"]
 
 script_dir = os.path.dirname(os.path.normpath(__file__))
 template_script = os.path.abspath(os.path.join(script_dir, 'workerTemplate.py'))
@@ -265,10 +265,14 @@ def killPlugin(pid):
     if pid in plugins:
         if plugins[pid]['signature'] in plugin_signatures:
             del plugin_signatures[plugins[pid]['signature']]
-        p = psutil.Process(plugins[pid]['process_id'])
-        for proc in p.children(recursive=True):
-            proc.kill()
-        p.kill()
+        try:
+            import psutil
+            p = psutil.Process(plugins[pid]['process_id'])
+            for proc in p.children(recursive=True):
+                proc.kill()
+            p.kill()
+        except Exception as e:
+            logger.error(str(e))
 
 def killAllPlugins():
     tasks = []
@@ -356,8 +360,7 @@ async def on_init_plugin(sid, kwargs):
 
     default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
 
-    requirements_cmd = "pip install " + " ".join(default_requirements) + ' ' + requirements_pip
-    requirements_cmd += ' || conda install ' + " ".join(default_requirements) + " " + requirements_pip
+    requirements_cmd = sys.executable + " -m pip install " + " ".join(default_requirements) + ' ' + requirements_pip
     if opt.freeze:
         print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
         logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
@@ -413,8 +416,6 @@ async def force_kill_timeout(t, obj):
     try:
         logger.warning('Timeout, force quitting %s', pid)
         killPlugin(pid)
-    except Exception as e:
-        logger.error(e)
     finally:
         return
 
