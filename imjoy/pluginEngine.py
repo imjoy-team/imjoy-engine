@@ -360,7 +360,7 @@ async def on_init_plugin(sid, kwargs):
 
     default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
 
-    requirements_cmd = sys.executable + " -m pip install " + " ".join(default_requirements) + ' ' + requirements_pip
+    requirements_cmd = "pip install " + " ".join(default_requirements) + ' ' + requirements_pip
     if opt.freeze:
         print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
         logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
