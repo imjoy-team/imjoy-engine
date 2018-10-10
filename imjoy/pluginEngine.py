@@ -88,11 +88,7 @@ pid_file = os.path.join(WORKSPACE_DIR, '.pid')
 try:
     if os.path.exists(pid_file):
         with open(pid_file, 'r') as f:
-            import psutil
-            p = psutil.Process(int(f.read()))
-            for proc in p.children(recursive=True):
-                proc.kill()
-            p.kill()
+            killProcess(int(f.read()))
 except Exception as e:
     pass
 try:
@@ -179,6 +175,12 @@ elif sys.platform == "win32":
 else:
     conda_activate = "conda activate"
 
+def killProcess(pid):
+    import psutil
+    cp = psutil.Process(pid)
+    for proc in cp.children(recursive=True):
+        proc.kill()
+    cp.kill()
 
 plugins = {}
 plugin_sessions = {}
@@ -266,11 +268,7 @@ def killPlugin(pid):
         if plugins[pid]['signature'] in plugin_signatures:
             del plugin_signatures[plugins[pid]['signature']]
         try:
-            import psutil
-            p = psutil.Process(plugins[pid]['process_id'])
-            for proc in p.children(recursive=True):
-                proc.kill()
-            p.kill()
+            killProcess(plugins[pid]['process_id'])
         except Exception as e:
             logger.error(str(e))
 
@@ -754,10 +752,7 @@ def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plug
 
     try:
         logger.info('Plugin aborting...')
-        p = psutil.Process(process.pid)
-        for proc in p.children(recursive=True):
-            proc.kill()
-        p.kill()
+        killProcess(process.pid)
         logger.info('plugin process is killed.')
         output = process.communicate()[0]
         exitCode = process.returncode
@@ -813,10 +808,7 @@ async def on_shutdown(app):
                 break
         print("Force shutting down now!", flush=True)
         logger.debug('Plugin engine is killed.')
-        cp = psutil.Process(os.getpid())
-        for proc in cp.children(recursive=True):
-            proc.kill()
-        cp.kill()
+        killProcess(os.getpid())
         # os._exit(1)
     t = threading.Thread(target=loop)
     t.daemon = True # stop if the program exits
