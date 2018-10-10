@@ -49,11 +49,16 @@ However, in this case, you need to solve the dependencies yourself.
 If you used the ImJoyApp we provided in the [releases](https://github.com/oeway/ImJoy-Python/releases), you can launch it manually.
 For Linux and Mac, launch the following command in a Terminal:
 ```
+# use the libraries in ImJoyApp
+export PATH=~/ImJoyApp/bin:$PATH
+
 # normal usage
-PATH=~/ImJoyApp/bin:$PATH python -m imjoy
+python -m imjoy
 
 # frozen mode
-PATH=~/ImJoyApp/bin:$PATH python -m imjoy --freeze
+python -m imjoy --freeze
+
+
 ```
 
 For Windows, search `powershell`, and run the following command:
