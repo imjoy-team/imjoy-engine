@@ -749,7 +749,7 @@ def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plug
     if sys.platform != "win32":
         kwargs.update(preexec_fn=os.setsid)
 
-    process = subprocess.Popen(args, bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    process = subprocess.Popen(args, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
               shell=True, env=plugin_env, cwd=work_dir, **kwargs)
     setPluginPID(pid, process.pid)
     # Poll process for new output until finished
