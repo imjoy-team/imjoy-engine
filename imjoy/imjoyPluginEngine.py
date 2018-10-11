@@ -831,10 +831,10 @@ async def on_shutdown(app):
     await killAllPlugins()
     stopped.set()
     logger.info('Plugin engine exited.')
-    try:
-        os.remove(pid_file)
-    except Exception as e:
-        logger.info('Failed to remove the pid file.')
+    # try:
+    #     os.remove(pid_file)
+    # except Exception as e:
+    #     logger.info('Failed to remove the pid file.')
 
 app.on_startup.append(on_startup)
 app.on_shutdown.append(on_shutdown)
