@@ -9,15 +9,15 @@ except OSError as e:
     if sys.version_info > (3, 0):
         print('WARNING: you are running ImJoy without conda, you may have problem with some plugins.')
     else:
-        sys.exit('Sorry, ImJoy plugin engine can only run within a conda environment or at least in Python 3.')
+        sys.exit('Sorry, ImJoy Python Plugin Engine can only run within a conda environment or at least in Python 3.')
 
 requirements = []
 if sys.version_info > (3, 0):
     requirements = ['aiohttp', 'python-socketio', 'requests', 'six', 'websocket-client', 'numpy', "psutil"]
 try:
     setup(name='imjoy',
-          version='0.6.7',
-          description='Python plugin engine for ImJoy.io',
+          version='0.6.8',
+          description='Python Plugin Engine for ImJoy.io',
           url='http://github.com/oeway/ImJoy',
           author='Wei OUYANG',
           author_email='wei.ouyang@cri-paris.org',

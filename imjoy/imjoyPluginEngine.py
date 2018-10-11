@@ -21,6 +21,10 @@ from aiohttp import WSCloseCode
 from aiohttp import streamer
 from urllib.parse import urlparse
 from mimetypes import MimeTypes
+try:
+    import psutil
+except Exception as e:
+    print("WARNING: a library called 'psutil' can not be imported, this may cause problem when killing processes.")
 
 try:
     from Queue import Queue, Empty
@@ -42,7 +46,7 @@ else:
     CONDA_AVAILABLE = True
 
 logging.basicConfig(stream=sys.stdout)
-logger = logging.getLogger('PluginEngine')
+logger = logging.getLogger('ImJoyPluginEngine')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--token', type=str, default=None, help='connection token')
@@ -160,7 +164,7 @@ default_requirements_py2 = ["requests", "six", "websocket-client", "numpy", "psu
 default_requirements_py3 = ["requests", "six", "websocket-client", "janus", "numpy", "psutil"]
 
 script_dir = os.path.dirname(os.path.normpath(__file__))
-template_script = os.path.abspath(os.path.join(script_dir, 'workerTemplate.py'))
+template_script = os.path.abspath(os.path.join(script_dir, 'imjoyWorkerTemplate.py'))
 
 if sys.platform == "linux" or sys.platform == "linux2":
     # linux
@@ -176,11 +180,13 @@ else:
     conda_activate = "conda activate"
 
 def killProcess(pid):
-    import psutil
-    cp = psutil.Process(pid)
-    for proc in cp.children(recursive=True):
-        proc.kill()
-    cp.kill()
+    try:
+        cp = psutil.Process(pid)
+        for proc in cp.children(recursive=True):
+            proc.kill()
+        cp.kill()
+    except Exception as e:
+        print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid)) 
 
 plugins = {}
 plugin_sessions = {}
@@ -398,7 +404,6 @@ async def on_init_plugin(sid, kwargs):
                                       '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
-        # execute('python pythonWorkerTemplate.py', './', abort, pid)
         return {'success': True, 'initialized': False, 'secret': secretKey, 'work_dir': os.path.abspath(work_dir)}
     except Exception as e:
         logger.error(e)

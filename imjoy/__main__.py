@@ -12,7 +12,7 @@ if __name__ == '__main__':
         ret = subprocess.Popen('pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy'.split(), shell=False).wait()
         if ret != 0:
             print('Failed to upgrade ImJoy Plugin Engine.')
-        from .pluginEngine import *
+        from .imjoyPluginEngine import *
     else:
         # running in python 2
         print('ImJoy needs to run in Python 3.6+, bootstrapping with conda ...')

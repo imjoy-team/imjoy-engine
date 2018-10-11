@@ -11,16 +11,16 @@ from functools import reduce
 import inspect
 import threading
 import copy
-from socketIO_client import SocketIO, LoggingNamespace, find_callback
-from utils import debounce, setInterval, dotdict, ReferenceStore
+from imjoySocketIO_client import SocketIO, LoggingNamespace, find_callback
+from imjoyUtils import debounce, setInterval, dotdict, ReferenceStore
 
 if sys.version_info >= (3, 0):
     import asyncio
     import janus
-    from utils3 import task_worker, FuturePromise
+    from imjoyUtils3 import task_worker, FuturePromise
     PYTHON3 = True
 else:
-    from utils import task_worker, Promise
+    from imjoyUtils import task_worker, Promise
     PYTHON3 = False
 
 try:
