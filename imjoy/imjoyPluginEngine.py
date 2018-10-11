@@ -102,21 +102,21 @@ try:
 except Exception as e:
     logger.error('Falied to save .pid file: %s', str(e))
 
+WEB_APP_DIR = os.path.join(WORKSPACE_DIR, '__ImJoy__')
 if opt.serve:
-    imjpath = '__ImJoy__'
     if shutil.which('git') is None:
         print('Installing git...')
         ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy".split(), shell=False).wait()
         if ret != 0:
             print('Failed to install git, please check whether you have internet access.')
             sys.exit(3)
-    if os.path.exists(imjpath) and os.path.isdir(imjpath):
-        ret = subprocess.Popen(['git', 'pull'], cwd=imjpath, shell=False).wait()
+    if os.path.exists(WEB_APP_DIR) and os.path.isdir(WEB_APP_DIR):
+        ret = subprocess.Popen(['git', 'pull'], cwd=WEB_APP_DIR, shell=False).wait()
         if ret != 0:
-            shutil.rmtree(imjpath)
-    if not os.path.exists(imjpath):
+            shutil.rmtree(WEB_APP_DIR)
+    if not os.path.exists(WEB_APP_DIR):
         print('Downloading files for serving ImJoy locally...')
-        ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False).wait()
+        ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False, cwd=WORKSPACE_DIR).wait()
         if ret != 0:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
@@ -133,12 +133,13 @@ if opt.debug:
 else:
     logger.setLevel(logging.ERROR)
 
-if os.path.exists('__ImJoy__/docs') and os.path.exists('__ImJoy__/docs/index.html') and os.path.exists('__ImJoy__/docs/static'):
+
+if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'docs/index.html')) and os.path.exists(os.path.join(WEB_APP_DIR, 'docs/static')):
     async def index(request):
         """Serve the client-side application."""
-        with open('__ImJoy__/docs/index.html') as f:
+        with open(os.path.join(WEB_APP_DIR, 'docs/index.html')) as f:
             return web.Response(text=f.read(), content_type='text/html')
-    app.router.add_static('/static', path=str('__ImJoy__/docs/static'))
+    app.router.add_static('/static', path=str(os.path.join(WEB_APP_DIR, 'docs/static')))
     print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
 else:
     async def index(request):
@@ -147,9 +148,16 @@ else:
 async def about(request):
     params = request.rel_url.query
     if 'token' in params:
-        body = '<H1><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></H1><p>You may be asked to enter a connection token, use this one:</p><H3>'+params['token'] + '</H3><br>'
+        if opt.serve:
+            body = '<H1><a href="http://127.0.0.1:8080/#/app?token='+params['token']+'">Open ImJoy App</a></H1>'
+        else:
+            body = '<H1><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></H1>'
+        body += '<p>You may be asked to enter a connection token, use this one:</p><H3>'+params['token'] + '</H3><br>'
     else:
-        body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
+        if opt.serve:
+            body = '<H1><a href="http://127.0.0.1:8080/#/app">Open ImJoy App</a></H1>'
+        else:
+            body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
     body += '<H2>Please use the latest Google Chrome browser to run the ImJoy App.</H2><a href="https://www.google.com/chrome/">Download Chrome</a><p>Note: Safari is not supported due to its restrictions on connecting to localhost. Currently, only FireFox and Chrome (preferred) are supported.</p>'
     return web.Response(body=body, content_type="text/html")
 
@@ -186,7 +194,7 @@ def killProcess(pid):
             proc.kill()
         cp.kill()
     except Exception as e:
-        print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid)) 
+        print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid))
 
 plugins = {}
 plugin_sessions = {}
