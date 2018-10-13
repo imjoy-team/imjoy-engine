@@ -828,7 +828,7 @@ async def on_shutdown(app):
     t.start()
 
     print('Shutting down the plugins...', flush=True)
-    await killAllPlugins()
+    killAllPlugins()
     stopped.set()
     logger.info('Plugin engine exited.')
     # try:
