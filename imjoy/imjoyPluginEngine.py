@@ -829,7 +829,7 @@ async def on_shutdown(app):
 
     print('Shutting down the plugins...', flush=True)
     killAllPlugins()
-    stopped.set()
+    # stopped.set()
     logger.info('Plugin engine exited.')
     # try:
     #     os.remove(pid_file)
