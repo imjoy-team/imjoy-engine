@@ -814,8 +814,8 @@ async def on_shutdown(app):
     logger.info('Shutting down the plugin engine...')
     stopped = threading.Event()
     def loop(): # executed in another thread
-        for i in range(10):
-            print("Exiting: " + str(10 - i), flush=True)
+        for i in range(5):
+            print("Exiting: " + str(5 - i), flush=True)
             time.sleep(1)
             if stopped.is_set():
                 break
