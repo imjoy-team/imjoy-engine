@@ -7,6 +7,8 @@
 # Open C:\Windows\system32\cmd.exe
 # Run the command powershell Set-ExecutionPolicy RemoteSigned
 
+$allArgs = $PsBoundParameters.Values + $args
+
 $ErrorActionPreference = "Stop"
 
 # Name of application to install
@@ -39,7 +41,7 @@ if([System.IO.File]::Exists("$InstallDir\Scripts\conda.exe")){
     Try
     {
         Write-Host "Running ImJoy...`n"
-        python -m imjoy
+        python -m imjoy $allArgs
     }
     Catch
     {
@@ -48,7 +50,7 @@ if([System.IO.File]::Exists("$InstallDir\Scripts\conda.exe")){
         Write-Host "Installing PyPi dependencies...`n"
         pip install $PyPiPackage
         Write-Host "Running ImJoy...`n"
-        python -m imjoy
+        python -m imjoy $allArgs
     }
     Write-Host "Press any key to continue ..."
     $x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -123,7 +125,7 @@ conda clean -iltp --yes
 Write-Host "`n$AppName Successfully Installed, running ImJoy Plugin Engine..."
 $ErrorActionPreference = "Continue"
 
-python -m imjoy
+python -m imjoy $allArgs
 
 Write-Host "Press any key to continue ..."
 
