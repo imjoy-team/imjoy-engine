@@ -665,7 +665,7 @@ async def on_message(sid, kwargs):
 async def disconnect(sid):
     tasks = disconnectClientSession(sid)
     tasks += disconnectPlugin(sid)
-    await asyncio.gather(*tasks)
+    asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
 
 def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plugin_env):
