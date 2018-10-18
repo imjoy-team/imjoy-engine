@@ -148,11 +148,16 @@ else:
 async def about(request):
     params = request.rel_url.query
     if 'token' in params:
+        body = '<H1>ImJoy Plugin Engine connection token: </H1><H3>'+params['token'] + '</H3><br>'
+        body += '<p>You have specify this token when you connect the ImJoy web app to this Plugin Engine. The token will be saved and automatically reused when you launch the App again. </p>
+        body += '<br>'
+        body += '<p>Alternatively, you can launch a new ImJoy instance with the link below: </p>
+       
         if opt.serve:
-            body = '<H1><a href="http://127.0.0.1:8080/#/app?token='+params['token']+'">Open ImJoy App</a></H1>'
+            body += '<p><a href="http://127.0.0.1:8080/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
         else:
-            body = '<H1><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></H1>'
-        body += '<p>You may be asked to enter a connection token, use this one:</p><H3>'+params['token'] + '</H3><br>'
+            body += '<p><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
+        
     else:
         if opt.serve:
             body = '<H1><a href="http://127.0.0.1:8080/#/app">Open ImJoy App</a></H1>'
