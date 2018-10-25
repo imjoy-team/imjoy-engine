@@ -148,11 +148,16 @@ else:
 async def about(request):
     params = request.rel_url.query
     if 'token' in params:
+        body = '<H1>ImJoy Plugin Engine connection token: </H1><H3>'+params['token'] + '</H3><br>'
+        body += '<p>You have to specify this token when you connect the ImJoy web app to this Plugin Engine. The token will be saved and automatically reused when you launch the App again. </p>'
+        body += '<br>'
+        body += '<p>Alternatively, you can launch a new ImJoy instance with the link below: </p>'
+       
         if opt.serve:
-            body = '<H1><a href="http://127.0.0.1:8080/#/app?token='+params['token']+'">Open ImJoy App</a></H1>'
+            body += '<p><a href="http://127.0.0.1:8080/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
         else:
-            body = '<H1><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></H1>'
-        body += '<p>You may be asked to enter a connection token, use this one:</p><H3>'+params['token'] + '</H3><br>'
+            body += '<p><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
+        
     else:
         if opt.serve:
             body = '<H1><a href="http://127.0.0.1:8080/#/app">Open ImJoy App</a></H1>'
@@ -665,7 +670,7 @@ async def on_message(sid, kwargs):
 async def disconnect(sid):
     tasks = disconnectClientSession(sid)
     tasks += disconnectPlugin(sid)
-    await asyncio.gather(*tasks)
+    asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
 
 def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plugin_env):
@@ -814,8 +819,8 @@ async def on_shutdown(app):
     logger.info('Shutting down the plugin engine...')
     stopped = threading.Event()
     def loop(): # executed in another thread
-        for i in range(10):
-            print("Exiting: " + str(10 - i), flush=True)
+        for i in range(5):
+            print("Exiting: " + str(5 - i), flush=True)
             time.sleep(1)
             if stopped.is_set():
                 break
@@ -828,8 +833,8 @@ async def on_shutdown(app):
     t.start()
 
     print('Shutting down the plugins...', flush=True)
-    await killAllPlugins()
-    stopped.set()
+    killAllPlugins()
+    # stopped.set()
     logger.info('Plugin engine exited.')
     # try:
     #     os.remove(pid_file)

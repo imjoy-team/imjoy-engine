@@ -7,6 +7,8 @@
 # Open C:\Windows\system32\cmd.exe
 # Run the command powershell Set-ExecutionPolicy RemoteSigned
 
+$allArgs = $PsBoundParameters.Values + $args
+
 $ErrorActionPreference = "Stop"
 
 # Name of application to install
@@ -35,21 +37,14 @@ if([System.IO.File]::Exists("$InstallDir\Scripts\conda.exe")){
     $env:Path = "$InstallDir;" + $env:Path
     # Install Dependences to the new Python environment
     $env:Path = "$InstallDir\Scripts;" + $env:Path
-    $ErrorActionPreference = "Continue"
-    Try
-    {
-        Write-Host "Running ImJoy...`n"
-        python -m imjoy
-    }
-    Catch
-    {
-        Write-Host "Failed, Upgrading PyPi...`n"
-        pip install pip --upgrade
-        Write-Host "Installing PyPi dependencies...`n"
-        pip install $PyPiPackage
-        Write-Host "Running ImJoy...`n"
-        python -m imjoy
-    }
+    $ErrorActionPreference = "Continue";
+    Write-Host "Upgrading PyPi...`n"
+    python -m pip install --upgrade pip
+    Write-Host "Installing PyPi dependencies...`n"
+    pip install $PyPiPackage
+    Write-Host "Running ImJoy...`n"
+    python -m imjoy $allArgs
+
     Write-Host "Press any key to continue ..."
     $x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit
@@ -95,7 +90,7 @@ with open(site_file,'w') as fout:
 python -c $site_program
 
 Write-Host "Upgrading PyPi and conda...`n"
-pip install pip --upgrade
+python -m pip install --upgrade pip
 conda update conda
 
 if(Test-Path variable:CondaDeps)
@@ -122,8 +117,12 @@ conda clean -iltp --yes
 
 Write-Host "`n$AppName Successfully Installed, running ImJoy Plugin Engine..."
 $ErrorActionPreference = "Continue"
-
-python -m imjoy
+Write-Host "Upgrading PyPi...`n"
+python -m pip install --upgrade pip
+Write-Host "Installing PyPi dependencies...`n"
+pip install $PyPiPackage
+Write-Host "Running ImJoy...`n"
+python -m imjoy $allArgs
 
 Write-Host "Press any key to continue ..."
 
