@@ -275,7 +275,7 @@ class PluginConnection():
                         else:
                             data2[k] = data[k]
                     names.append({"name":name, "data": data2})
-                else:
+                elif type(data) in [str, int, float, bool]:
                   names.append({"name":name, "data": data})
         self.emit({'type':'setInterface', 'api': names})
 
