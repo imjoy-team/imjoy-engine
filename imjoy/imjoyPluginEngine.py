@@ -152,12 +152,12 @@ async def about(request):
         body += '<p>You have to specify this token when you connect the ImJoy web app to this Plugin Engine. The token will be saved and automatically reused when you launch the App again. </p>'
         body += '<br>'
         body += '<p>Alternatively, you can launch a new ImJoy instance with the link below: </p>'
-       
+
         if opt.serve:
             body += '<p><a href="http://127.0.0.1:8080/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
         else:
             body += '<p><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
-        
+
     else:
         if opt.serve:
             body = '<H1><a href="http://127.0.0.1:8080/#/app">Open ImJoy App</a></H1>'
@@ -484,6 +484,9 @@ async def on_register_client(sid, kwargs):
 
 def scandir(path, type=None, recursive=False):
     file_list = []
+    if not os.path.exists(path):
+        print('WARNING: path "{}" not found, listing home folder'.format(path))
+        path = os.path.expanduser('~')
     for f in os.scandir(path):
         if f.name.startswith('.'):
             continue
