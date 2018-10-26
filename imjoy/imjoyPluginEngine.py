@@ -484,9 +484,6 @@ async def on_register_client(sid, kwargs):
 
 def scandir(path, type=None, recursive=False):
     file_list = []
-    if not os.path.exists(path):
-        print('WARNING: path "{}" not found, listing home folder'.format(path))
-        path = os.path.expanduser('~')
     for f in os.scandir(path):
         if f.name.startswith('.'):
             continue
