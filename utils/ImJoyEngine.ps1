@@ -12,7 +12,7 @@ $allArgs = $PsBoundParameters.Values + $args
 $ErrorActionPreference = "Stop"
 
 # Name of application to install
-$AppName="ImJoy"
+$AppName="ImJoyEngine"
 
 # Set your project's install directory name here
 $InstallDir="$env:userprofile\ImJoyEngine"
