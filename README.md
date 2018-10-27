@@ -2,7 +2,7 @@
 The plugin engine used for running python plugins in https://imjoy.io
 
 ## Installation
-  Download the latest ImJoyApp [here](https://github.com/oeway/ImJoy-Engine/releases).
+  Download the latest ImJoyEngine [here](https://github.com/oeway/ImJoy-Engine/releases).
 
   Follow the instructions according to different operating systems.
 
