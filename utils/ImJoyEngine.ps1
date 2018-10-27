@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 $AppName="ImJoyEngine"
 
 # Set your project's install directory name here
-$InstallDir="$env:userprofile\ImJoyEngine"
+$InstallDir="$env:userprofile\ImJoyApp"
 
 # Dependencies installed by Conda
 # Commend out the next line if no Conda dependencies
