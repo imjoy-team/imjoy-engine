@@ -5,7 +5,7 @@ set -e
 AppName="ImJoy"
 
 # Set your project's install directory name here
-InstallDir="$HOME/ImJoyApp"
+InstallDir="$HOME/ImJoyEngine"
 
 # Dependencies installed by Conda
 # Comment out the next line if no Conda dependencies

@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 $AppName="ImJoy"
 
 # Set your project's install directory name here
-$InstallDir="$env:userprofile\ImJoyApp"
+$InstallDir="$env:userprofile\ImJoyEngine"
 
 # Dependencies installed by Conda
 # Commend out the next line if no Conda dependencies
@@ -32,7 +32,7 @@ $PyPiPackage="git+https://github.com/oeway/ImJoy-Engine#egg=imjoy"
 # $LocalPackage="mypackage.tar.gz"
 
 
-# Check if ImJoyApp exists, run it.
+# Check if ImJoyEngine exists, run it.
 if([System.IO.File]::Exists("$InstallDir\Scripts\conda.exe")){
     $env:Path = "$InstallDir;" + $env:Path
     # Install Dependences to the new Python environment

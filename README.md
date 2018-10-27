@@ -7,7 +7,7 @@ The plugin engine used for running python plugins in https://imjoy.io
   Follow the instructions according to different operating systems.
 
 ## Installation (alternative solution)
-  If you you have trouble in using the above ImJoyApp, do the following:
+  If you you have trouble in using the above ImJoyEngine, do the following:
   * Download and install [Miniconda with Python 3.7](https://conda.io/miniconda.html) (or [Anaconda with Python 3.6](https://www.anaconda.com/download/) if you prefer a full installation). If you have installed any of these, please skip this step.
   * Start a **Terminal**(Mac and Linux) or **Anaconda Prompt**(Windows), then run the following command:
 
@@ -25,25 +25,25 @@ The plugin engine used for running python plugins in https://imjoy.io
   Normally, the Plugin Engine will upgrade itself when it starts.
   In case you have problem with starting or upgrading the App, try to manually upgrade it by running the following command in a **Terminal**(Mac and Linux) or **Anaconda Prompt**(Windows):
   ```
-  PATH=~/ImJoyApp/bin:$PATH pip install -U git+https://github.com/oeway/ImJoy-Engine#egg=imjoy
+  PATH=~/ImJoyEngine/bin:$PATH pip install -U git+https://github.com/oeway/ImJoy-Engine#egg=imjoy
   ```
 
-## Accessing the ImJoyApp Conda environment
-If you installed the Plugin Engine with the [ImJoyApp](https://github.com/oeway/ImJoy-Engine/releases), it will setup an Miniconda environment located in `~/ImJoyApp`.
+## Accessing the ImJoyEngine Conda environment
+If you installed the Plugin Engine with the [ImJoyEngine](https://github.com/oeway/ImJoy-Engine/releases), it will setup an Miniconda environment located in `~/ImJoyEngine`.
 
-To access the environment on Linux and Mac, you just need to add `~/ImJoyApp/bin` to your `$PATH`:
+To access the environment on Linux and Mac, you just need to add `~/ImJoyEngine/bin` to your `$PATH`:
 ```
-export PATH=~/ImJoyApp/bin:$PATH
+export PATH=~/ImJoyEngine/bin:$PATH
 
-# now you can use `conda`, `pip`, `python` provided by the ImJoyApp 
+# now you can use `conda`, `pip`, `python` provided by the ImJoyEngine
 which conda
 
 ```
-For windows, you can use powershell to add the ImJoyApp to `$env.Path`:
+For windows, you can use powershell to add the ImJoyEngine to `$env.Path`:
 ```
-$env:Path = '%systemdrive%%homepath%\ImJoyApp;%systemdrive%%homepath%\ImJoyApp\Scripts;' + $env:Path;
+$env:Path = '%systemdrive%%homepath%\ImJoyEngine;%systemdrive%%homepath%\ImJoyEngine\Scripts;' + $env:Path;
 
-# now you can use `conda`, `pip`, `python` provided by the ImJoyApp 
+# now you can use `conda`, `pip`, `python` provided by the ImJoyEngine
 (Get-Command conda.exe).Path
 
 ```
