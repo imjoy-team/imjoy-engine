@@ -2,7 +2,7 @@
 The plugin engine used for running python plugins in https://imjoy.io
 
 ## Installation
-  Download the latest ImJoyApp [here](https://github.com/oeway/ImJoy-Python/releases).
+  Download the latest ImJoyApp [here](https://github.com/oeway/ImJoy-Engine/releases).
 
   Follow the instructions according to different operating systems.
 
@@ -11,7 +11,7 @@ The plugin engine used for running python plugins in https://imjoy.io
   * Download and install [Miniconda with Python 3.7](https://conda.io/miniconda.html) (or [Anaconda with Python 3.6](https://www.anaconda.com/download/) if you prefer a full installation). If you have installed any of these, please skip this step.
   * Start a **Terminal**(Mac and Linux) or **Anaconda Prompt**(Windows), then run the following command:
 
-    ```conda -V && pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy```
+    ```conda -V && pip install -U git+https://github.com/oeway/ImJoy-Engine#egg=imjoy```
   * If you encountered any error related to `git` or `pip`, try to run : `conda install -y git pip` before the above command. (Otherwise, please check **FAQs**.)
   * You can also use the same command if you want to upgrade the Plugin Engine to the latest version.
 
@@ -25,11 +25,11 @@ The plugin engine used for running python plugins in https://imjoy.io
   Normally, the Plugin Engine will upgrade itself when it starts.
   In case you have problem with starting or upgrading the App, try to manually upgrade it by running the following command in a **Terminal**(Mac and Linux) or **Anaconda Prompt**(Windows):
   ```
-  PATH=~/ImJoyApp/bin:$PATH pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy
+  PATH=~/ImJoyApp/bin:$PATH pip install -U git+https://github.com/oeway/ImJoy-Engine#egg=imjoy
   ```
 
 ## Accessing the ImJoyApp Conda environment
-If you installed the Plugin Engine with the [ImJoyApp](https://github.com/oeway/ImJoy-Python/releases), it will setup an Miniconda environment located in `~/ImJoyApp`.
+If you installed the Plugin Engine with the [ImJoyApp](https://github.com/oeway/ImJoy-Engine/releases), it will setup an Miniconda environment located in `~/ImJoyApp`.
 
 To access the environment on Linux and Mac, you just need to add `~/ImJoyApp/bin` to your `$PATH`:
 ```
