@@ -113,7 +113,8 @@ if opt.serve:
     if os.path.exists(WEB_APP_DIR) and os.path.isdir(WEB_APP_DIR):
         ret = subprocess.Popen(['git', 'pull'], cwd=WEB_APP_DIR, shell=False).wait()
         if ret != 0:
-            shutil.rmtree(WEB_APP_DIR)
+            print('Failed to pull files for serving offline.')
+            #shutil.rmtree(WEB_APP_DIR)
     if not os.path.exists(WEB_APP_DIR):
         print('Downloading files for serving ImJoy locally...')
         ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False, cwd=WORKSPACE_DIR).wait()
