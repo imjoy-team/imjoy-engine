@@ -138,7 +138,7 @@ else:
 if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'docs/index.html')) and os.path.exists(os.path.join(WEB_APP_DIR, 'docs/static')):
     async def index(request):
         """Serve the client-side application."""
-        with open(os.path.join(WEB_APP_DIR, 'docs/index.html')) as f:
+        with open(os.path.join(WEB_APP_DIR, 'docs/index.html'), 'r', encoding="utf-8") as f:
             return web.Response(text=f.read(), content_type='text/html')
     app.router.add_static('/static', path=str(os.path.join(WEB_APP_DIR, 'docs/static')))
     print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
