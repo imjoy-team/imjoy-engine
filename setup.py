@@ -16,7 +16,7 @@ if sys.version_info > (3, 0):
     requirements = ['aiohttp', 'python-socketio', 'requests', 'six', 'websocket-client', 'numpy', "psutil"]
 try:
     setup(name='imjoy',
-          version='0.7.1',
+          version='0.7.2',
           description='Python Plugin Engine for ImJoy.io',
           url='http://github.com/oeway/ImJoy',
           author='Wei OUYANG',

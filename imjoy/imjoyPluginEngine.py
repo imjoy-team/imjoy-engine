@@ -260,6 +260,7 @@ def addPlugin(plugin_info, sid=None):
 
     if pid in plugins and sid is not None:
         plugin_sids[sid] = plugin_info
+        plugin_info['sid'] = sid
 
 def disconnectPlugin(sid):
     tasks = []
@@ -288,9 +289,17 @@ def killPlugin(pid):
         if plugins[pid]['signature'] in plugin_signatures:
             del plugin_signatures[plugins[pid]['signature']]
         try:
+            plugins[pid]['abort'].set()
             killProcess(plugins[pid]['process_id'])
+            print('INFO: "{}" was killed.'.format(pid))
         except Exception as e:
+            print('WARNING: failed to kill plugin "{}".'.format(pid))
             logger.error(str(e))
+        if 'sid' in plugins[pid]:
+            if plugins[pid]['sid'] in plugin_sids:
+                del plugin_sids[plugins[pid]['sid']]
+        del plugins[pid]
+
 
 def killAllPlugins():
     tasks = []
@@ -391,7 +400,8 @@ async def on_init_plugin(sid, kwargs):
         cmd = conda_activate + " " + env_name + " && " + cmd
 
     secretKey = str(uuid.uuid4())
-    plugin_info = {'secret': secretKey, 'id': pid, 'flags': flags, 'session_id': session_id, 'name': config['name'], 'type': config['type'], 'client_id': client_id, 'signature': plugin_signature}
+    abort = threading.Event()
+    plugin_info = {'secret': secretKey, 'id': pid, 'abort': abort, 'flags': flags, 'session_id': session_id, 'name': config['name'], 'type': config['type'], 'client_id': client_id, 'signature': plugin_signature}
     addPlugin(plugin_info)
 
     @sio.on('from_plugin_'+secretKey, namespace=NAME_SPACE)
@@ -413,7 +423,6 @@ async def on_init_plugin(sid, kwargs):
         logger.debug('message to plugin %s', secretKey)
 
     try:
-        abort = threading.Event()
         taskThread = threading.Thread(target=launch_plugin, args=[pid, envs, requirements_cmd,
                                       '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
@@ -441,15 +450,16 @@ async def on_kill_plugin(sid, kwargs):
     pid = kwargs['id']
     timeout_kill = None
     if pid in plugins:
-        print('Killing plugin ', pid)
-        obj = {'force_kill': True, 'pid': pid}
-        def exited(result):
-            obj['force_kill'] = False
-            logger.info('Plugin %s exited normally.', pid)
-            # kill the plugin now
-            killPlugin(pid)
-        await sio.emit('to_plugin_'+plugins[pid]['secret'], {'type': 'disconnect'}, callback=exited)
-        await force_kill_timeout(FORCE_QUIT_TIMEOUT, obj)
+        if 'killing' not in plugins[pid]:
+            obj = {'force_kill': True, 'pid': pid}
+            plugins[pid]['killing'] = True
+            def exited(result):
+                obj['force_kill'] = False
+                logger.info('Plugin %s exited normally.', pid)
+                # kill the plugin now
+                killPlugin(pid)
+            await sio.emit('to_plugin_'+plugins[pid]['secret'], {'type': 'disconnect'}, callback=exited)
+            await force_kill_timeout(FORCE_QUIT_TIMEOUT, obj)
     return {'success': True}
 
 @sio.on('register_client', namespace=NAME_SPACE)
@@ -768,6 +778,7 @@ def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plug
         sys.stdout.flush()
         if abort.is_set():
             break
+        time.sleep(0)
 
     try:
         logger.info('Plugin aborting...')
@@ -822,7 +833,7 @@ async def on_shutdown(app):
     def loop(): # executed in another thread
         for i in range(5):
             print("Exiting: " + str(5 - i), flush=True)
-            time.sleep(1)
+            time.sleep(0.5)
             if stopped.is_set():
                 break
         print("Force shutting down now!", flush=True)
