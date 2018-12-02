@@ -16,12 +16,15 @@ import argparse
 import uuid
 import shutil
 import webbrowser
-import psutil
 from aiohttp import web, hdrs
 from aiohttp import WSCloseCode
 from aiohttp import streamer
 from urllib.parse import urlparse
 from mimetypes import MimeTypes
+try:
+    import psutil
+except Exception as e:
+    print("WARNING: a library called 'psutil' can not be imported, this may cause problem when killing processes.")
 
 try:
     from Queue import Queue, Empty
@@ -43,7 +46,7 @@ else:
     CONDA_AVAILABLE = True
 
 logging.basicConfig(stream=sys.stdout)
-logger = logging.getLogger('PluginEngine')
+logger = logging.getLogger('ImJoyPluginEngine')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--token', type=str, default=None, help='connection token')
@@ -89,10 +92,7 @@ pid_file = os.path.join(WORKSPACE_DIR, '.pid')
 try:
     if os.path.exists(pid_file):
         with open(pid_file, 'r') as f:
-            p = psutil.Process(int(f.read()))
-            for proc in p.children(recursive=True):
-                proc.kill()
-            p.kill()
+            killProcess(int(f.read()))
 except Exception as e:
     pass
 try:
@@ -102,21 +102,22 @@ try:
 except Exception as e:
     logger.error('Falied to save .pid file: %s', str(e))
 
+WEB_APP_DIR = os.path.join(WORKSPACE_DIR, '__ImJoy__')
 if opt.serve:
-    imjpath = '__ImJoy__'
     if shutil.which('git') is None:
         print('Installing git...')
         ret = subprocess.Popen("conda install -y git && git clone --depth 1 -b gh-pages https://github.com/oeway/ImJoy".split(), shell=False).wait()
         if ret != 0:
             print('Failed to install git, please check whether you have internet access.')
             sys.exit(3)
-    if os.path.exists(imjpath) and os.path.isdir(imjpath):
-        ret = subprocess.Popen(['git', 'pull', 'origin'], cwd=imjpath, shell=False).wait()
+    if os.path.exists(WEB_APP_DIR) and os.path.isdir(WEB_APP_DIR):
+        ret = subprocess.Popen(['git', 'pull', '&&', 'git', 'checkout', 'origin', 'gh-pages'], cwd=WEB_APP_DIR, shell=False).wait()
         if ret != 0:
-            shutil.rmtree(imjpath)
-    if not os.path.exists(imjpath):
+            print('Failed to pull files for serving offline.')
+            #shutil.rmtree(WEB_APP_DIR)
+    if not os.path.exists(WEB_APP_DIR):
         print('Downloading files for serving ImJoy locally...')
-        ret = subprocess.Popen('git clone --depth 1 -b gh-pages https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False).wait()
+        ret = subprocess.Popen('git clone --depth 1 -b gh-pages https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False, cwd=WORKSPACE_DIR).wait()
         if ret != 0:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
@@ -133,12 +134,12 @@ if opt.debug:
 else:
     logger.setLevel(logging.ERROR)
 
-if os.path.exists('__ImJoy__') and os.path.exists('__ImJoy__/index.html') and os.path.exists('__ImJoy__/static'):
+if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')) and os.path.exists(os.path.join(WEB_APP_DIR, 'static')):
     async def index(request):
         """Serve the client-side application."""
-        with open('__ImJoy__/index.html') as f:
+        with open(os.path.join(WEB_APP_DIR, 'index.html'), 'r', encoding="utf-8") as f:
             return web.Response(text=f.read(), content_type='text/html')
-    app.router.add_static('/static', path=str('__ImJoy__/static'))
+    app.router.add_static('/static', path=str(os.path.join(WEB_APP_DIR, 'static')))
     print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
 else:
     async def index(request):
@@ -147,9 +148,21 @@ else:
 async def about(request):
     params = request.rel_url.query
     if 'token' in params:
-        body = '<H1><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></H1><p>You may be asked to enter a connection token, use this one:</p><H3>'+params['token'] + '</H3><br>'
+        body = '<H1>ImJoy Plugin Engine connection token: </H1><H3>'+params['token'] + '</H3><br>'
+        body += '<p>You have to specify this token when you connect the ImJoy web app to this Plugin Engine. The token will be saved and automatically reused when you launch the App again. </p>'
+        body += '<br>'
+        body += '<p>Alternatively, you can launch a new ImJoy instance with the link below: </p>'
+
+        if opt.serve:
+            body += '<p><a href="http://127.0.0.1:8080/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
+        else:
+            body += '<p><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
+
     else:
-        body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
+        if opt.serve:
+            body = '<H1><a href="http://127.0.0.1:8080/#/app">Open ImJoy App</a></H1>'
+        else:
+            body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
     body += '<H2>Please use the latest Google Chrome browser to run the ImJoy App.</H2><a href="https://www.google.com/chrome/">Download Chrome</a><p>Note: Safari is not supported due to its restrictions on connecting to localhost. Currently, only FireFox and Chrome (preferred) are supported.</p>'
     return web.Response(body=body, content_type="text/html")
 
@@ -160,11 +173,11 @@ app.router.add_get('/about', about)
 attempt_count = 0
 
 cmd_history = []
-default_requirements_py2 = ["psutil", "requests", "six", "websocket-client"]
-default_requirements_py3 = ["psutil", "requests", "six", "websocket-client-py3", "janus"]
+default_requirements_py2 = ["requests", "six", "websocket-client", "numpy", "psutil"]
+default_requirements_py3 = ["requests", "six", "websocket-client", "janus", "numpy", "psutil"]
 
 script_dir = os.path.dirname(os.path.normpath(__file__))
-template_script = os.path.abspath(os.path.join(script_dir, 'workerTemplate.py'))
+template_script = os.path.abspath(os.path.join(script_dir, 'imjoyWorkerTemplate.py'))
 
 if sys.platform == "linux" or sys.platform == "linux2":
     # linux
@@ -179,6 +192,14 @@ elif sys.platform == "win32":
 else:
     conda_activate = "conda activate"
 
+def killProcess(pid):
+    try:
+        cp = psutil.Process(pid)
+        for proc in cp.children(recursive=True):
+            proc.kill()
+        cp.kill()
+    except Exception as e:
+        print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid))
 
 plugins = {}
 plugin_sessions = {}
@@ -238,6 +259,7 @@ def addPlugin(plugin_info, sid=None):
 
     if pid in plugins and sid is not None:
         plugin_sids[sid] = plugin_info
+        plugin_info['sid'] = sid
 
 def disconnectPlugin(sid):
     tasks = []
@@ -265,10 +287,18 @@ def killPlugin(pid):
     if pid in plugins:
         if plugins[pid]['signature'] in plugin_signatures:
             del plugin_signatures[plugins[pid]['signature']]
-        p = psutil.Process(plugins[pid]['process_id'])
-        for proc in p.children(recursive=True):
-            proc.kill()
-        p.kill()
+        try:
+            plugins[pid]['abort'].set()
+            killProcess(plugins[pid]['process_id'])
+            print('INFO: "{}" was killed.'.format(pid))
+        except Exception as e:
+            print('WARNING: failed to kill plugin "{}".'.format(pid))
+            logger.error(str(e))
+        if 'sid' in plugins[pid]:
+            if plugins[pid]['sid'] in plugin_sids:
+                del plugin_sids[plugins[pid]['sid']]
+        del plugins[pid]
+
 
 def killAllPlugins():
     tasks = []
@@ -354,7 +384,9 @@ async def on_init_plugin(sid, kwargs):
     else:
         raise Exception('wrong requirements type.')
 
-    requirements_cmd = "pip install "+" ".join(default_requirements_py2 if is_py2 else default_requirements_py3) + ' ' + requirements_pip
+    default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
+
+    requirements_cmd = "pip install " + " ".join(default_requirements) + ' ' + requirements_pip
     if opt.freeze:
         print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
         logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
@@ -367,7 +399,8 @@ async def on_init_plugin(sid, kwargs):
         cmd = conda_activate + " " + env_name + " && " + cmd
 
     secretKey = str(uuid.uuid4())
-    plugin_info = {'secret': secretKey, 'id': pid, 'flags': flags, 'session_id': session_id, 'name': config['name'], 'type': config['type'], 'client_id': client_id, 'signature': plugin_signature}
+    abort = threading.Event()
+    plugin_info = {'secret': secretKey, 'id': pid, 'abort': abort, 'flags': flags, 'session_id': session_id, 'name': config['name'], 'type': config['type'], 'client_id': client_id, 'signature': plugin_signature}
     addPlugin(plugin_info)
 
     @sio.on('from_plugin_'+secretKey, namespace=NAME_SPACE)
@@ -389,12 +422,10 @@ async def on_init_plugin(sid, kwargs):
         logger.debug('message to plugin %s', secretKey)
 
     try:
-        abort = threading.Event()
         taskThread = threading.Thread(target=launch_plugin, args=[pid, envs, requirements_cmd,
                                       '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
-        # execute('python pythonWorkerTemplate.py', './', abort, pid)
         return {'success': True, 'initialized': False, 'secret': secretKey, 'work_dir': os.path.abspath(work_dir)}
     except Exception as e:
         logger.error(e)
@@ -410,8 +441,6 @@ async def force_kill_timeout(t, obj):
     try:
         logger.warning('Timeout, force quitting %s', pid)
         killPlugin(pid)
-    except Exception as e:
-        logger.error(e)
     finally:
         return
 
@@ -420,15 +449,16 @@ async def on_kill_plugin(sid, kwargs):
     pid = kwargs['id']
     timeout_kill = None
     if pid in plugins:
-        print('Killing plugin ', pid)
-        obj = {'force_kill': True, 'pid': pid}
-        def exited(result):
-            obj['force_kill'] = False
-            logger.info('Plugin %s exited normally.', pid)
-            # kill the plugin now
-            killPlugin(pid)
-        await sio.emit('to_plugin_'+plugins[pid]['secret'], {'type': 'disconnect'}, callback=exited)
-        await force_kill_timeout(FORCE_QUIT_TIMEOUT, obj)
+        if 'killing' not in plugins[pid]:
+            obj = {'force_kill': True, 'pid': pid}
+            plugins[pid]['killing'] = True
+            def exited(result):
+                obj['force_kill'] = False
+                logger.info('Plugin %s exited normally.', pid)
+                # kill the plugin now
+                killPlugin(pid)
+            await sio.emit('to_plugin_'+plugins[pid]['secret'], {'type': 'disconnect'}, callback=exited)
+            await force_kill_timeout(FORCE_QUIT_TIMEOUT, obj)
     return {'success': True}
 
 @sio.on('register_client', namespace=NAME_SPACE)
@@ -650,7 +680,7 @@ async def on_message(sid, kwargs):
 async def disconnect(sid):
     tasks = disconnectClientSession(sid)
     tasks += disconnectPlugin(sid)
-    await asyncio.gather(*tasks)
+    asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
 
 def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plugin_env):
@@ -734,7 +764,7 @@ def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plug
     if sys.platform != "win32":
         kwargs.update(preexec_fn=os.setsid)
 
-    process = subprocess.Popen(args, bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    process = subprocess.Popen(args, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
               shell=True, env=plugin_env, cwd=work_dir, **kwargs)
     setPluginPID(pid, process.pid)
     # Poll process for new output until finished
@@ -747,13 +777,11 @@ def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plug
         sys.stdout.flush()
         if abort.is_set():
             break
+        time.sleep(0)
 
     try:
         logger.info('Plugin aborting...')
-        p = psutil.Process(process.pid)
-        for proc in p.children(recursive=True):
-            proc.kill()
-        p.kill()
+        killProcess(process.pid)
         logger.info('plugin process is killed.')
         output = process.communicate()[0]
         exitCode = process.returncode
@@ -802,30 +830,27 @@ async def on_shutdown(app):
     logger.info('Shutting down the plugin engine...')
     stopped = threading.Event()
     def loop(): # executed in another thread
-        for i in range(10):
-            print("Exiting: " + str(10 - i), flush=True)
-            time.sleep(1)
+        for i in range(5):
+            print("Exiting: " + str(5 - i), flush=True)
+            time.sleep(0.5)
             if stopped.is_set():
                 break
         print("Force shutting down now!", flush=True)
         logger.debug('Plugin engine is killed.')
-        cp = psutil.Process(os.getpid())
-        for proc in cp.children(recursive=True):
-            proc.kill()
-        cp.kill()
+        killProcess(os.getpid())
         # os._exit(1)
     t = threading.Thread(target=loop)
     t.daemon = True # stop if the program exits
     t.start()
 
     print('Shutting down the plugins...', flush=True)
-    await killAllPlugins()
-    stopped.set()
+    killAllPlugins()
+    # stopped.set()
     logger.info('Plugin engine exited.')
-    try:
-        os.remove(pid_file)
-    except Exception as e:
-        logger.info('Failed to remove the pid file.')
+    # try:
+    #     os.remove(pid_file)
+    # except Exception as e:
+    #     logger.info('Failed to remove the pid file.')
 
 app.on_startup.append(on_startup)
 app.on_shutdown.append(on_shutdown)

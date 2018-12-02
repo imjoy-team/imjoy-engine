@@ -9,19 +9,18 @@ import traceback
 import uuid
 from functools import reduce
 import inspect
-import psutil
 import threading
 import copy
-from socketIO_client import SocketIO, LoggingNamespace, find_callback
-from utils import debounce, setInterval, dotdict, ReferenceStore
+from imjoySocketIO_client import SocketIO, LoggingNamespace, find_callback
+from imjoyUtils import debounce, setInterval, dotdict, ReferenceStore
 
 if sys.version_info >= (3, 0):
     import asyncio
     import janus
-    from utils3 import task_worker, FuturePromise
+    from imjoyUtils3 import task_worker, FuturePromise
     PYTHON3 = True
 else:
-    from utils import task_worker, Promise
+    from imjoyUtils import task_worker, Promise
     PYTHON3 = False
 
 try:
@@ -44,6 +43,7 @@ if imjoy_path not in sys.path:
     sys.path.insert(0, imjoy_path)
 
 def kill(proc_pid):
+    import psutil
     process = psutil.Process(proc_pid)
     for proc in process.children(recursive=True):
         proc.kill()
@@ -275,7 +275,7 @@ class PluginConnection():
                         else:
                             data2[k] = data[k]
                     names.append({"name":name, "data": data2})
-                else:
+                elif type(data) in [str, int, float, bool]:
                   names.append({"name":name, "data": data})
         self.emit({'type':'setInterface', 'api': names})
 

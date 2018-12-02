@@ -33,7 +33,7 @@
 	<key>IconPath</key>
 	<string>imjoy.icns</string>
 	<key>Identifier</key>
-	<string>org.imod.imjoy</string>
+	<string>org.imod.imjoy.engine</string>
 	<key>InterfaceType</key>
 	<string>Text Window</string>
 	<key>InterpreterArgs</key>
@@ -41,7 +41,7 @@
 	<key>InterpreterPath</key>
 	<string>/bin/bash</string>
 	<key>Name</key>
-	<string>ImJoy</string>
+	<string>ImJoyEngine</string>
 	<key>NibPath</key>
 	<string>/usr/local/share/platypus/MainMenu.nib</string>
 	<key>OptimizeApplication</key>
@@ -57,7 +57,7 @@
 	<key>ScriptArgs</key>
 	<array/>
 	<key>ScriptPath</key>
-	<string>start_imjoy.sh</string>
+	<string>ImJoyEngine.sh</string>
 	<key>StatusItemDisplayType</key>
 	<string>Text</string>
 	<key>StatusItemIconIsTemplate</key>
@@ -86,6 +86,6 @@
 	<key>UseXMLPlistFormat</key>
 	<false/>
 	<key>Version</key>
-	<string>0.4.3</string>
+	<string>0.7.0</string>
 </dict>
 </plist>

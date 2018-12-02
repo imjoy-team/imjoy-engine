@@ -3,7 +3,7 @@ import sys
 import traceback
 import inspect
 
-from utils import Promise
+from imjoyUtils import Promise
 async def task_worker(self, async_q, logger, abort=None):
     while True:
         if abort is not None and abort.is_set():

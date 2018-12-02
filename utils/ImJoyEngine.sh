@@ -1,7 +1,7 @@
 #!/bin/bash
 export PATH_BK=$PATH
 export DEFAULT_PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-# detect conda in ImJoyApp
+# detect conda in ImJoyEngine
 
 export PATH=$HOME/ImJoyApp/bin:$DEFAULT_PATH
 condaPath=`which conda`
@@ -31,8 +31,8 @@ if [ "$condaPath" = "" ]; then
     echo "Failed to install Miniconda for ImJoy."
   fi
   export PATH=$HOME/ImJoyApp/bin:$PATH_BK:$DEFAULT_PATH
-  $HOME/ImJoyApp/bin/python -m imjoy
+  $HOME/ImJoyApp/bin/python -m imjoy "$@"
 else
 condaRoot=`dirname "$condaPath"`
-$condaRoot/python -m imjoy || pip install git+https://github.com/oeway/ImJoy-Python#egg=imjoy && $condaRoot/python -m imjoy
+$condaRoot/python -m imjoy "$@" || pip install git+https://github.com/oeway/ImJoy-Engine#egg=imjoy && $condaRoot/python -m imjoy "$@"
 fi

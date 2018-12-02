@@ -7,10 +7,12 @@
 # Open C:\Windows\system32\cmd.exe
 # Run the command powershell Set-ExecutionPolicy RemoteSigned
 
+$allArgs = $PsBoundParameters.Values + $args
+
 $ErrorActionPreference = "Stop"
 
 # Name of application to install
-$AppName="ImJoy"
+$AppName="ImJoyEngine"
 
 # Set your project's install directory name here
 $InstallDir="$env:userprofile\ImJoyApp"
@@ -21,7 +23,7 @@ $CondaDeps="numpy","scipy", "git" # some examples
 
 # Dependencies installed with pip instead
 # Comment out the next line if no PyPi dependencies
-$PyPiPackage="git+https://github.com/oeway/ImJoy-Python#egg=imjoy"
+$PyPiPackage="git+https://github.com/oeway/ImJoy-Engine#egg=imjoy"
 
 # Local packages to install
 # Useful if your application is not in PyPi
@@ -30,26 +32,19 @@ $PyPiPackage="git+https://github.com/oeway/ImJoy-Python#egg=imjoy"
 # $LocalPackage="mypackage.tar.gz"
 
 
-# Check if ImJoyApp exists, run it.
+# Check if ImJoyEngine exists, run it.
 if([System.IO.File]::Exists("$InstallDir\Scripts\conda.exe")){
     $env:Path = "$InstallDir;" + $env:Path
     # Install Dependences to the new Python environment
     $env:Path = "$InstallDir\Scripts;" + $env:Path
-    $ErrorActionPreference = "Continue"
-    Try
-    {
-        Write-Host "Running ImJoy...`n"
-        python -m imjoy
-    }
-    Catch
-    {
-        Write-Host "Failed, Upgrading PyPi...`n"
-        pip install pip --upgrade
-        Write-Host "Installing PyPi dependencies...`n"
-        pip install $PyPiPackage
-        Write-Host "Running ImJoy...`n"
-        python -m imjoy
-    }
+    $ErrorActionPreference = "Continue";
+    Write-Host "Upgrading PyPi...`n"
+    python -m pip install --upgrade pip
+    Write-Host "Installing PyPi dependencies...`n"
+    pip install $PyPiPackage
+    Write-Host "Running ImJoy...`n"
+    python -m imjoy $allArgs
+
     Write-Host "Press any key to continue ..."
     $x = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit
@@ -95,7 +90,7 @@ with open(site_file,'w') as fout:
 python -c $site_program
 
 Write-Host "Upgrading PyPi and conda...`n"
-pip install pip --upgrade
+python -m pip install --upgrade pip
 conda update conda
 
 if(Test-Path variable:CondaDeps)
@@ -122,8 +117,12 @@ conda clean -iltp --yes
 
 Write-Host "`n$AppName Successfully Installed, running ImJoy Plugin Engine..."
 $ErrorActionPreference = "Continue"
-
-python -m imjoy
+Write-Host "Upgrading PyPi...`n"
+python -m pip install --upgrade pip
+Write-Host "Installing PyPi dependencies...`n"
+pip install $PyPiPackage
+Write-Host "Running ImJoy...`n"
+python -m imjoy $allArgs
 
 Write-Host "Press any key to continue ..."
 

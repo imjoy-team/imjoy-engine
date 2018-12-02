@@ -2,7 +2,7 @@
 set -e
 
 # Name of application to install
-AppName="ImJoy"
+AppName="ImJoyEngine"
 
 # Set your project's install directory name here
 InstallDir="$HOME/ImJoyApp"
@@ -13,7 +13,7 @@ CondaDeps="numpy scipy git"
 
 # Install the package from PyPi
 # Comment out next line if installing locally
-PyPiPackage="git+https://github.com/oeway/ImJoy-Python#egg=imjoy"
+PyPiPackage="git+https://github.com/oeway/ImJoy-Engine#egg=imjoy"
 
 # Local packages to install
 # Useful if your application is not in PyPi

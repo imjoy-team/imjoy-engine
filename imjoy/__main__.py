@@ -9,14 +9,14 @@ if __name__ == '__main__':
     if sys.version_info > (3, 0):
         # running in python 3
         print('Upgrading ImJoy Plugin Engine...')
-        ret = subprocess.Popen('pip install -U git+https://github.com/oeway/ImJoy-Python#egg=imjoy'.split(), shell=False).wait()
+        ret = subprocess.Popen('pip install -U git+https://github.com/oeway/ImJoy-Engine#egg=imjoy'.split(), shell=False).wait()
         if ret != 0:
             print('Failed to upgrade ImJoy Plugin Engine.')
-        from .pluginEngine import *
+        from .imjoyPluginEngine import *
     else:
         # running in python 2
         print('ImJoy needs to run in Python 3.6+, bootstrapping with conda ...')
-        imjoy_requirements = ['psutil', 'requests', 'six', 'websocket-client-py3', 'aiohttp', 'numpy', 'git+https://github.com/oeway/ImJoy-Python#egg=imjoy']
+        imjoy_requirements = ['requests', 'six', 'websocket-client-py3', 'aiohttp', 'git+https://github.com/oeway/ImJoy-Engine#egg=imjoy', 'psutil', "numpy"]
         ret = subprocess.Popen('conda create -y -n imjoy python=3.6'.split(), shell=False).wait()
         if ret == 0:
             print('conda environment is now ready, installing pip requirements and start the engine...')
