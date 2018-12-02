@@ -111,7 +111,11 @@ if opt.serve:
             print('Failed to install git, please check whether you have internet access.')
             sys.exit(3)
     if os.path.exists(WEB_APP_DIR) and os.path.isdir(WEB_APP_DIR):
-        ret = subprocess.Popen(['git', 'pull', '&&', 'git', 'checkout', 'origin', 'gh-pages'], cwd=WEB_APP_DIR, shell=False).wait()
+        ret = subprocess.Popen(['git', 'pull'], cwd=WEB_APP_DIR, shell=False).wait()
+        # "subprocess.Popen can not recongnize '&&' after 'git pull' with nothing to add "
+        if ret != 0:
+            print('Failed to pull files for serving offline.')
+        ret = subprocess.Popen(['git', 'checkout', 'gh-pages'], cwd=WEB_APP_DIR, shell=False).wait()
         if ret != 0:
             print('Failed to pull files for serving offline.')
             #shutil.rmtree(WEB_APP_DIR)
