@@ -106,17 +106,17 @@ if opt.serve:
     imjpath = '__ImJoy__'
     if shutil.which('git') is None:
         print('Installing git...')
-        ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy".split(), shell=False).wait()
+        ret = subprocess.Popen("conda install -y git && git clone --depth 1 -b gh-pages https://github.com/oeway/ImJoy".split(), shell=False).wait()
         if ret != 0:
             print('Failed to install git, please check whether you have internet access.')
             sys.exit(3)
     if os.path.exists(imjpath) and os.path.isdir(imjpath):
-        ret = subprocess.Popen(['git', 'pull'], cwd=imjpath, shell=False).wait()
+        ret = subprocess.Popen(['git', 'pull', 'origin'], cwd=imjpath, shell=False).wait()
         if ret != 0:
             shutil.rmtree(imjpath)
     if not os.path.exists(imjpath):
         print('Downloading files for serving ImJoy locally...')
-        ret = subprocess.Popen('git clone -b gh-pages https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False).wait()
+        ret = subprocess.Popen('git clone --depth 1 -b gh-pages https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False).wait()
         if ret != 0:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
@@ -133,12 +133,12 @@ if opt.debug:
 else:
     logger.setLevel(logging.ERROR)
 
-if os.path.exists('__ImJoy__/docs') and os.path.exists('__ImJoy__/docs/index.html') and os.path.exists('__ImJoy__/docs/static'):
+if os.path.exists('__ImJoy__') and os.path.exists('__ImJoy__/index.html') and os.path.exists('__ImJoy__/static'):
     async def index(request):
         """Serve the client-side application."""
-        with open('__ImJoy__/docs/index.html') as f:
+        with open('__ImJoy__/index.html') as f:
             return web.Response(text=f.read(), content_type='text/html')
-    app.router.add_static('/static', path=str('__ImJoy__/docs/static'))
+    app.router.add_static('/static', path=str('__ImJoy__/static'))
     print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
 else:
     async def index(request):
