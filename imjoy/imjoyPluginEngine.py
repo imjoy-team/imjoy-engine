@@ -106,18 +106,22 @@ WEB_APP_DIR = os.path.join(WORKSPACE_DIR, '__ImJoy__')
 if opt.serve:
     if shutil.which('git') is None:
         print('Installing git...')
-        ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy".split(), shell=False).wait()
+        ret = subprocess.Popen("conda install -y git && git clone -b gh-pages --depth 1 https://github.com/oeway/ImJoy".split(), shell=False).wait()
         if ret != 0:
             print('Failed to install git, please check whether you have internet access.')
             sys.exit(3)
     if os.path.exists(WEB_APP_DIR) and os.path.isdir(WEB_APP_DIR):
         ret = subprocess.Popen(['git', 'pull'], cwd=WEB_APP_DIR, shell=False).wait()
+        # "subprocess.Popen can not recongnize '&&' after 'git pull' with nothing to add "
+        if ret != 0:
+            print('Failed to pull files for serving offline.')
+        ret = subprocess.Popen(['git', 'checkout', 'gh-pages'], cwd=WEB_APP_DIR, shell=False).wait()
         if ret != 0:
             print('Failed to pull files for serving offline.')
             #shutil.rmtree(WEB_APP_DIR)
     if not os.path.exists(WEB_APP_DIR):
         print('Downloading files for serving ImJoy locally...')
-        ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False, cwd=WORKSPACE_DIR).wait()
+        ret = subprocess.Popen('git clone -b gh-pages --depth 1 https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False, cwd=WORKSPACE_DIR).wait()
         if ret != 0:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
@@ -135,12 +139,12 @@ else:
     logger.setLevel(logging.ERROR)
 
 
-if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'docs/index.html')) and os.path.exists(os.path.join(WEB_APP_DIR, 'docs/static')):
+if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')) and os.path.exists(os.path.join(WEB_APP_DIR, 'static')):
     async def index(request):
         """Serve the client-side application."""
-        with open(os.path.join(WEB_APP_DIR, 'docs/index.html'), 'r', encoding="utf-8") as f:
+        with open(os.path.join(WEB_APP_DIR, 'index.html'), 'r', encoding="utf-8") as f:
             return web.Response(text=f.read(), content_type='text/html')
-    app.router.add_static('/static', path=str(os.path.join(WEB_APP_DIR, 'docs/static')))
+    app.router.add_static('/static', path=str(os.path.join(WEB_APP_DIR, 'static')))
     print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
 else:
     async def index(request):
