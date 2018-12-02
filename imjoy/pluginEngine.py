@@ -116,7 +116,7 @@ if opt.serve:
             shutil.rmtree(imjpath)
     if not os.path.exists(imjpath):
         print('Downloading files for serving ImJoy locally...')
-        ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False).wait()
+        ret = subprocess.Popen('git clone -b gh-pages https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False).wait()
         if ret != 0:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
