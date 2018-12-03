@@ -14,13 +14,13 @@ if [ "$condaPath" = "" ]; then
   fi
   if [[ "$OSTYPE" == "linux-gnu" ]]; then
     # Linux
-    bash ./Linux_Install.sh || bash ./ImJoy.app/Contents/Resources/Linux_Install.sh
+    bash ./Linux_Install.sh || bash ./ImJoyEngine.app/Contents/Resources/Linux_Install.sh
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     # Mac OSX
-    bash ./OSX_Install.sh || bash ./ImJoy.app/Contents/Resources/OSX_Install.sh
+    bash ./OSX_Install.sh || bash ./ImJoyEngine.app/Contents/Resources/OSX_Install.sh
   elif [[ "$OSTYPE" == "freebsd"* ]]; then
     # ...
-    bash ./Linux_Install.sh || bash ./ImJoy.app/Contents/Resources/Linux_Install.sh
+    bash ./Linux_Install.sh || bash ./ImJoyEngine.app/Contents/Resources/Linux_Install.sh
   else
     echo "Unsupported OS."
   fi
