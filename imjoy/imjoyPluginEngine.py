@@ -87,6 +87,15 @@ try:
 except Exception as e:
     logger.error('Falied to save .token file: %s', str(e))
 
+def killProcess(pid):
+    try:
+        cp = psutil.Process(pid)
+        for proc in cp.children(recursive=True):
+            proc.kill()
+        cp.kill()
+    except Exception as e:
+        print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid))
+
 # try to kill last process
 pid_file = os.path.join(WORKSPACE_DIR, '.pid')
 try:
@@ -139,12 +148,15 @@ else:
     logger.setLevel(logging.ERROR)
 
 
-if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')) and os.path.exists(os.path.join(WEB_APP_DIR, 'static')):
+if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')):
     async def index(request):
         """Serve the client-side application."""
         with open(os.path.join(WEB_APP_DIR, 'index.html'), 'r', encoding="utf-8") as f:
             return web.Response(text=f.read(), content_type='text/html')
     app.router.add_static('/static', path=str(os.path.join(WEB_APP_DIR, 'static')))
+    app.router.add_static('/css', path=str(os.path.join(WEB_APP_DIR, 'css')))
+    app.router.add_static('/js', path=str(os.path.join(WEB_APP_DIR, 'js')))
+    app.router.add_static('/docs', path=str(os.path.join(WEB_APP_DIR, 'docs')))
     print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
 else:
     async def index(request):
@@ -196,15 +208,6 @@ elif sys.platform == "win32":
     conda_activate = "activate"
 else:
     conda_activate = "conda activate"
-
-def killProcess(pid):
-    try:
-        cp = psutil.Process(pid)
-        for proc in cp.children(recursive=True):
-            proc.kill()
-        cp.kill()
-    except Exception as e:
-        print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid))
 
 plugins = {}
 plugin_sessions = {}
