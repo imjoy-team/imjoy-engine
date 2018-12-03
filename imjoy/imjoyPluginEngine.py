@@ -120,7 +120,7 @@ if opt.serve:
             print('Failed to install git, please check whether you have internet access.')
             sys.exit(3)
     if os.path.exists(WEB_APP_DIR) and os.path.isdir(WEB_APP_DIR):
-        ret = subprocess.Popen(['git', 'pull'], cwd=WEB_APP_DIR, shell=False).wait()
+        ret = subprocess.Popen(['git', 'pull', '--all'], cwd=WEB_APP_DIR, shell=False).wait()
         # "subprocess.Popen can not recongnize '&&' after 'git pull' with nothing to add "
         if ret != 0:
             print('Failed to pull files for serving offline.')
@@ -154,8 +154,6 @@ if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')):
         with open(os.path.join(WEB_APP_DIR, 'index.html'), 'r', encoding="utf-8") as f:
             return web.Response(text=f.read(), content_type='text/html')
     app.router.add_static('/static', path=str(os.path.join(WEB_APP_DIR, 'static')))
-    app.router.add_static('/css', path=str(os.path.join(WEB_APP_DIR, 'css')))
-    app.router.add_static('/js', path=str(os.path.join(WEB_APP_DIR, 'js')))
     app.router.add_static('/docs', path=str(os.path.join(WEB_APP_DIR, 'docs')))
     print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
 else:
