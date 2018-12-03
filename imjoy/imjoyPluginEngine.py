@@ -139,11 +139,7 @@ else:
     logger.setLevel(logging.ERROR)
 
 
-if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')) \
-        and os.path.exists(os.path.join(WEB_APP_DIR, 'static')) \
-        and os.path.exists(os.path.join(WEB_APP_DIR, 'css')) \
-        and os.path.exists(os.path.join(WEB_APP_DIR, 'js')) \
-        and os.path.exists(os.path.join(WEB_APP_DIR, 'docs')):
+if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')):
     async def index(request):
         """Serve the client-side application."""
         with open(os.path.join(WEB_APP_DIR, 'index.html'), 'r', encoding="utf-8") as f:
