@@ -92,7 +92,7 @@ pid_file = os.path.join(WORKSPACE_DIR, '.pid')
 try:
     if os.path.exists(pid_file):
         with open(pid_file, 'r') as f:
-            killProcess(int(f.read()))
+            os.kill(int(f.read()))
 except Exception as e:
     pass
 try:
@@ -139,12 +139,19 @@ else:
     logger.setLevel(logging.ERROR)
 
 
-if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')) and os.path.exists(os.path.join(WEB_APP_DIR, 'static')):
+if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')) \
+        and os.path.exists(os.path.join(WEB_APP_DIR, 'static')) \
+        and os.path.exists(os.path.join(WEB_APP_DIR, 'css')) \
+        and os.path.exists(os.path.join(WEB_APP_DIR, 'js')) \
+        and os.path.exists(os.path.join(WEB_APP_DIR, 'docs')):
     async def index(request):
         """Serve the client-side application."""
         with open(os.path.join(WEB_APP_DIR, 'index.html'), 'r', encoding="utf-8") as f:
             return web.Response(text=f.read(), content_type='text/html')
     app.router.add_static('/static', path=str(os.path.join(WEB_APP_DIR, 'static')))
+    app.router.add_static('/css', path=str(os.path.join(WEB_APP_DIR, 'css')))
+    app.router.add_static('/js', path=str(os.path.join(WEB_APP_DIR, 'js')))
+    app.router.add_static('/docs', path=str(os.path.join(WEB_APP_DIR, 'docs')))
     print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
 else:
     async def index(request):
