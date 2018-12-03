@@ -87,12 +87,21 @@ try:
 except Exception as e:
     logger.error('Falied to save .token file: %s', str(e))
 
+def killProcess(pid):
+    try:
+        cp = psutil.Process(pid)
+        for proc in cp.children(recursive=True):
+            proc.kill()
+        cp.kill()
+    except Exception as e:
+        print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid))
+
 # try to kill last process
 pid_file = os.path.join(WORKSPACE_DIR, '.pid')
 try:
     if os.path.exists(pid_file):
         with open(pid_file, 'r') as f:
-            os.kill(int(f.read()))
+            killProcess(int(f.read()))
 except Exception as e:
     pass
 try:
@@ -199,15 +208,6 @@ elif sys.platform == "win32":
     conda_activate = "activate"
 else:
     conda_activate = "conda activate"
-
-def killProcess(pid):
-    try:
-        cp = psutil.Process(pid)
-        for proc in cp.children(recursive=True):
-            proc.kill()
-        cp.kill()
-    except Exception as e:
-        print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid))
 
 plugins = {}
 plugin_sessions = {}
