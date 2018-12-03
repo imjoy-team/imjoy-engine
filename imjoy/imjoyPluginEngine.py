@@ -153,13 +153,16 @@ if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')):
         """Serve the client-side application."""
         with open(os.path.join(WEB_APP_DIR, 'index.html'), 'r', encoding="utf-8") as f:
             return web.Response(text=f.read(), content_type='text/html')
+    async def docs(request):
+        with open(os.path.join(WEB_APP_DIR, 'docs', 'index.html'), 'r', encoding="utf-8") as f:
+            return web.Response(text=f.read(), content_type='text/html')
     app.router.add_static('/static', path=str(os.path.join(WEB_APP_DIR, 'static')))
     app.router.add_static('/docs', path=str(os.path.join(WEB_APP_DIR, 'docs')))
+    app.router.add_get('/docs', docs)
     print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
 else:
     async def index(request):
         return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>You can run "python -m imjoy --serve" to serve ImJoy web app locally.</p>', content_type="text/html")
-
 async def about(request):
     params = request.rel_url.query
     if 'token' in params:
@@ -183,7 +186,6 @@ async def about(request):
 
 app.router.add_get('/', index)
 app.router.add_get('/about', about)
-
 
 attempt_count = 0
 
