@@ -87,6 +87,15 @@ try:
 except Exception as e:
     logger.error('Falied to save .token file: %s', str(e))
 
+def killProcess(pid):
+    try:
+        cp = psutil.Process(pid)
+        for proc in cp.children(recursive=True):
+            proc.kill()
+        cp.kill()
+    except Exception as e:
+        print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid))
+
 # try to kill last process
 pid_file = os.path.join(WORKSPACE_DIR, '.pid')
 try:
@@ -106,18 +115,22 @@ WEB_APP_DIR = os.path.join(WORKSPACE_DIR, '__ImJoy__')
 if opt.serve:
     if shutil.which('git') is None:
         print('Installing git...')
-        ret = subprocess.Popen("conda install -y git && git clone https://github.com/oeway/ImJoy".split(), shell=False).wait()
+        ret = subprocess.Popen("conda install -y git && git clone -b gh-pages --depth 1 https://github.com/oeway/ImJoy".split(), shell=False).wait()
         if ret != 0:
             print('Failed to install git, please check whether you have internet access.')
             sys.exit(3)
     if os.path.exists(WEB_APP_DIR) and os.path.isdir(WEB_APP_DIR):
-        ret = subprocess.Popen(['git', 'pull'], cwd=WEB_APP_DIR, shell=False).wait()
+        ret = subprocess.Popen(['git', 'pull', '--all'], cwd=WEB_APP_DIR, shell=False).wait()
+        # "subprocess.Popen can not recongnize '&&' after 'git pull' with nothing to add "
+        if ret != 0:
+            print('Failed to pull files for serving offline.')
+        ret = subprocess.Popen(['git', 'checkout', 'gh-pages'], cwd=WEB_APP_DIR, shell=False).wait()
         if ret != 0:
             print('Failed to pull files for serving offline.')
             #shutil.rmtree(WEB_APP_DIR)
     if not os.path.exists(WEB_APP_DIR):
         print('Downloading files for serving ImJoy locally...')
-        ret = subprocess.Popen('git clone https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False, cwd=WORKSPACE_DIR).wait()
+        ret = subprocess.Popen('git clone -b gh-pages --depth 1 https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False, cwd=WORKSPACE_DIR).wait()
         if ret != 0:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
@@ -135,16 +148,21 @@ else:
     logger.setLevel(logging.ERROR)
 
 
-if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'docs/index.html')) and os.path.exists(os.path.join(WEB_APP_DIR, 'docs/static')):
+if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')):
     async def index(request):
         """Serve the client-side application."""
-        with open(os.path.join(WEB_APP_DIR, 'docs/index.html'), 'r', encoding="utf-8") as f:
+        with open(os.path.join(WEB_APP_DIR, 'index.html'), 'r', encoding="utf-8") as f:
             return web.Response(text=f.read(), content_type='text/html')
-    app.router.add_static('/static', path=str(os.path.join(WEB_APP_DIR, 'docs/static')))
+    app.router.add_static('/static', path=str(os.path.join(WEB_APP_DIR, 'static')))
+    # app.router.add_static('/docs/', path=str(os.path.join(WEB_APP_DIR, 'docs')))
+    async def docs_handler(request):
+        raise web.HTTPFound(location='https://imjoy.io/docs')
+    app.router.add_get('/docs', docs_handler, name='docs')
     print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
 else:
     async def index(request):
         return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>You can run "python -m imjoy --serve" to serve ImJoy web app locally.</p>', content_type="text/html")
+app.router.add_get('/', index)
 
 async def about(request):
     params = request.rel_url.query
@@ -166,10 +184,7 @@ async def about(request):
             body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
     body += '<H2>Please use the latest Google Chrome browser to run the ImJoy App.</H2><a href="https://www.google.com/chrome/">Download Chrome</a><p>Note: Safari is not supported due to its restrictions on connecting to localhost. Currently, only FireFox and Chrome (preferred) are supported.</p>'
     return web.Response(body=body, content_type="text/html")
-
-app.router.add_get('/', index)
 app.router.add_get('/about', about)
-
 
 attempt_count = 0
 
@@ -192,15 +207,6 @@ elif sys.platform == "win32":
     conda_activate = "activate"
 else:
     conda_activate = "conda activate"
-
-def killProcess(pid):
-    try:
-        cp = psutil.Process(pid)
-        for proc in cp.children(recursive=True):
-            proc.kill()
-        cp.kill()
-    except Exception as e:
-        print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid))
 
 plugins = {}
 plugin_sessions = {}
