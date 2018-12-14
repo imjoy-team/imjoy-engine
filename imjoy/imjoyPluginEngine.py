@@ -198,8 +198,9 @@ template_script = os.path.abspath(os.path.join(script_dir, 'imjoyWorkerTemplate.
 
 if sys.platform == "linux" or sys.platform == "linux2":
     # linux
-    # command_template = '/bin/bash -c "source {}/bin/activate"'
-    conda_activate = "conda activate" #command_template.format("$(conda info --json -s | python -c \"import sys, json; print(json.load(sys.stdin)['conda_prefix']);\")")
+    process = subprocess.Popen("conda info --json -s | python -c "import sys, json; print(json.load(sys.stdin)['conda_prefix']);", shell=True, stdout=subprocess.PIPE)
+    app_path, err = process.communicate()
+    conda_activate =  '/bin/bash -c "source {}/bin/activate"'.format(app_path)
 elif sys.platform == "darwin":
     # OS X
     conda_activate = "source activate"
