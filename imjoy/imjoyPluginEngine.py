@@ -120,14 +120,15 @@ if opt.serve:
             print('Failed to install git, please check whether you have internet access.')
             sys.exit(3)
     if os.path.exists(WEB_APP_DIR) and os.path.isdir(WEB_APP_DIR):
+        ret = subprocess.Popen(['git', 'stash'], cwd=WEB_APP_DIR, shell=False).wait()
+        if ret != 0:
+            print('Failed to clean files locally.')
         ret = subprocess.Popen(['git', 'pull', '--all'], cwd=WEB_APP_DIR, shell=False).wait()
-        # "subprocess.Popen can not recongnize '&&' after 'git pull' with nothing to add "
         if ret != 0:
             print('Failed to pull files for serving offline.')
         ret = subprocess.Popen(['git', 'checkout', 'gh-pages'], cwd=WEB_APP_DIR, shell=False).wait()
         if ret != 0:
-            print('Failed to pull files for serving offline.')
-            #shutil.rmtree(WEB_APP_DIR)
+            print('Failed to checkout files from gh-pages.')
     if not os.path.exists(WEB_APP_DIR):
         print('Downloading files for serving ImJoy locally...')
         ret = subprocess.Popen('git clone -b gh-pages --depth 1 https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False, cwd=WORKSPACE_DIR).wait()
