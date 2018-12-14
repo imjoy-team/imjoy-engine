@@ -82,6 +82,7 @@ class PluginConnection():
         _remote = dotdict()
         self._setLocalAPI(_remote)
         self._interface = {}
+        self._plugin_interfaces = {}
         self._remote_set = False
         self._store = ReferenceStore()
         self._executed = False
@@ -138,6 +139,18 @@ class PluginConnection():
         #skip if already encoded
         if type(aObject) is dict and '__jailed_type__' in aObject and '__value__' in aObject:
             return aObject
+
+        # encode interfaces
+        if type(aObject) is dict and '__id__' in aObject and '__jailed_type__' in aObject and aObject['__jailed_type__'] == 'plugin_api':
+            encoded_interface = {}
+            for k in aObject.keys():
+                v = aObject[k]
+                if callable(v):
+                    bObject[k] = {'__jailed_type__': 'plugin_interface', '__plugin_id__':aObject['__id__'], '__value__' : k, 'num': None}
+                    encoded_interface[k] = v
+            self._plugin_interfaces[aObject['__id__']] = encoded_interface
+            return bObject
+
         keys = range(len(aObject)) if isarray else aObject.keys()
         for k in keys:
             v = aObject[k]
@@ -200,6 +213,8 @@ class PluginConnection():
                     bObject = self._remote[name]
                 else:
                     bObject = self._genRemoteMethod(name)
+            elif aObject['__jailed_type__'] == 'plugin_interface':
+                bObject = self._genRemoteMethod(aObject['__value__'], aObject['__plugin_id__'])
             elif aObject['__jailed_type__'] == 'ndarray':
                 # create build array/tensor if used in the plugin
                 try:
@@ -279,7 +294,7 @@ class PluginConnection():
                   names.append({"name":name, "data": data})
         self.emit({'type':'setInterface', 'api': names})
 
-    def _genRemoteMethod(self, name):
+    def _genRemoteMethod(self, name, plugin_id=None):
         def remoteMethod(*arguments, **kwargs):
             # wrap keywords to a dictionary and pass to the first argument
             if len(arguments) == 0 and len(kwargs) > 0:
@@ -288,6 +303,7 @@ class PluginConnection():
                 call_func = {
                     'type': 'method',
                     'name': name,
+                    'pid': plugin_id,
                     'args': self._wrap(arguments),
                     # 'pid'  : self.id,
                     'promise': self._wrap([resolve, reject])

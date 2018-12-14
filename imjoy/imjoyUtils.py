@@ -114,11 +114,14 @@ def task_worker(self, q, logger, abort):
                         logger.info('error during execution: %s', traceback.format_exc())
                         self.emit({'type':'executeFailure', 'error': repr(e)})
             elif d['type'] == 'method':
-                if d['name'] in self._interface:
+                interface = self._interface
+                if 'pid' in d and d['pid'] is not None:
+                    interface = self._plugin_interfaces[d['pid']]
+                if d['name'] in interface:
                     if 'promise' in d:
                         try:
                             resolve, reject = self._unwrap(d['promise'], False)
-                            method = self._interface[d['name']]
+                            method = interface[d['name']]
                             args = self._unwrap(d['args'], True)
                             # args.append({'id': self.id})
                             result = method(*args)
@@ -128,7 +131,7 @@ def task_worker(self, q, logger, abort):
                             reject(e)
                     else:
                         try:
-                            method = self._interface[d['name']]
+                            method = interface[d['name']]
                             args = self._unwrap(d['args'], True)
                             # args.append({'id': self.id})
                             method(*args)
