@@ -402,10 +402,9 @@ async def on_init_plugin(sid, kwargs):
         requirements_cmd = None
 
     if not opt.freeze and CONDA_AVAILABLE:
-        # if env_name is not None:
-        requirements_cmd = conda_activate.format(env_name + " && " + requirements_cmd)
-        # if env_name is not None:
-        cmd = conda_activate.format(env_name + " && " + cmd)
+        if env_name is not None and env_name.strip() != '':
+            requirements_cmd = conda_activate.format(env_name + " && " + requirements_cmd)
+            cmd = conda_activate.format(env_name + " && " + cmd)
 
     secretKey = str(uuid.uuid4())
     abort = threading.Event()
