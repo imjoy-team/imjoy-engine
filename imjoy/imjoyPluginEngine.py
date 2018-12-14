@@ -200,7 +200,7 @@ if sys.platform == "linux" or sys.platform == "linux2":
     # linux
     process = subprocess.Popen("conda info --json -s | python -c \"import sys, json; print(json.load(sys.stdin)['conda_prefix']);\"", shell=True, stdout=subprocess.PIPE)
     app_path, err = process.communicate()
-    conda_activate =  '/bin/bash -c "source {}/bin/activate"'.format(app_path)
+    conda_activate =  '/bin/bash -c "source {}/bin/activate"'.format(app_path.decode('ascii').strip())
 elif sys.platform == "darwin":
     # OS X
     conda_activate = "source activate"
