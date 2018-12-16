@@ -67,7 +67,7 @@ set -e
 bash $InstallDir/Miniconda_Install.sh -b -f -p $InstallDir
 
 # Activate the new environment
-PATH="$InstallDir/bin":$PATH
+PATH="$InstallDir/bin"
 
 # Make the new python environment completely independent
 # Modify the site.py file so that USER_SITE is not imported
