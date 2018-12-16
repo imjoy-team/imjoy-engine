@@ -67,7 +67,7 @@ set -e
 bash $InstallDir/Miniconda_Install.sh -b -f -p $InstallDir
 
 # Activate the new environment
-PATH="$InstallDir/bin"
+PATH="$InstallDir/bin":$PATH
 
 # Make the new python environment completely independent
 # Modify the site.py file so that USER_SITE is not imported
@@ -87,11 +87,11 @@ END
 
 # Upgrade pip and conda
 pip install pip --upgrade
-conda update conda
+conda update conda --yes --prefix=$InstallDir/bin
 
 # Install Conda Dependencies
 if [[ $CondaDeps ]]; then
-    conda install $CondaDeps -y
+    conda install $CondaDeps --yes --prefix=$InstallDir/bin
 fi
 
 # Install Package from PyPi
