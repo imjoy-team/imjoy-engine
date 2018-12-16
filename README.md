@@ -1,10 +1,24 @@
 # Python Plugin Engine
 The plugin engine used for running python plugins in https://imjoy.io
 
-## Installation
-  Download the latest ImJoyEngine [here](https://github.com/oeway/ImJoy-Engine/releases).
+## Installation (Desktop App)
 
-  Follow the instructions according to different operating systems.
+If you want to use the plugin engine from a desktop environment, download the latest ImJoy-App from [here](https://github.com/oeway/ImJoy-App/releases). Follow the instructions according to different operating systems.
+
+You will get an executable file for starting the Plugin Engine.
+
+## Installation (Linux servers/clusters)
+
+For using it through a command line interface on a Linux host, run this command in your terminal to install the plugin engine:
+```
+wget https://raw.githubusercontent.com/oeway/ImJoy-Engine/master/utils/Linux_Install.sh  -O - | bash
+```
+
+To start the plugin engine, run:
+```
+export PATH=~/ImJoyApp/bin:$PATH
+python -m imjoy --host=0.0.0.0 --serve
+```
 
 ## Installation (alternative solution)
   If you you have trouble in using the above ImJoyEngine, do the following:
