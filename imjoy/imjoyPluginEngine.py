@@ -664,7 +664,6 @@ async def on_get_file_url(sid, kwargs):
             generatedUrlFiles[path] += ('&password=' + fileInfo['password'])
         return {'success': True, 'url': generatedUrlFiles[path]}
 
-
 @sio.on('get_file_path', namespace=NAME_SPACE)
 async def on_get_file_path(sid, kwargs):
     logger.info("generating file url: %s", kwargs)
@@ -679,6 +678,44 @@ async def on_get_file_path(sid, kwargs):
         return {'success': True, 'path': fileInfo['path']}
     else:
         return {'success': False, 'error': 'url not found.' }
+
+@sio.on('get_engine_status', namespace=NAME_SPACE)
+async def on_get_engine_status(sid, kwargs):
+    if sid not in registered_sessions:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False, 'error': 'client has not been registered.'}
+    current_process = psutil.Process()
+    children = current_process.children(recursive=True)
+    pid_dict = {}
+    for i in plugins:
+        p = plugins[i]
+        pid_dict[p['process_id']] = p
+    procs = []
+    for proc in children:
+        if proc.pid in pid_dict:
+            procs.append({'name': pid_dict[proc.pid]['name'], 'pid': proc.pid})
+        else:
+            procs.append({'name': proc.name(), 'pid': proc.pid})
+    return {'success': True, 'plugin_num': len(plugins), 'plugin_processes': procs, 'engine_process': current_process.pid}
+
+@sio.on('kill_plugin_process', namespace=NAME_SPACE)
+async def on_kill_plugin_process(sid, kwargs):
+    if sid not in registered_sessions:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False, 'error': 'client has not been registered.'}
+    if 'pid' not in kwargs:
+        return {'success': False, 'error': 'You must provide the pid of the plugin process.'}
+    if kwargs['pid'] is None:
+        print('Killing all the plugins...')
+        killAllPlugins()
+        return {'success': True}
+    else:
+        try:
+            print('Killing plugin process (pid='+ str(kwargs['pid']) + ')...')
+            killProcess(int(kwargs['pid']))
+            return {'success': True}
+        except:
+            return {'success': False, 'error': 'Failed to kill plugin process: #' + str(kwargs['pid'])}
 
 @sio.on('message', namespace=NAME_SPACE)
 async def on_message(sid, kwargs):
@@ -855,10 +892,10 @@ async def on_shutdown(app):
     killAllPlugins()
     # stopped.set()
     logger.info('Plugin engine exited.')
-    # try:
-    #     os.remove(pid_file)
-    # except Exception as e:
-    #     logger.info('Failed to remove the pid file.')
+    try:
+        os.remove(pid_file)
+    except Exception as e:
+        logger.info('Failed to remove the pid file.')
 
 app.on_startup.append(on_startup)
 app.on_shutdown.append(on_shutdown)
