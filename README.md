@@ -20,6 +20,9 @@ export PATH=~/ImJoyApp/bin:$PATH
 python -m imjoy --host=0.0.0.0 --serve
 ```
 
+Please notice that if you are trying to use ImJoy Plugin Engine running on a remote server, please use the ImJoy web App served on your server (`http://YOUR_REMOTE_IP:8080`) instead of `https://imjoy.io`. This is because most browser do not allow a web application served throught `https` to connect to a unsecured server (your remote server). Alternatively, you use proxy to enable `https` for the plugin engine, then you will be able to use it with `https://imjoy.io`. 
+
+
 ## Installation (alternative solution)
   If you you have trouble in using the above ImJoyEngine, do the following:
   * Download and install [Miniconda with Python 3.7](https://conda.io/miniconda.html) (or [Anaconda with Python 3.6](https://www.anaconda.com/download/) if you prefer a full installation). If you have installed any of these, please skip this step.
