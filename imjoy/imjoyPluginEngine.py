@@ -705,9 +705,9 @@ async def on_kill_plugin_process(sid, kwargs):
     if sid not in registered_sessions:
         logger.debug('client %s is not registered.', sid)
         return {'success': False, 'error': 'client has not been registered.'}
-    if 'pid' not in kwargs:
+    if 'pid' not in kwargs and 'all' not in kwargs:
         return {'success': False, 'error': 'You must provide the pid of the plugin process.'}
-    if kwargs['pid'] is None:
+    if kwargs['all']:
         print('Killing all the plugins...')
         killAllPlugins()
         return {'success': True}
