@@ -91,7 +91,8 @@ def killProcess(pid):
     try:
         cp = psutil.Process(pid)
         for proc in cp.children(recursive=True):
-            proc.kill()
+            if proc.is_running():
+                proc.kill()
         cp.kill()
     except Exception as e:
         print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid))
@@ -692,10 +693,11 @@ async def on_get_engine_status(sid, kwargs):
         pid_dict[p['process_id']] = p
     procs = []
     for proc in children:
-        if proc.pid in pid_dict:
-            procs.append({'name': pid_dict[proc.pid]['name'], 'pid': proc.pid})
-        else:
-            procs.append({'name': proc.name(), 'pid': proc.pid})
+        if proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE:
+            if proc.pid in pid_dict:
+                procs.append({'name': pid_dict[proc.pid]['name'], 'pid': proc.pid})
+            else:
+                procs.append({'name': proc.name(), 'pid': proc.pid})
     return {'success': True, 'plugin_num': len(plugins), 'plugin_processes': procs, 'engine_process': current_process.pid}
 
 @sio.on('kill_plugin_process', namespace=NAME_SPACE)
