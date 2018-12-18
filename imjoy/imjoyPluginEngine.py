@@ -402,7 +402,6 @@ async def on_init_plugin(sid, kwargs):
         logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
         requirements_cmd = None
 
-    env_name = None
     if not opt.freeze and CONDA_AVAILABLE:
         if env_name is not None and env_name.strip() != '':
             requirements_cmd = conda_activate.format(env_name + " && " + requirements_cmd)
