@@ -402,10 +402,10 @@ async def on_init_plugin(sid, kwargs):
         logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
         requirements_cmd = None
 
+    env_name = None
     if not opt.freeze and CONDA_AVAILABLE:
         if env_name is not None and env_name.strip() != '':
             requirements_cmd = conda_activate.format(env_name + " && " + requirements_cmd)
-            cmd = conda_activate.format(env_name + " && " + cmd)
 
     secretKey = str(uuid.uuid4())
     abort = threading.Event()
@@ -431,7 +431,7 @@ async def on_init_plugin(sid, kwargs):
         logger.debug('message to plugin %s', secretKey)
 
     try:
-        taskThread = threading.Thread(target=launch_plugin, args=[pid, envs, requirements_cmd,
+        taskThread = threading.Thread(target=launch_plugin, args=[pid, envs, requirements_cmd, env_name,
                                       '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
@@ -730,7 +730,7 @@ async def disconnect(sid):
     asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
 
-def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plugin_env):
+def launch_plugin(pid, envs, requirements_cmd, env_name, args, work_dir, abort, name, plugin_env):
     if abort.is_set():
         logger.info('plugin aborting...')
         return False
@@ -791,6 +791,8 @@ def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plug
         logger.info('plugin aborting...')
         return False
     # env = os.environ.copy()
+    if env_name is not None and env_name.strip() != '':
+        args = conda_activate.format(env_name + " && " + args)
     if type(args) is str:
         args = args.split()
     if not args:
