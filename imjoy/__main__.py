@@ -27,18 +27,19 @@ if __name__ == '__main__':
 
         if sys.platform == "linux" or sys.platform == "linux2":
             # linux
-            command_template = '/bin/bash -c "source {}/bin/activate"'
-            conda_activate = command_template.format("$(conda info --json -s | python -c \"import sys, json; print(json.load(sys.stdin)['conda_prefix']);\")") #os.environ['CONDA_PREFIX'])
+            process = subprocess.Popen("conda info --json -s | python -c \"import sys, json; print(json.load(sys.stdin)['conda_prefix']);\"", shell=True, stdout=subprocess.PIPE)
+            app_path, err = process.communicate()
+            conda_activate =  '/bin/bash -c "source '+app_path.decode('ascii').strip()+'/bin/activate {}"'
         elif sys.platform == "darwin":
             # OS X
-            conda_activate = "source activate"
+            conda_activate = "source activate {}"
         elif sys.platform == "win32":
             # Windows...
-            conda_activate = "activate"
+            conda_activate = "activate {}"
         else:
-            conda_activate = "conda activate"
+            conda_activate = "conda activate {}"
 
-        pip_cmd = conda_activate + " imjoy && " + pip_cmd + " && python -m imjoy"
+        pip_cmd = conda_activate.format(" imjoy && " + pip_cmd + " && python -m imjoy")
         ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
         if ret != 0:
             git_cmd = ''
