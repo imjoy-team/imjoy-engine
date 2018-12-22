@@ -160,7 +160,7 @@ if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')):
     async def docs_handler(request):
         raise web.HTTPFound(location='https://imjoy.io/docs')
     app.router.add_get('/docs', docs_handler, name='docs')
-    print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
+    print('A local version of Imjoy web app is available at http://'+opt.host+':'+opt.port)
 else:
     async def index(request):
         return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>You can run "python -m imjoy --serve" to serve ImJoy web app locally.</p>', content_type="text/html")
@@ -175,13 +175,13 @@ async def about(request):
         body += '<p>Alternatively, you can launch a new ImJoy instance with the link below: </p>'
 
         if opt.serve:
-            body += '<p><a href="http://127.0.0.1:8080/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
+            body += '<p><a href="http://'+opt.host+':'+opt.port+'/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
         else:
             body += '<p><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
 
     else:
         if opt.serve:
-            body = '<H1><a href="http://127.0.0.1:8080/#/app">Open ImJoy App</a></H1>'
+            body = '<H1><a href="http://'+opt.host+':'+opt.port+'/#/app">Open ImJoy App</a></H1>'
         else:
             body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
     body += '<H2>Please use the latest Google Chrome browser to run the ImJoy App.</H2><a href="https://www.google.com/chrome/">Download Chrome</a><p>Note: Safari is not supported due to its restrictions on connecting to localhost. Currently, only FireFox and Chrome (preferred) are supported.</p>'
