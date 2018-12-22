@@ -116,6 +116,10 @@ class PluginConnection():
             t.start()
             self.worker(self, self.sync_q, logger, self.abort)
 
+    def default_exit(self):
+        logger.info('terminating plugin')
+        sys.exit(0)
+
     def exit(self, code):
         if 'exit' in self._interface:
             try:
@@ -272,6 +276,8 @@ class PluginConnection():
     def setInterface(self, api):
         if inspect.isclass(type(api)):
             api = {a:getattr(api, a) for a in dir(api) if not a.startswith('_')}
+        if 'exit' not in api:
+            api['exit'] = self.default_exit
         self._interface = api
         self._sendInterface()
 
