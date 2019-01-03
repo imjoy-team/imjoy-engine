@@ -15,7 +15,7 @@ import logging
 import argparse
 import uuid
 import shutil
-import webbrowser
+# import webbrowser
 from aiohttp import web, hdrs
 from aiohttp import WSCloseCode
 from aiohttp import streamer
@@ -57,6 +57,7 @@ parser.add_argument('--port', type=str, default='8080', help='socketio port')
 parser.add_argument('--force_quit_timeout', type=int, default=5, help='the time (in second) for waiting before kill a plugin process, default: 5 s')
 parser.add_argument('--workspace', type=str, default='~/ImJoyWorkspace', help='workspace folder for plugins')
 parser.add_argument('--freeze', action="store_true", help='disable conda and pip commands')
+parser.add_argument('--engine_container_token', type=str, default=None, help='A token set by the engine container which launches the engine')
 
 opt = parser.parse_args()
 
@@ -479,10 +480,12 @@ async def on_register_client(sid, kwargs):
     if token != opt.token:
         logger.debug('token mismatch: %s != %s', token, opt.token)
         print('======== Connection Token: '+opt.token + ' ========')
-        try:
-            webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-        except Exception as e:
-            print('Failed to open the browser.')
+        if opt.engine_container_token is not None:
+            await sio.emit('message_to_container_'+opt.engine_container_token, {'type': 'popup_token'})
+        # try:
+        #     webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
+        # except Exception as e:
+        #     print('Failed to open the browser.')
         attempt_count += 1
         if attempt_count>= MAX_ATTEMPTS:
             logger.info("Client exited because max attemps exceeded: %s", attempt_count)
