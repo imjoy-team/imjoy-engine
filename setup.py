@@ -13,7 +13,7 @@ except OSError as e:
 
 requirements = []
 if sys.version_info > (3, 0):
-    requirements = ['aiohttp', 'python-socketio', 'requests', 'six', 'websocket-client', 'numpy', "psutil"]
+    requirements = ['aiohttp', 'python-socketio', 'requests', 'six', 'websocket-client', 'numpy', 'psutil', 'janus']
 try:
     setup(name='imjoy',
           version='0.7.7',
