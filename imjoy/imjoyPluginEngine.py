@@ -481,7 +481,7 @@ async def on_register_client(sid, kwargs):
         logger.debug('token mismatch: %s != %s', token, opt.token)
         print('======== Connection Token: '+opt.token + ' ========')
         if opt.engine_container_token is not None:
-            await sio.emit('message_to_container_'+opt.engine_container_token, {'type': 'popup_token'})
+            await sio.emit('message_to_container_'+opt.engine_container_token, {'type': 'popup_token', 'client_id': client_id, 'session_id': session_id})
         # try:
         #     webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
         # except Exception as e:
