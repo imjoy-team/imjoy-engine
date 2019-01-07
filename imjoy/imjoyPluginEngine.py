@@ -430,15 +430,23 @@ async def on_init_plugin(sid, kwargs):
             await sio.emit('to_plugin_'+secretKey, kwargs['data'])
         logger.debug('message to plugin %s', secretKey)
 
+    eloop = asyncio.get_event_loop()
+    def stop_callback(success, message):
+        message = str(message or '')
+        message = message[:100] + (message[100:] and '..')
+        logger.info('disconnecting from plugin (success:%s, message: %s)', str(success), message)
+        coro = sio.emit('message_from_plugin_'+secretKey,  {'type': 'disconnected', 'details': {'success': success, 'message': message}})
+        asyncio.run_coroutine_threadsafe(coro, eloop).result()
+
     try:
-        taskThread = threading.Thread(target=launch_plugin, args=[pid, envs, requirements_cmd, env_name,
+        taskThread = threading.Thread(target=launch_plugin, args=[stop_callback, pid, envs, requirements_cmd, env_name,
                                       '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         return {'success': True, 'initialized': False, 'secret': secretKey, 'work_dir': os.path.abspath(work_dir)}
     except Exception as e:
         logger.error(e)
-        return {'success': False}
+        return {'success': False, reason: str(e)}
 
 async def force_kill_timeout(t, obj):
     pid = obj['pid']
@@ -732,7 +740,7 @@ async def disconnect(sid):
     asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
 
-def launch_plugin(pid, envs, requirements_cmd, env_name, args, work_dir, abort, name, plugin_env):
+def launch_plugin(stop_callback, pid, envs, requirements_cmd, env_name, args, work_dir, abort, name, plugin_env):
     if abort.is_set():
         logger.info('plugin aborting...')
         return False
@@ -815,34 +823,37 @@ def launch_plugin(pid, envs, requirements_cmd, env_name, args, work_dir, abort, 
     if sys.platform != "win32":
         kwargs.update(preexec_fn=os.setsid)
 
-    process = subprocess.Popen(args, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-              shell=True, env=plugin_env, cwd=work_dir, **kwargs)
-    setPluginPID(pid, process.pid)
-    # Poll process for new output until finished
-    stdfn = sys.stdout.fileno()
-    while True:
-        out = process.stdout.read(1)
-        if out == '' and process.poll() != None:
-            break
-        os.write(stdfn, out)
-        sys.stdout.flush()
-        if abort.is_set():
-            break
-        time.sleep(0)
-
     try:
+        process = subprocess.Popen(args, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                  shell=True, env=plugin_env, cwd=work_dir, **kwargs)
+        setPluginPID(pid, process.pid)
+        # Poll process for new output until finished
+        stdfn = sys.stdout.fileno()
+        while True:
+            out = process.stdout.read(1)
+            if out == '' and process.poll() != None:
+                break
+            os.write(stdfn, out)
+            sys.stdout.flush()
+            if abort.is_set() or process.poll() is not None:
+                break
+            time.sleep(0)
+
         logger.info('Plugin aborting...')
         killProcess(process.pid)
         logger.info('plugin process is killed.')
-        output = process.communicate()[0]
+        outputs, errors = process.communicate()
         exitCode = process.returncode
     except Exception as e:
+        outputs, errors = '', str(e)
         exitCode = 100
     finally:
-        if (exitCode == 0):
+        if exitCode == 0:
+            stop_callback(True, outputs)
             return True
         else:
             logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n', str(args), str(exitCode))
+            stop_callback(False, (errors or '') + '\nplugin process exited with code {}'.format(exitCode))
             return False
 
 async def on_startup(app):
