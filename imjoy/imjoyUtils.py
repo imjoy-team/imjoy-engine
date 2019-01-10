@@ -1,6 +1,8 @@
 import sys
 import traceback
 import copy
+import uuid
+
 try:
     import queue
 except ImportError:
@@ -47,28 +49,9 @@ class dotdict(dict):
 class ReferenceStore():
     def __init__(self):
         self._store = {}
-        self._indices = [0]
 
     def _genId(self):
-        if len(self._indices) == 1:
-            self._indices[0] += 1
-            id = self._indices[0]
-        else:
-            id = self._indices.pop(0)
-        return id
-
-    def _releaseId(self, id):
-        for i in range(len(self._indices)):
-            if id < self._indices[i]:
-                self._indices.insert(i, id)
-                break
-
-        # cleaning-up the sequence tail
-        for i in reversed(range(len(self._indices))):
-            if self._indices[i]-1 == self._indices[i-1]:
-                self._indices.pop()
-            else:
-                break
+        return str(uuid.uuid4())
 
     def put(self, obj):
         id = self._genId()
@@ -77,9 +60,7 @@ class ReferenceStore():
 
     def fetch(self, id):
         obj = self._store[id]
-        self._store[id] = None
         del self._store[id]
-        self._releaseId(id)
         return obj
 
 def task_worker(self, q, logger, abort):
