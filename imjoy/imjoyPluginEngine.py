@@ -438,8 +438,12 @@ async def on_init_plugin(sid, kwargs):
         coro = sio.emit('message_from_plugin_'+secretKey,  {'type': 'disconnected', 'details': {'success': success, 'message': message}})
         asyncio.run_coroutine_threadsafe(coro, eloop).result()
 
+    def logging_callback(msg, type='info'):
+        coro = sio.emit('message_from_plugin_'+secretKey,  {'type': 'logging', 'details': {'value': msg, 'type': type}})
+        asyncio.run_coroutine_threadsafe(coro, eloop).result()
+
     try:
-        taskThread = threading.Thread(target=launch_plugin, args=[stop_callback, pid, envs, requirements_cmd, env_name,
+        taskThread = threading.Thread(target=launch_plugin, args=[stop_callback, logging_callback, pid, envs, requirements_cmd, env_name,
                                       '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
@@ -740,9 +744,10 @@ async def disconnect(sid):
     asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
 
-def launch_plugin(stop_callback, pid, envs, requirements_cmd, env_name, args, work_dir, abort, name, plugin_env):
+def launch_plugin(stop_callback, logging_callback, pid, envs, requirements_cmd, env_name, args, work_dir, abort, name, plugin_env):
     if abort.is_set():
         logger.info('plugin aborting...')
+        logging_callback('plugin aborting...')
         return False
     try:
         if envs is not None and len(envs)>0:
@@ -750,10 +755,13 @@ def launch_plugin(stop_callback, pid, envs, requirements_cmd, env_name, args, wo
                 print('Running env command: ' + env)
                 logger.info('running env command: %s', env)
                 if env not in cmd_history:
+                    logging_callback('running env command: {}'.format(env))
                     process = subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir)
                     setPluginPID(pid, process.pid)
                     process.wait()
                     cmd_history.append(env)
+                    logging_callback('env command executed successfully.')
+                    logging_callback(30, type='progress')
                 else:
                     logger.debug('skip command: %s', env)
 
@@ -763,11 +771,13 @@ def launch_plugin(stop_callback, pid, envs, requirements_cmd, env_name, args, wo
 
         logger.info('Running requirements command: %s', requirements_cmd)
         print('Running requirements command: ' + requirements_cmd)
+        logging_callback('Running requirements command: {}'.format(requirements_cmd))
         if requirements_cmd is not None and requirements_cmd not in cmd_history:
             process = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir)
             setPluginPID(pid, process.pid)
             ret = process.wait()
             if ret != 0:
+                logging_callback('Failed to run requirements command: {}'.format(requirements_cmd), type='error')
                 git_cmd = ''
                 if shutil.which('git') is None:
                     git_cmd += " git"
@@ -781,24 +791,30 @@ def launch_plugin(stop_callback, pid, envs, requirements_cmd, env_name, args, wo
                     setPluginPID(pid, process.pid)
                     ret = process.wait()
                     if ret != 0:
+                        logging_callback('Failed to install git/pip and dependencies with exit code: '+str(ret), type='error')
                         raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
                     else:
                         process = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir)
                         setPluginPID(pid, process.pid)
                         ret = process.wait()
                         if ret != 0:
+                            logging_callback('Failed to install dependencies with exit code: '+str(ret), type='error')
                             raise Exception('Failed to install dependencies with exit code: '+str(ret))
                 else:
                     raise Exception('Failed to install dependencies with exit code: '+str(ret))
+            logging_callback('requirements command executed successfully.')
+            logging_callback(70, type='progress')
             cmd_history.append(requirements_cmd)
         else:
             logger.debug('skip command: %s', requirements_cmd)
     except Exception as e:
         # await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
         logger.error('failed to execute plugin: %s', str(e))
+        logging_callback('failed to execute plugin: ' + str(e), type='error')
 
     if abort.is_set():
         logger.info('plugin aborting...')
+        logging_callback('plugin aborting...')
         return False
     # env = os.environ.copy()
     if env_name is not None and env_name.strip() != '':
@@ -810,25 +826,26 @@ def launch_plugin(stop_callback, pid, envs, requirements_cmd, env_name, args, wo
     # Convert them all to strings
     args = [str(x) for x in args if str(x) != '']
     logger.info('%s task started.', name)
-    unrecognized_output = []
-    # env['PYTHONPATH'] = os.pathsep.join(
-    #     ['.', work_dir, env.get('PYTHONPATH', '')] + sys.path)
 
     args = ' '.join(args)
     logger.info('Task subprocess args: %s', args)
-
+    logging_callback('running subprocess with {}'.format(args))
     # set system/version dependent "start_new_session" analogs
     # https://docs.python.org/2/library/subprocess.html#converting-argument-sequence
     kwargs = {}
     if sys.platform != "win32":
         kwargs.update(preexec_fn=os.setsid)
-
+    logging_callback(100, type='progress')
     try:
         process = subprocess.Popen(args, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                   shell=True, env=plugin_env, cwd=work_dir, **kwargs)
         setPluginPID(pid, process.pid)
         # Poll process for new output until finished
         stdfn = sys.stdout.fileno()
+
+        logging_callback(0, type='progress')
+        logging_callback('')
+
         while True:
             out = process.stdout.read(1)
             if out == '' and process.poll() != None:
@@ -849,9 +866,11 @@ def launch_plugin(stop_callback, pid, envs, requirements_cmd, env_name, args, wo
         exitCode = 100
     finally:
         if exitCode == 0:
+            logging_callback('plugin process exited with code {}'.format(0))
             stop_callback(True, outputs)
             return True
         else:
+            logging_callback('plugin process exited with code {}'.format(exitCode), type='error')
             logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n', str(args), str(exitCode))
             stop_callback(False, (errors or '') + '\nplugin process exited with code {}'.format(exitCode))
             return False
@@ -870,21 +889,6 @@ async def on_startup(app):
         print('Please go to https://imjoy.io/#/app with your web browser (Chrome or FireFox)')
     print("Connection Token: " + opt.token)
     sys.stdout.flush()
-    # try:
-    #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
-    # except Exception as e:
-    #     try:
-    #         webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-    #     except Exception as e:
-    #         print('Failed to open the browser.')
-
-    # try:
-    #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-    # except Exception as e:
-    #     try:
-    #         webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-    #     except Exception as e:
-    #         print('Failed to open the browser.')
 
 # print('======>> Connection Token: '+opt.token + ' <<======')
 async def on_shutdown(app):

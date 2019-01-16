@@ -311,7 +311,6 @@ class PluginConnection():
                     'name': name,
                     'pid': plugin_id,
                     'args': self._wrap(arguments),
-                    # 'pid'  : self.id,
                     'promise': self._wrap([resolve, reject])
                 }
                 self.emit(call_func)
