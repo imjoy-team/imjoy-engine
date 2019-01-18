@@ -844,7 +844,6 @@ def launch_plugin(stop_callback, logging_callback, pid, envs, requirements_cmd, 
         stdfn = sys.stdout.fileno()
 
         logging_callback(0, type='progress')
-        logging_callback('')
 
         while True:
             out = process.stdout.read(1)
