@@ -364,7 +364,7 @@ class PluginConnection():
                 data = api[i].get("data", None)
                 if data is not None:
                     if type(data) == 'dict':
-                        data2 = {}
+                        data2 = dotdict()
                         for key in data:
                             if key in data:
                                 if data[key] == "**@@FUNCTION@@**:"+key:
