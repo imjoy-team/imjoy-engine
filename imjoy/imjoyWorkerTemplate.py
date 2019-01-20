@@ -363,7 +363,7 @@ class PluginConnection():
                 name = api[i]["name"]
                 data = api[i].get("data", None)
                 if data is not None:
-                    if type(data) == 'dict':
+                    if type(data) is dict:
                         data2 = dotdict()
                         for key in data:
                             if key in data:
