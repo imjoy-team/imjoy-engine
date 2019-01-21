@@ -1,5 +1,5 @@
-# Python Plugin Engine
-The plugin engine used for running python plugins in https://imjoy.io
+# ImJoy Plugin Engine
+The plugin engine used for running python plugins in ImJoy (https://imjoy.io).
 
 ## Installation (Desktop App)
 
@@ -10,9 +10,11 @@ You will get an executable file for starting the Plugin Engine.
 ## Installation (Linux servers/clusters)
 
 For using it through a command line interface on a Linux host, run this command in your terminal to install the plugin engine:
-```
+```bash
 wget https://raw.githubusercontent.com/oeway/ImJoy-Engine/master/utils/Linux_Install.sh  -O - | bash
 ```
+
+NOTE: When you run the script above, it will first download and install Miniconda3 into `$HOME/ImJoyApp`, it may take considerably amount of space. If you want to uninstall it, run `rm -rf $HOME/ImJoyApp`.  
 
 To start the plugin engine, run:
 ```
@@ -45,7 +47,7 @@ Please notice that if you are trying to use ImJoy Plugin Engine running on a rem
   PATH=~/ImJoyApp/bin:$PATH pip install -U git+https://github.com/oeway/ImJoy-Engine#egg=imjoy
   ```
 
-## Accessing the ImJoyEngine Conda environment
+## Accessing the ImJoy Engine Conda environment
 If you installed the Plugin Engine with the [ImJoyEngine](https://github.com/oeway/ImJoy-Engine/releases), it will setup an Miniconda environment located in `~/ImJoyApp`.
 
 To access the environment on Linux and Mac, you just need to add `~/ImJoyApp/bin` to your `$PATH`:
@@ -63,6 +65,18 @@ $env:Path = '%systemdrive%%homepath%\ImJoyApp;%systemdrive%%homepath%\ImJoyApp\S
 # now you can use `conda`, `pip`, `python` provided from ~/ImJoyApp
 (Get-Command conda.exe).Path
 
+```
+
+## Uninstall/remove ImJoy Engine
+In order to uninstall or remove ImJoy Engine, you need to remove two folders located in your home/user folder: `ImJoyApp` and `ImJoyWorkspace`.
+
+ * `ImJoyApp` contains a Miniconda environemnt and the virtual environemtns used for running ImJoy plugins
+ * `ImJoyWorkspace` contains user data for each ImJoy workspace, you may want to backup the data.
+
+On Linux, you can run the following command:
+```
+rm -rf $HOME/ImJoyApp   
+rm -rf $HOME/ImJoyWorkspace # please backup important data inside this folder
 ```
 
 ## More details and FAQs in [Docs](http://imjoy.io/docs/#/user-manual)
