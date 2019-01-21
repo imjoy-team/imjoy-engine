@@ -73,10 +73,11 @@ In order to uninstall or remove ImJoy Engine, you need to remove two folders loc
  * `ImJoyApp` contains a Miniconda environemnt and the virtual environemtns used for running ImJoy plugins
  * `ImJoyWorkspace` contains user data for each ImJoy workspace, you may want to backup the data.
 
-On Linux, you can run the following command:
+On Linux/OSX, you can run the following command:
 ```
 rm -rf $HOME/ImJoyApp   
 rm -rf $HOME/ImJoyWorkspace # please backup important data inside this folder
 ```
+On windows, it's typically located in `C:\Users\<CurrentUserName>`, you can remove `ImJoyApp` and `ImJoyWorkspace` manually.
 
 ## More details and FAQs in [Docs](http://imjoy.io/docs/#/user-manual)
