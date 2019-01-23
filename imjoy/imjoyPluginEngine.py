@@ -388,14 +388,26 @@ async def on_init_plugin(sid, kwargs):
             logger.warning('env command is blocked because conda is not avaialbe or in `--freeze` mode: %s', env)
 
 
+    default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
+
     if type(requirements) is list:
+        requirements = [str(r) for r in requirements]
+        # for every default requirement, check if it's exist in requirements
+        dr = []
+        for pd in default_requirements:
+            skip = False
+            for pu in requirements:
+                if pd.split('==')[0] == pu.split('==')[0]:
+                    skip = True
+                    break
+            if not skip:
+                dr.append(pd)
+        default_requirements = dr
         requirements_pip = " ".join(requirements)
     elif type(requirements) is str:
         requirements_pip = "&& " + requirements
     else:
         raise Exception('wrong requirements type.')
-
-    default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
 
     requirements_cmd = "pip install " + " ".join(default_requirements) + ' ' + requirements_pip
     if opt.freeze:
