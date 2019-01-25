@@ -17,10 +17,10 @@ wget https://raw.githubusercontent.com/oeway/ImJoy-Engine/master/utils/Linux_Ins
 To start the plugin engine, run:
 ```
 export PATH=~/ImJoyApp/bin:$PATH
-python -m imjoy --host=0.0.0.0 --serve
+python -m imjoy --host=0.0.0.0 --port=9527 --serve
 ```
 
-Please notice that if you are trying to use ImJoy Plugin Engine running on a remote server, please use the ImJoy web App served on your server (`http://YOUR_REMOTE_IP:8080`) instead of `https://imjoy.io`. This is because most browser do not allow a web application served throught `https` to connect to a unsecured server (your remote server). Alternatively, you use proxy to enable `https` for the plugin engine, then you will be able to use it with `https://imjoy.io`. 
+Please notice that if you are trying to use ImJoy Plugin Engine running on a remote server, please use the ImJoy web App served on your server (`http://YOUR_REMOTE_IP:9527`) instead of `https://imjoy.io`. This is because most browser do not allow a web application served throught `https` to connect to a unsecured server (your remote server). Alternatively, you use proxy to enable `https` for the plugin engine, then you will be able to use it with `https://imjoy.io`.
 
 
 ## Installation (alternative solution)
