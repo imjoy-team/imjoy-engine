@@ -13,10 +13,10 @@ except OSError as e:
 
 requirements = []
 if sys.version_info > (3, 0):
-    requirements = ['aiohttp', 'python-socketio', 'requests', 'six', 'websocket-client', 'numpy', 'psutil', 'janus']
+    requirements = ['aiohttp', 'python-socketio', 'requests', 'six', 'websocket-client', 'numpy', 'psutil', 'janus', 'libvcs']
 try:
     setup(name='imjoy',
-          version='0.7.11',
+          version='0.7.12',
           description='Python Plugin Engine for ImJoy.io',
           url='http://github.com/oeway/ImJoy',
           author='Wei OUYANG',

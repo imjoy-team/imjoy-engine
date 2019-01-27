@@ -21,6 +21,9 @@ from aiohttp import WSCloseCode
 from aiohttp import streamer
 from urllib.parse import urlparse
 from mimetypes import MimeTypes
+
+from libvcs.shortcuts import create_repo
+
 try:
     import psutil
 except Exception as e:
@@ -320,6 +323,39 @@ def killAllPlugins():
             pass
     return asyncio.gather(*tasks)
 
+def parseRequirements(requirements, default_requirements, work_dir):
+    requirements_cmd = "pip install " + " ".join(default_requirements)
+    repos = []
+    if type(requirements) is list:
+        requirements = [str(r) for r in requirements]
+
+        for r in requirements:
+            if ':' in r:
+                rs = r.split(':')
+                tp, libs = rs[0], ':'.join(rs[1:])
+                tp, libs = tp.strip(), libs.strip()
+                libs = [l.strip() for l in libs.split(' ') if l.strip() != '']
+                if tp == 'conda':
+                    requirements_cmd += ' && conda install -y '+ ' '.join(libs)
+                elif tp == 'pip':
+                    requirements_cmd += ' && pip install '+ ' '.join(libs)
+                elif tp == 'repo':
+                    name = libs[0].split('/')[-1].replace('.git', '')
+                    repo = create_repo(url=libs[0], vcs='git', repo_dir=os.path.join(work_dir, libs[1] if len(libs)>1 else name), git_shallow=True)
+                    repos.append(repo)
+                elif '+' in tp or 'http' in tp:
+                    requirements_cmd += ' && pip install '+ r
+                else:
+                    raise NotImplementedError
+            else:
+                requirements_cmd += ' && pip install '+ r
+
+    elif type(requirements) is str and requirements.strip() != '':
+        requirements_cmd =  ' && ' + requirements
+    else:
+        raise Exception('Unsupported requirements type.')
+    return requirements_cmd, repos
+
 @sio.on('connect', namespace=NAME_SPACE)
 def connect(sid, environ):
     logger.info("connect %s", sid)
@@ -391,29 +427,8 @@ async def on_init_plugin(sid, kwargs):
             print("WARNING: blocked env command: \n{}\nYou may want to run it yourself.".format(env))
             logger.warning('env command is blocked because conda is not avaialbe or in `--freeze` mode: %s', env)
 
-
     default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
-
-    if type(requirements) is list:
-        requirements = [str(r) for r in requirements]
-        # for every default requirement, check if it's exist in requirements
-        dr = []
-        for pd in default_requirements:
-            skip = False
-            for pu in requirements:
-                if pd.split('==')[0] == pu.split('==')[0]:
-                    skip = True
-                    break
-            if not skip:
-                dr.append(pd)
-        default_requirements = dr
-        requirements_pip = " ".join(requirements)
-    elif type(requirements) is str:
-        requirements_pip = "&& " + requirements
-    else:
-        raise Exception('wrong requirements type.')
-
-    requirements_cmd = "pip install " + " ".join(default_requirements) + ' ' + requirements_pip
+    requirements_cmd, repos = parseRequirements(requirements, default_requirements, work_dir)
     if opt.freeze:
         print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
         logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
@@ -459,7 +474,7 @@ async def on_init_plugin(sid, kwargs):
         asyncio.run_coroutine_threadsafe(coro, eloop).result()
 
     try:
-        taskThread = threading.Thread(target=launch_plugin, args=[stop_callback, logging_callback, pid, envs, requirements_cmd, env_name,
+        taskThread = threading.Thread(target=launch_plugin, args=[stop_callback, logging_callback, pid, envs, requirements_cmd, repos, env_name,
                                       '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
@@ -760,12 +775,17 @@ async def disconnect(sid):
     asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
 
-def launch_plugin(stop_callback, logging_callback, pid, envs, requirements_cmd, env_name, args, work_dir, abort, name, plugin_env):
+def launch_plugin(stop_callback, logging_callback, pid, envs, requirements_cmd, repos, env_name, args, work_dir, abort, name, plugin_env):
     if abort.is_set():
         logger.info('plugin aborting...')
         logging_callback('plugin aborting...')
         return False
     try:
+        for r in repos:
+            print('Cloning repo ' + r.name + ' to ' + r.path)
+            logging_callback('Cloning repo ' + r.name + ' to ' + r.path)
+            r.obtain()
+
         if envs is not None and len(envs)>0:
             for env in envs:
                 print('Running env command: ' + env)
@@ -825,8 +845,8 @@ def launch_plugin(stop_callback, logging_callback, pid, envs, requirements_cmd, 
             logger.debug('skip command: %s', requirements_cmd)
     except Exception as e:
         # await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
-        logger.error('failed to execute plugin: %s', str(e))
-        logging_callback('failed to execute plugin: ' + str(e), type='error')
+        logger.error('failed to setup plugin virtual environment or its requirements: %s', str(e))
+        logging_callback('failed to setup plugin virual environment or its requirements: ' + str(e), type='error')
 
     if abort.is_set():
         logger.info('plugin aborting...')
