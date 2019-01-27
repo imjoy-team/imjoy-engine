@@ -360,6 +360,10 @@ async def on_init_plugin(sid, kwargs):
     env_name = ''
     is_py2 = False
     envs = None
+
+    if type(env) is str:
+        env = None if env.strip() == '' else env
+
     if env is not None:
         if not opt.freeze and CONDA_AVAILABLE:
             if type(env) is str:
