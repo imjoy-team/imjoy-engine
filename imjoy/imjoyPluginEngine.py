@@ -22,8 +22,6 @@ from aiohttp import streamer
 from urllib.parse import urlparse
 from mimetypes import MimeTypes
 
-from libvcs.shortcuts import create_repo
-
 try:
     import psutil
 except Exception as e:
@@ -335,26 +333,81 @@ def parseRequirements(requirements, default_requirements, work_dir):
                 tp, libs = rs[0], ':'.join(rs[1:])
                 tp, libs = tp.strip(), libs.strip()
                 libs = [l.strip() for l in libs.split(' ') if l.strip() != '']
-                if tp == 'conda':
+                if tp == 'conda' and len(libs)>0:
                     requirements_cmd += ' && conda install -y '+ ' '.join(libs)
-                elif tp == 'pip':
+                elif tp == 'pip' and len(libs)>0:
                     requirements_cmd += ' && pip install '+ ' '.join(libs)
-                elif tp == 'repo':
+                elif tp == 'repo' and len(libs)>0:
                     name = libs[0].split('/')[-1].replace('.git', '')
-                    repo = create_repo(url=libs[0], vcs='git', repo_dir=os.path.join(work_dir, libs[1] if len(libs)>1 else name), git_shallow=True)
+                    repo = {"url":libs[0], "repo_dir": os.path.join(work_dir, libs[1] if len(libs)>1 else name)}
                     repos.append(repo)
+                elif tp == 'cmd' and len(libs)>0:
+                    requirements_cmd += ' && ' + ' '.join(libs)
                 elif '+' in tp or 'http' in tp:
                     requirements_cmd += ' && pip install '+ r
                 else:
-                    raise NotImplementedError
+                    raise Exception('Unsupported requirement type: ' + tp)
             else:
                 requirements_cmd += ' && pip install '+ r
 
     elif type(requirements) is str and requirements.strip() != '':
-        requirements_cmd =  ' && ' + requirements
+        requirements_cmd +=  ' && ' + requirements
     else:
         raise Exception('Unsupported requirements type.')
     return requirements_cmd, repos
+
+def console_to_str(s):
+    """ From pypa/pip project, pip.backwardwardcompat. License MIT. """
+    try:
+        return s.decode(sys.__stdout__.encoding)
+    except UnicodeDecodeError:
+        return s.decode('utf_8')
+    except AttributeError:  # for tests, #13
+        return s
+
+def runCmd(
+    cmd,
+    shell=False,
+    cwd=None,
+    log_in_real_time=True,
+    check_returncode=True,
+    callback=None,
+    plugin_id=None
+):
+    """ From https://github.com/vcs-python/libvcs/ """
+    proc = subprocess.Popen(
+        cmd,
+        shell=shell,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        creationflags=0,
+        bufsize=1,
+        cwd=cwd,
+    )
+    if plugin_id is not None:
+        setPluginPID(plugin_id, proc.pid)
+
+    all_output = []
+    code = None
+    line = None
+    while code is None:
+        code = proc.poll()
+        if callback and callable(callback):
+            line = console_to_str(proc.stderr.read(128))
+            if line:
+                callback(output=line, timestamp=datetime.datetime.now())
+    if callback and callable(callback):
+        callback(output='\r', timestamp=datetime.datetime.now())
+
+    lines = filter(None, (line.strip() for line in proc.stdout.readlines()))
+    all_output = console_to_str(b'\n'.join(lines))
+    if code:
+        stderr_lines = filter(None, (line.strip() for line in proc.stderr.readlines()))
+        all_output = console_to_str(b''.join(stderr_lines))
+    output = ''.join(all_output)
+    if code != 0 and check_returncode:
+        raise Exception('Command failed with code {}: {}'.format(code, cmd))
+    return output
 
 @sio.on('connect', namespace=NAME_SPACE)
 def connect(sid, environ):
@@ -781,10 +834,21 @@ def launch_plugin(stop_callback, logging_callback, pid, envs, requirements_cmd, 
         logging_callback('plugin aborting...')
         return False
     try:
-        for r in repos:
-            print('Cloning repo ' + r.name + ' to ' + r.path)
-            logging_callback('Cloning repo ' + r.name + ' to ' + r.path)
-            r.obtain()
+        logging_callback(2, type='progress')
+        for k, r in enumerate(repos):
+            try:
+                print('Cloning repo ' + r['url'] + ' to ' + r['repo_dir'])
+                logging_callback('Cloning repo ' + r['url'] + ' to ' + r['repo_dir'])
+                if os.path.exists(r['repo_dir']):
+                    assert os.path.isdir(r['repo_dir'])
+                    cmd = 'git pull --all'
+                    runCmd(cmd.split(' '), cwd=r['repo_dir'], plugin_id=pid)
+                else:
+                    cmd = 'git clone --progress --depth=1 '+r['url'] + ' ' + r['repo_dir']
+                    runCmd(cmd.split(' '), cwd=work_dir, plugin_id=pid)
+                logging_callback(k*5, type='progress')
+            except Exception as ex:
+                 logging_callback('Failed to obtain the git repo: '+str(ex), type='error')
 
         if envs is not None and len(envs)>0:
             for env in envs:
