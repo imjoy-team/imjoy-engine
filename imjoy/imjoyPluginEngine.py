@@ -15,6 +15,7 @@ import logging
 import argparse
 import uuid
 import shutil
+import yaml
 # import webbrowser
 from aiohttp import web, hdrs
 from aiohttp import WSCloseCode
@@ -415,123 +416,141 @@ def connect(sid, environ):
 
 @sio.on('init_plugin', namespace=NAME_SPACE)
 async def on_init_plugin(sid, kwargs):
-    if sid in registered_sessions:
-        client_id, session_id = registered_sessions[sid]
-    else:
-        logger.debug('client %s is not registered.', sid)
-        return {'success': False}
-    pid = kwargs['id']
-    config = kwargs.get('config', {})
-    env = config.get('env', None)
-    cmd = config.get('cmd', 'python')
-    pname = config.get('name', None)
-    flags = config.get('flags', [])
-    tag = config.get('tag', '')
-    requirements = config.get('requirements', []) or []
-    workspace = config.get('workspace', 'default')
-    work_dir = os.path.join(WORKSPACE_DIR, workspace)
-    if not os.path.exists(work_dir):
-        os.makedirs(work_dir)
-    plugin_env = os.environ.copy()
-    plugin_env['WORK_DIR'] = work_dir
-
-    logger.info("initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s", pname, id, cmd, workspace)
-
-    plugin_signature = "{}/{}/{}".format(workspace, pname, tag)
-
-    if 'single-instance' in flags:
-        secret = resumePluginSession(pid, session_id, plugin_signature)
-        if secret is not None:
-            logger.debug('plugin already initialized: %s', pid)
-            # await sio.emit('message_from_plugin_'+secret, {"type": "initialized", "dedicatedThread": True})
-            return {'success': True, 'initialized': True, 'secret': secret, 'work_dir': os.path.abspath(work_dir)}
-
-    env_name = ''
-    is_py2 = False
-    envs = None
-
-    if type(env) is str:
-        env = None if env.strip() == '' else env
-
-    if env is not None:
-        if not opt.freeze and CONDA_AVAILABLE:
-            if type(env) is str:
-                envs = [env]
-            else:
-                envs = env
-            for i, env in enumerate(envs):
-                if 'conda create' in env:
-                    # if not env.startswith('conda'):
-                    #     raise Exception('env command must start with conda')
-                    if 'python=2' in env:
-                        is_py2 = True
-                    parms = shlex.split(env)
-                    if '-n' in parms:
-                        env_name = parms[parms.index('-n') + 1]
-                    elif '--name' in parms:
-                        env_name = parms[parms.index('--name') + 1]
-                    elif pname is not None:
-                        env_name = pname.replace(' ', '_')
-                        envs[i] = env.replace('conda create', 'conda create -n '+env_name)
-
-                    if '-y' not in parms:
-                        envs[i] = env.replace('conda create', 'conda create -y')
-        else:
-            print("WARNING: blocked env command: \n{}\nYou may want to run it yourself.".format(env))
-            logger.warning('env command is blocked because conda is not avaialbe or in `--freeze` mode: %s', env)
-
-    default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
-    requirements_cmd, repos = parseRequirements(requirements, default_requirements, work_dir)
-    if opt.freeze:
-        print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
-        logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
-        requirements_cmd = None
-
-    if not opt.freeze and CONDA_AVAILABLE:
-        if env_name is not None and env_name.strip() != '':
-            requirements_cmd = conda_activate.format(env_name + " && " + requirements_cmd)
-
-    secretKey = str(uuid.uuid4())
-    abort = threading.Event()
-    plugin_info = {'secret': secretKey, 'id': pid, 'abort': abort, 'flags': flags, 'session_id': session_id, 'name': config['name'], 'type': config['type'], 'client_id': client_id, 'signature': plugin_signature}
-    addPlugin(plugin_info)
-
-    @sio.on('from_plugin_'+secretKey, namespace=NAME_SPACE)
-    async def message_from_plugin(sid, kwargs):
-        # print('forwarding message_'+secretKey, kwargs)
-        if kwargs['type'] in ['initialized', 'importSuccess', 'importFailure', 'executeSuccess', 'executeFailure']:
-            await sio.emit('message_from_plugin_'+secretKey,  kwargs)
-            logger.debug('message from %s', pid)
-            if kwargs['type'] == 'initialized':
-                addPlugin(plugin_info, sid)
-        else:
-            await sio.emit('message_from_plugin_'+secretKey, {'type': 'message', 'data': kwargs})
-
-    @sio.on('message_to_plugin_'+secretKey, namespace=NAME_SPACE)
-    async def message_to_plugin(sid, kwargs):
-        # print('forwarding message_to_plugin_'+secretKey, kwargs)
-        if kwargs['type'] == 'message':
-            await sio.emit('to_plugin_'+secretKey, kwargs['data'])
-        logger.debug('message to plugin %s', secretKey)
-
-    eloop = asyncio.get_event_loop()
-    def stop_callback(success, message):
-        message = str(message or '')
-        message = message[:100] + (message[100:] and '..')
-        logger.info('disconnecting from plugin (success:%s, message: %s)', str(success), message)
-        coro = sio.emit('message_from_plugin_'+secretKey,  {'type': 'disconnected', 'details': {'success': success, 'message': message}})
-        asyncio.run_coroutine_threadsafe(coro, eloop).result()
-
-    def logging_callback(msg, type='info'):
-        coro = sio.emit('message_from_plugin_'+secretKey,  {'type': 'logging', 'details': {'value': msg, 'type': type}})
-        asyncio.run_coroutine_threadsafe(coro, eloop).result()
-
     try:
+        if sid in registered_sessions:
+            client_id, session_id = registered_sessions[sid]
+        else:
+            logger.debug('client %s is not registered.', sid)
+            return {'success': False}
+        pid = kwargs['id']
+        config = kwargs.get('config', {})
+        env = config.get('env', None)
+        cmd = config.get('cmd', 'python')
+        pname = config.get('name', None)
+        flags = config.get('flags', [])
+        tag = config.get('tag', '')
+        requirements = config.get('requirements', []) or []
+        workspace = config.get('workspace', 'default')
+        work_dir = os.path.join(WORKSPACE_DIR, workspace)
+        if not os.path.exists(work_dir):
+            os.makedirs(work_dir)
+        plugin_env = os.environ.copy()
+        plugin_env['WORK_DIR'] = work_dir
+
+        logger.info("initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s", pname, id, cmd, workspace)
+
+        plugin_signature = "{}/{}/{}".format(workspace, pname, tag)
+
+        if 'single-instance' in flags:
+            secret = resumePluginSession(pid, session_id, plugin_signature)
+            if secret is not None:
+                logger.debug('plugin already initialized: %s', pid)
+                # await sio.emit('message_from_plugin_'+secret, {"type": "initialized", "dedicatedThread": True})
+                return {'success': True, 'initialized': True, 'secret': secret, 'work_dir': os.path.abspath(work_dir)}
+
+        env_name = ''
+        is_py2 = False
+        envs = None
+
+        if type(env) is str:
+            env = None if env.strip() == '' else env
+
+        if env is not None:
+            if not opt.freeze and CONDA_AVAILABLE:
+                if type(env) is str:
+                    envs = [env]
+                else:
+                    envs = env
+                for i, env in enumerate(envs):
+                    if 'conda create' in env:
+                        # if not env.startswith('conda'):
+                        #     raise Exception('env command must start with conda')
+                        if 'python=2' in env:
+                            is_py2 = True
+                        parms = shlex.split(env)
+                        if '-n' in parms:
+                            env_name = parms[parms.index('-n') + 1]
+                        elif '--name' in parms:
+                            env_name = parms[parms.index('--name') + 1]
+                        elif pname is not None:
+                            env_name = pname.replace(' ', '_')
+                            envs[i] = env.replace('conda create', 'conda create -n '+env_name)
+
+                        if '-y' not in parms:
+                            envs[i] = env.replace('conda create', 'conda create -y')
+
+                    if 'conda env create' in env:
+                        parms = shlex.split(env)
+                        if '-f' in parms:
+                            try:
+                                env_file = parms[parms.index('-n') + 1]
+                                with open(env_file, "r") as stream:
+                                    env_config = yaml.load(stream)
+                                    assert 'name' in env_config
+                                    env_name = env_config['name']
+                            except Exception as e:
+                                raise Exception('Failed to read the env name from the specified env file.')
+
+                        else:
+                            raise Exception('You should provided a environment file via the `conda env create -f`')
+
+            else:
+                print("WARNING: blocked env command: \n{}\nYou may want to run it yourself.".format(env))
+                logger.warning('env command is blocked because conda is not avaialbe or in `--freeze` mode: %s', env)
+
+        default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
+        requirements_cmd, repos = parseRequirements(requirements, default_requirements, work_dir)
+        if opt.freeze:
+            print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
+            logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
+            requirements_cmd = None
+
+        if not opt.freeze and CONDA_AVAILABLE:
+            if env_name is not None and env_name.strip() != '':
+                requirements_cmd = conda_activate.format(env_name + " && " + requirements_cmd)
+
+        secretKey = str(uuid.uuid4())
+        abort = threading.Event()
+        plugin_info = {'secret': secretKey, 'id': pid, 'abort': abort, 'flags': flags, 'session_id': session_id, 'name': config['name'], 'type': config['type'], 'client_id': client_id, 'signature': plugin_signature}
+        addPlugin(plugin_info)
+
+        @sio.on('from_plugin_'+secretKey, namespace=NAME_SPACE)
+        async def message_from_plugin(sid, kwargs):
+            # print('forwarding message_'+secretKey, kwargs)
+            if kwargs['type'] in ['initialized', 'importSuccess', 'importFailure', 'executeSuccess', 'executeFailure']:
+                await sio.emit('message_from_plugin_'+secretKey,  kwargs)
+                logger.debug('message from %s', pid)
+                if kwargs['type'] == 'initialized':
+                    addPlugin(plugin_info, sid)
+            else:
+                await sio.emit('message_from_plugin_'+secretKey, {'type': 'message', 'data': kwargs})
+
+        @sio.on('message_to_plugin_'+secretKey, namespace=NAME_SPACE)
+        async def message_to_plugin(sid, kwargs):
+            # print('forwarding message_to_plugin_'+secretKey, kwargs)
+            if kwargs['type'] == 'message':
+                await sio.emit('to_plugin_'+secretKey, kwargs['data'])
+            logger.debug('message to plugin %s', secretKey)
+
+        eloop = asyncio.get_event_loop()
+        def stop_callback(success, message):
+            message = str(message or '')
+            message = message[:100] + (message[100:] and '..')
+            logger.info('disconnecting from plugin (success:%s, message: %s)', str(success), message)
+            coro = sio.emit('message_from_plugin_'+secretKey,  {'type': 'disconnected', 'details': {'success': success, 'message': message}})
+            asyncio.run_coroutine_threadsafe(coro, eloop).result()
+
+        def logging_callback(msg, type='info'):
+            coro = sio.emit('message_from_plugin_'+secretKey,  {'type': 'logging', 'details': {'value': msg, 'type': type}})
+            asyncio.run_coroutine_threadsafe(coro, eloop).result()
+
+
         taskThread = threading.Thread(target=launch_plugin, args=[stop_callback, logging_callback, pid, envs, requirements_cmd, repos, env_name,
                                       '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         return {'success': True, 'initialized': False, 'secret': secretKey, 'work_dir': os.path.abspath(work_dir)}
+
     except Exception as e:
         logger.error(e)
         return {'success': False, reason: str(e)}
