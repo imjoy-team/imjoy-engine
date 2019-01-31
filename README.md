@@ -80,4 +80,4 @@ rm -rf $HOME/ImJoyWorkspace # please backup important data inside this folder
 ```
 On windows, it's typically located in `C:\Users\<CurrentUserName>`, you can remove `ImJoyApp` and `ImJoyWorkspace` manually.
 
-## More details and FAQs in [Docs](http://imjoy.io/docs/#/user-manual)
+## More details and FAQs in [Docs](https://imjoy.io/docs/#/user_manual)
