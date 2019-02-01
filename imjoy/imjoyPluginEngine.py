@@ -553,7 +553,7 @@ async def on_init_plugin(sid, kwargs):
 
     except Exception as e:
         logger.error(e)
-        return {'success': False, reason: str(e)}
+        return {'success': False, 'reason': str(e)}
 
 async def force_kill_timeout(t, obj):
     pid = obj['pid']
