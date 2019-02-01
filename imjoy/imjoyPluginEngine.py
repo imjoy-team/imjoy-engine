@@ -4,7 +4,6 @@ import socketio
 import logging
 import threading
 import sys
-import traceback
 import time
 import subprocess
 import signal
@@ -891,14 +890,14 @@ def launch_plugin(stop_callback, logging_callback, pid, env, requirements, args,
                 logger.info('running env command: %s', env)
                 if env not in cmd_history:
                     logging_callback('running env command: {}'.format(env))
-                    process = subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    process = subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir, stderr=subprocess.PIPE)
                     setPluginPID(pid, process.pid)
                     ret = process.wait()
                     if ret == 0:
                         cmd_history.append(env)
                         logging_callback('env command executed successfully.')
 
-                    outputs, errors = process.communicate()
+                    _, errors = process.communicate()
                     if errors is not None:
                         logging_callback(str(errors, 'utf-8'), type='error')
 
@@ -924,10 +923,10 @@ def launch_plugin(stop_callback, logging_callback, pid, env, requirements, args,
         print('Running requirements command: ' + requirements_cmd)
         logging_callback('Running requirements command: {}'.format(requirements_cmd))
         if requirements_cmd is not None and requirements_cmd not in cmd_history:
-            process = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir, stderr=subprocess.PIPE)
             setPluginPID(pid, process.pid)
             ret = process.wait()
-            outputs, errors = process.communicate()
+            _, errors = process.communicate()
             if ret != 0:
                 logging_callback('Failed to run requirements command: {}'.format(requirements_cmd), type='error')
                 if errors is not None:
