@@ -956,7 +956,7 @@ def launch_plugin(stop_callback, logging_callback, pid, env, requirements, args,
                             raise Exception('Failed to install dependencies with exit code: '+str(ret))
             else:
                 cmd_history.append(requirements_cmd)
-                logging_callback('requirements command executed successfully.')
+                logging_callback('Requirements command executed successfully.')
             logging_callback(70, type='progress')
         else:
             logger.debug('skip command: %s', requirements_cmd)
@@ -966,8 +966,8 @@ def launch_plugin(stop_callback, logging_callback, pid, env, requirements, args,
         logging_callback('Failed to setup plugin virual environment or its requirements: ' + str(e), type='error')
 
     if abort.is_set():
-        logger.info('plugin aborting...')
-        logging_callback('plugin aborting...')
+        logger.info('Plugin aborting...')
+        logging_callback('Plugin aborting...')
         return False
     # env = os.environ.copy()
     if env_name is not None:
