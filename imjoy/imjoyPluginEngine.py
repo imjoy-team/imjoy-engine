@@ -322,9 +322,24 @@ def killAllPlugins():
             pass
     return asyncio.gather(*tasks)
 
+def parseRepos(requirements, work_dir):
+    repos = []
+    if type(requirements) is list:
+        requirements = [str(r) for r in requirements]
+        for r in requirements:
+            if ':' in r:
+                rs = r.split(':')
+                tp, libs = rs[0], ':'.join(rs[1:])
+                tp, libs = tp.strip(), libs.strip()
+                libs = [l.strip() for l in libs.split(' ') if l.strip() != '']
+                if tp == 'repo' and len(libs)>0:
+                    name = libs[0].split('/')[-1].replace('.git', '')
+                    repo = {"url":libs[0], "repo_dir": os.path.join(work_dir, libs[1] if len(libs)>1 else name)}
+                    repos.append(repo)
+    return repos
+
 def parseRequirements(requirements, default_requirements, work_dir):
     requirements_cmd = "pip install " + " ".join(default_requirements)
-    repos = []
     if type(requirements) is list:
         requirements = [str(r) for r in requirements]
 
@@ -339,9 +354,7 @@ def parseRequirements(requirements, default_requirements, work_dir):
                 elif tp == 'pip' and len(libs)>0:
                     requirements_cmd += ' && pip install '+ ' '.join(libs)
                 elif tp == 'repo' and len(libs)>0:
-                    name = libs[0].split('/')[-1].replace('.git', '')
-                    repo = {"url":libs[0], "repo_dir": os.path.join(work_dir, libs[1] if len(libs)>1 else name)}
-                    repos.append(repo)
+                    pass
                 elif tp == 'cmd' and len(libs)>0:
                     requirements_cmd += ' && ' + ' '.join(libs)
                 elif '+' in tp or 'http' in tp:
@@ -355,7 +368,7 @@ def parseRequirements(requirements, default_requirements, work_dir):
         requirements_cmd +=  ' && ' + requirements
     else:
         raise Exception('Unsupported requirements type.')
-    return requirements_cmd, repos
+    return requirements_cmd
 
 def console_to_str(s):
     """ From pypa/pip project, pip.backwardwardcompat. License MIT. """
@@ -410,6 +423,62 @@ def runCmd(
         raise Exception('Command failed with code {}: {}'.format(code, cmd))
     return output
 
+def parseEnv(env, work_dir):
+    env_name = ''
+    is_py2 = False
+    envs = None
+
+    if type(env) is str:
+        env = None if env.strip() == '' else env
+
+    if env is not None:
+        if not opt.freeze and CONDA_AVAILABLE:
+            if type(env) is str:
+                envs = [env]
+            else:
+                envs = env
+            for i, env in enumerate(envs):
+                if 'conda create' in env:
+                    # if not env.startswith('conda'):
+                    #     raise Exception('env command must start with conda')
+                    if 'python=2' in env:
+                        is_py2 = True
+                    parms = shlex.split(env)
+                    if '-n' in parms:
+                        env_name = parms[parms.index('-n') + 1]
+                    elif '--name' in parms:
+                        env_name = parms[parms.index('--name') + 1]
+                    elif pname is not None:
+                        env_name = pname.replace(' ', '_')
+                        envs[i] = env.replace('conda create', 'conda create -n '+env_name)
+
+                    if '-y' not in parms:
+                        envs[i] = env.replace('conda create', 'conda create -y')
+
+                if 'conda env create' in env:
+                    parms = shlex.split(env)
+                    if '-f' in parms:
+                        try:
+                            env_file = os.path.join(work_dir, parms[parms.index('-f') + 1])
+                            with open(env_file, "r") as stream:
+                                env_config = yaml.load(stream)
+                                assert 'name' in env_config
+                                env_name = env_config['name']
+                        except Exception as e:
+                            raise Exception('Failed to read the env name from the specified env file: ' + str(e))
+
+                    else:
+                        raise Exception('You should provided a environment file via the `conda env create -f`')
+
+        else:
+            print("WARNING: blocked env command: \n{}\nYou may want to run it yourself.".format(env))
+            logger.warning('env command is blocked because conda is not avaialbe or in `--freeze` mode: %s', env)
+
+    if env_name.strip() == '':
+        env_name = None
+
+    return env_name, envs, is_py2
+
 @sio.on('connect', namespace=NAME_SPACE)
 def connect(sid, environ):
     logger.info("connect %s", sid)
@@ -448,66 +517,6 @@ async def on_init_plugin(sid, kwargs):
                 # await sio.emit('message_from_plugin_'+secret, {"type": "initialized", "dedicatedThread": True})
                 return {'success': True, 'initialized': True, 'secret': secret, 'work_dir': os.path.abspath(work_dir)}
 
-        env_name = ''
-        is_py2 = False
-        envs = None
-
-        if type(env) is str:
-            env = None if env.strip() == '' else env
-
-        if env is not None:
-            if not opt.freeze and CONDA_AVAILABLE:
-                if type(env) is str:
-                    envs = [env]
-                else:
-                    envs = env
-                for i, env in enumerate(envs):
-                    if 'conda create' in env:
-                        # if not env.startswith('conda'):
-                        #     raise Exception('env command must start with conda')
-                        if 'python=2' in env:
-                            is_py2 = True
-                        parms = shlex.split(env)
-                        if '-n' in parms:
-                            env_name = parms[parms.index('-n') + 1]
-                        elif '--name' in parms:
-                            env_name = parms[parms.index('--name') + 1]
-                        elif pname is not None:
-                            env_name = pname.replace(' ', '_')
-                            envs[i] = env.replace('conda create', 'conda create -n '+env_name)
-
-                        if '-y' not in parms:
-                            envs[i] = env.replace('conda create', 'conda create -y')
-
-                    if 'conda env create' in env:
-                        parms = shlex.split(env)
-                        if '-f' in parms:
-                            try:
-                                env_file = parms[parms.index('-n') + 1]
-                                with open(env_file, "r") as stream:
-                                    env_config = yaml.load(stream)
-                                    assert 'name' in env_config
-                                    env_name = env_config['name']
-                            except Exception as e:
-                                raise Exception('Failed to read the env name from the specified env file.')
-
-                        else:
-                            raise Exception('You should provided a environment file via the `conda env create -f`')
-
-            else:
-                print("WARNING: blocked env command: \n{}\nYou may want to run it yourself.".format(env))
-                logger.warning('env command is blocked because conda is not avaialbe or in `--freeze` mode: %s', env)
-
-        default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
-        requirements_cmd, repos = parseRequirements(requirements, default_requirements, work_dir)
-        if opt.freeze:
-            print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
-            logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
-            requirements_cmd = None
-
-        if not opt.freeze and CONDA_AVAILABLE:
-            if env_name is not None and env_name.strip() != '':
-                requirements_cmd = conda_activate.format(env_name + " && " + requirements_cmd)
 
         secretKey = str(uuid.uuid4())
         abort = threading.Event()
@@ -544,9 +553,8 @@ async def on_init_plugin(sid, kwargs):
             coro = sio.emit('message_from_plugin_'+secretKey,  {'type': 'logging', 'details': {'value': msg, 'type': type}})
             asyncio.run_coroutine_threadsafe(coro, eloop).result()
 
-
-        taskThread = threading.Thread(target=launch_plugin, args=[stop_callback, logging_callback, pid, envs, requirements_cmd, repos, env_name,
-                                      '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
+        args = '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE)
+        taskThread = threading.Thread(target=launch_plugin, args=[stop_callback, logging_callback, pid, env, requirements, args, work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         return {'success': True, 'initialized': False, 'secret': secretKey, 'work_dir': os.path.abspath(work_dir)}
@@ -847,12 +855,14 @@ async def disconnect(sid):
     asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
 
-def launch_plugin(stop_callback, logging_callback, pid, envs, requirements_cmd, repos, env_name, args, work_dir, abort, name, plugin_env):
+def launch_plugin(stop_callback, logging_callback, pid, env, requirements, args, work_dir, abort, name, plugin_env):
     if abort.is_set():
         logger.info('plugin aborting...')
         logging_callback('plugin aborting...')
         return False
+    env_name = None
     try:
+        repos = parseRepos(requirements, work_dir)
         logging_callback(2, type='progress')
         for k, r in enumerate(repos):
             try:
@@ -868,6 +878,10 @@ def launch_plugin(stop_callback, logging_callback, pid, envs, requirements_cmd, 
                 logging_callback(k*5, type='progress')
             except Exception as ex:
                  logging_callback('Failed to obtain the git repo: '+str(ex), type='error')
+
+        env_name, envs, is_py2 = parseEnv(env, work_dir)
+        default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
+        requirements_cmd = parseRequirements(requirements, default_requirements, work_dir)
 
         if envs is not None and len(envs)>0:
             for env in envs:
@@ -887,6 +901,15 @@ def launch_plugin(stop_callback, logging_callback, pid, envs, requirements_cmd, 
                 if abort.is_set():
                     logger.info('plugin aborting...')
                     return False
+
+        if opt.freeze:
+            print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
+            logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
+            requirements_cmd = None
+
+        if not opt.freeze and CONDA_AVAILABLE:
+            if env_name is not None:
+                requirements_cmd = conda_activate.format(env_name + " && " + requirements_cmd)
 
         logger.info('Running requirements command: %s', requirements_cmd)
         print('Running requirements command: ' + requirements_cmd)
@@ -936,7 +959,7 @@ def launch_plugin(stop_callback, logging_callback, pid, envs, requirements_cmd, 
         logging_callback('plugin aborting...')
         return False
     # env = os.environ.copy()
-    if env_name is not None and env_name.strip() != '':
+    if env_name is not None:
         args = conda_activate.format(env_name + " && " + args)
     if type(args) is str:
         args = args.split()

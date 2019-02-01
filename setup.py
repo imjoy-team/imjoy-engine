@@ -23,7 +23,7 @@ if sys.version_info > (3, 0):
             raise Exception('Failed to install psutil, please try to setup an environment with gcc support.')
 
 setup(name='imjoy',
-      version='0.7.13',
+      version='0.7.14',
       description='Python Plugin Engine for ImJoy.io',
       url='http://github.com/oeway/ImJoy',
       author='Wei OUYANG',
