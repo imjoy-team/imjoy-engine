@@ -893,16 +893,19 @@ def launch_plugin(stop_callback, logging_callback, pid, env, requirements, args,
                     logging_callback('running env command: {}'.format(env))
                     process = subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     setPluginPID(pid, process.pid)
-                    process.wait()
-                    cmd_history.append(env)
+                    ret = process.wait()
+                    if ret == 0:
+                        cmd_history.append(env)
+                        logging_callback('env command executed successfully.')
+
                     outputs, errors = process.communicate()
                     if errors is not None:
                         logging_callback(str(errors, 'utf-8'), type='error')
-                    else:
-                        logging_callback('env command executed successfully.')
+
                     logging_callback(30, type='progress')
                 else:
                     logger.debug('skip command: %s', env)
+                    logging_callback('skip env command: ' + env)
 
                 if abort.is_set():
                     logger.info('plugin aborting...')
@@ -952,9 +955,9 @@ def launch_plugin(stop_callback, logging_callback, pid, env, requirements, args,
                             logging_callback('Failed to install dependencies with exit code: '+str(ret), type='error')
                             raise Exception('Failed to install dependencies with exit code: '+str(ret))
             else:
+                cmd_history.append(requirements_cmd)
                 logging_callback('requirements command executed successfully.')
             logging_callback(70, type='progress')
-            cmd_history.append(requirements_cmd)
         else:
             logger.debug('skip command: %s', requirements_cmd)
     except Exception as e:
