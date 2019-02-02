@@ -2,7 +2,7 @@ import sys
 import os
 import subprocess
 
-if __name__ == '__main__':
+def main():
     # add executable path to PATH
     os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
 
@@ -12,7 +12,8 @@ if __name__ == '__main__':
         ret = subprocess.Popen('pip install -U git+https://github.com/oeway/ImJoy-Engine#egg=imjoy'.split(), shell=False).wait()
         if ret != 0:
             print('Failed to upgrade ImJoy Plugin Engine.')
-        from .imjoyPluginEngine import *
+        from .imjoyPluginEngine import main
+        main()
     else:
         # running in python 2
         print('ImJoy needs to run in Python 3.6+, bootstrapping with conda ...')
@@ -60,3 +61,6 @@ if __name__ == '__main__':
                     if ret != 0:
                         print('ImJoy failed with exit code: '+str(ret))
                         sys.exit(2)
+
+if __name__ == '__main__':
+    main()

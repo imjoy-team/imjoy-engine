@@ -1075,8 +1075,13 @@ async def on_shutdown(app):
 
 app.on_startup.append(on_startup)
 app.on_shutdown.append(on_shutdown)
-try:
-    web.run_app(app, host=opt.host, port=int(opt.port))
-except OSError as e:
-    if e.errno in {48}:
-        print("ERROR: Failed to open port {}, please try to terminate the process which is using that port, or restart your computer.".format(opt.port))
+
+def main():
+    try:
+        web.run_app(app, host=opt.host, port=int(opt.port))
+    except OSError as e:
+        if e.errno in {48}:
+            print("ERROR: Failed to open port {}, please try to terminate the process which is using that port, or restart your computer.".format(opt.port))
+
+if __name__ == '__main__':
+    main()
