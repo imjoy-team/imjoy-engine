@@ -1,7 +1,9 @@
+import os
 import sys
 import pathlib
 import subprocess
 from setuptools import setup, find_packages
+import json
 
 try:
     subprocess.call(["conda", "-V"])
@@ -19,7 +21,15 @@ if sys.version_info > (3, 0):
     ret = subprocess.Popen(['pip', 'install', 'psutil'], shell=False).wait()
     if ret != 0:
         print('Trying to install psutil with conda...')
-        ret2 = subprocess.Popen(["conda", "install", "-y", "psutil"]).wait()
+        my_env = os.environ.copy()
+        if os.name == 'nt':
+            # for fixing CondaHTTPError: https://github.com/conda/conda/issues/6064#issuecomment-458389796
+            process = subprocess.Popen(["conda", "info", "--json", "-s"], stdout=subprocess.PIPE)
+            cout, err = process.communicate()
+            conda_prefix = json.loads(cout.decode('ascii'))['conda_prefix']
+            print('Found conda environment: ' + conda_prefix)
+            my_env["PATH"] = os.path.join(conda_prefix, 'Library', 'bin') + os.pathsep + my_env["PATH"]
+        ret2 = subprocess.Popen(["conda", "install", "-y", "psutil"], env=my_env).wait()
         if ret2 != 0:
             raise Exception('Failed to install psutil, please try to setup an environment with gcc support.')
 

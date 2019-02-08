@@ -15,6 +15,8 @@ import argparse
 import uuid
 import shutil
 import yaml
+import json
+
 # import webbrowser
 from aiohttp import web, hdrs
 from aiohttp import WSCloseCode
@@ -37,14 +39,17 @@ os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.enviro
 
 
 try:
-    subprocess.call(["conda", "-V"])
+    process = subprocess.Popen(["conda", "info", "--json", "-s"], stdout=subprocess.PIPE)
+    cout, err = process.communicate()
+    conda_prefix = json.loads(cout.decode('ascii'))['conda_prefix']
+    logger.info('Found conda environment: %s', conda_prefix)
+    CONDA_AVAILABLE = True
 except OSError as e:
+    conda_prefix = None
     CONDA_AVAILABLE = False
     if sys.version_info < (3, 0):
         sys.exit('Sorry, ImJoy plugin engine can only run within a conda environment or at least in Python 3.')
     print('WARNING: you are running ImJoy without conda, you may have problem with some plugins.')
-else:
-    CONDA_AVAILABLE = True
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger('ImJoyPluginEngine')
@@ -199,19 +204,20 @@ default_requirements_py3 = ["requests", "six", "websocket-client", "janus", "num
 script_dir = os.path.dirname(os.path.normpath(__file__))
 template_script = os.path.abspath(os.path.join(script_dir, 'imjoyWorkerTemplate.py'))
 
-if sys.platform == "linux" or sys.platform == "linux2":
-    # linux
-    process = subprocess.Popen("conda info --json -s | python -c \"import sys, json; print(json.load(sys.stdin)['conda_prefix']);\"", shell=True, stdout=subprocess.PIPE)
-    app_path, err = process.communicate()
-    conda_activate =  "/bin/bash -c 'source " + app_path.decode('ascii').strip() + "/bin/activate {}'"
-elif sys.platform == "darwin":
-    # OS X
-    conda_activate = "source activate {}"
-elif sys.platform == "win32":
-    # Windows...
-    conda_activate = "activate {}"
+if CONDA_AVAILABLE:
+    if sys.platform == "linux" or sys.platform == "linux2":
+        # linux
+        conda_activate =  "/bin/bash -c 'source " + conda_prefix + "/bin/activate {}'"
+    elif sys.platform == "darwin":
+        # OS X
+        conda_activate = "source activate {}"
+    elif sys.platform == "win32":
+        # Windows...
+        conda_activate = "activate {}"
+    else:
+        conda_activate = "conda activate {}"
 else:
-    conda_activate = "conda activate {}"
+    conda_activate = "{}"
 
 plugins = {}
 plugin_sessions = {}
@@ -504,7 +510,9 @@ async def on_init_plugin(sid, kwargs):
             os.makedirs(work_dir)
         plugin_env = os.environ.copy()
         plugin_env['WORK_DIR'] = work_dir
-
+        # for fixing CondaHTTPError: https://github.com/conda/conda/issues/6064#issuecomment-458389796
+        if os.name == 'nt':
+            plugin_env["PATH"] = os.path.join(conda_prefix, 'Library', 'bin') + os.pathsep + plugin_env["PATH"]
         logger.info("initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s", pname, id, cmd, workspace)
 
         plugin_signature = "{}/{}/{}".format(workspace, pname, tag)
