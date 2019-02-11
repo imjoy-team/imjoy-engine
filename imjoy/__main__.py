@@ -54,7 +54,7 @@ def main():
             else:
                 conda_activate = "conda activate {}"
         else:
-            CONDA_AVAILABLE = '{}'
+            conda_activate = '{}'
 
         pip_cmd = conda_activate.format(" imjoy && " + pip_cmd + " && python -m imjoy")
         ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
