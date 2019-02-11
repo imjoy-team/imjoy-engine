@@ -47,6 +47,9 @@ try:
     cout, err = process.communicate()
     conda_prefix = json.loads(cout.decode('ascii'))['conda_prefix']
     logger.info('Found conda environment: %s', conda_prefix)
+    # for fixing CondaHTTPError: https://github.com/conda/conda/issues/6064#issuecomment-458389796
+    if os.name == 'nt':
+        os.environ['PATH'] = os.path.join(conda_prefix, 'Library', 'bin') + os.pathsep + os.environ['PATH']
     CONDA_AVAILABLE = True
 except OSError as e:
     conda_prefix = None
@@ -511,9 +514,6 @@ async def on_init_plugin(sid, kwargs):
             os.makedirs(work_dir)
         plugin_env = os.environ.copy()
         plugin_env['WORK_DIR'] = work_dir
-        # for fixing CondaHTTPError: https://github.com/conda/conda/issues/6064#issuecomment-458389796
-        if os.name == 'nt':
-            plugin_env["PATH"] = os.path.join(conda_prefix, 'Library', 'bin') + os.pathsep + plugin_env["PATH"]
         logger.info("initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s", pname, id, cmd, workspace)
 
         plugin_signature = "{}/{}/{}".format(workspace, pname, tag)
