@@ -42,6 +42,7 @@ logger = logging.getLogger('ImJoyPluginEngine')
 # add executable path to PATH
 os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
 
+CONDA_AVAILABLE = False
 try:
     process = subprocess.Popen(["conda", "info", "--json", "-s"], stdout=subprocess.PIPE)
     cout, err = process.communicate()
@@ -53,7 +54,6 @@ try:
     CONDA_AVAILABLE = True
 except OSError as e:
     conda_prefix = None
-    CONDA_AVAILABLE = False
     if sys.version_info < (3, 0):
         sys.exit('Sorry, ImJoy plugin engine can only run within a conda environment or at least in Python 3.')
     print('WARNING: you are running ImJoy without conda, you may have problem with some plugins.')
