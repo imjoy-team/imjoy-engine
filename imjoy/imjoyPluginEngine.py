@@ -63,6 +63,7 @@ parser.add_argument('--token', type=str, default=None, help='connection token')
 parser.add_argument('--debug', action="store_true", help='debug mode')
 parser.add_argument('--serve', action="store_true", help='download ImJoy web app and serve it locally')
 parser.add_argument('--host', type=str, default='127.0.0.1', help='socketio host')
+parser.add_argument('--base_url', type=str, default=None, help='the base url for accessing this plugin engine')
 parser.add_argument('--port', type=str, default='9527', help='socketio port')
 parser.add_argument('--force_quit_timeout', type=int, default=5, help='the time (in second) for waiting before kill a plugin process, default: 5 s')
 parser.add_argument('--workspace', type=str, default='~/ImJoyWorkspace', help='workspace folder for plugins')
@@ -70,6 +71,9 @@ parser.add_argument('--freeze', action="store_true", help='disable conda and pip
 parser.add_argument('--engine_container_token', type=str, default=None, help='A token set by the engine container which launches the engine')
 
 opt = parser.parse_args()
+
+if opt.base_url is None or opt.base_url == '':
+    opt.base_url = 'http://{}:{}'.format(opt.host, opt.port)
 
 if not CONDA_AVAILABLE and not opt.freeze:
     print('WARNING: `pip install` command may not work, in that case you may want to add "--freeze".')
@@ -150,7 +154,7 @@ if opt.serve:
 
 MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'
-# ALLOWED_ORIGINS = ['http://'+opt.host+':'+opt.port, 'http://imjoy.io', 'https://imjoy.io']
+# ALLOWED_ORIGINS = [opt.base_url, 'http://imjoy.io', 'https://imjoy.io']
 sio = socketio.AsyncServer()
 app = web.Application()
 sio.attach(app)
@@ -171,7 +175,7 @@ if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')):
     async def docs_handler(request):
         raise web.HTTPFound(location='https://imjoy.io/docs')
     app.router.add_get('/docs', docs_handler, name='docs')
-    print('A local version of Imjoy web app is available at http://'+opt.host+':'+opt.port)
+    print('A local version of Imjoy web app is available at '+opt.base_url)
 else:
     async def index(request):
         return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>You can run "python -m imjoy --serve" to serve ImJoy web app locally.</p>', content_type="text/html")
@@ -186,13 +190,13 @@ async def about(request):
         body += '<p>Alternatively, you can launch a new ImJoy instance with the link below: </p>'
 
         if opt.serve:
-            body += '<p><a href="http://'+opt.host+':'+opt.port+'/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
+            body += '<p><a href="'+opt.base_url+'/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
         else:
             body += '<p><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
 
     else:
         if opt.serve:
-            body = '<H1><a href="http://'+opt.host+':'+opt.port+'/#/app">Open ImJoy App</a></H1>'
+            body = '<H1><a href="'+opt.base_url+'/#/app">Open ImJoy App</a></H1>'
         else:
             body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
     body += '<H2>Please use the latest Google Chrome browser to run the ImJoy App.</H2><a href="https://www.google.com/chrome/">Download Chrome</a><p>Note: Safari is not supported due to its restrictions on connecting to localhost. Currently, only FireFox and Chrome (preferred) are supported.</p>'
@@ -563,7 +567,7 @@ async def on_init_plugin(sid, kwargs):
             coro = sio.emit('message_from_plugin_'+secretKey,  {'type': 'logging', 'details': {'value': msg, 'type': type}})
             asyncio.run_coroutine_threadsafe(coro, eloop).result()
 
-        args = '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE)
+        args = '{} "{}" --id="{}" --server={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, 'http://127.0.0.1:'+opt.port, secretKey, NAME_SPACE)
         taskThread = threading.Thread(target=launch_plugin, args=[stop_callback, logging_callback, pid, env, requirements, args, work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
@@ -693,13 +697,13 @@ async def download_file(request):
     #         text="CORS preflight request failed: "
     #              "origin header is not specified in the request")
     urlid = request.match_info['urlid']  # Could be a HUGE file
+    name = request.match_info['name']
     if urlid not in generatedUrls:
         raise web.HTTPForbidden(
             text="Invalid URL")
     fileInfo = generatedUrls[urlid]
-    name = request.rel_url.query.get('name', None)
     if fileInfo.get('password', False):
-        password = request.rel_url.query.get('password', None)
+        password = request.match_info.get('password', None)
         if password != fileInfo['password']:
             raise web.HTTPForbidden(text="Incorrect password for accessing this file.")
     headers = fileInfo.get('headers', None)
@@ -767,7 +771,8 @@ async def download_file(request):
     else:
         raise web.HTTPForbidden(text='Unsupported file type: '+ fileInfo['type'])
 
-app.router.add_get('/file/{urlid}', download_file)
+app.router.add_get('/file/{urlid}/{name}', download_file)
+app.router.add_get('/file/{urlid}/{password}/{name}', download_file)
 
 @sio.on('get_file_url', namespace=NAME_SPACE)
 async def on_get_file_url(sid, kwargs):
@@ -789,15 +794,18 @@ async def on_get_file_url(sid, kwargs):
     _, name = os.path.split(path)
     fileInfo['name'] = name
 
+    kwargs['password'] = '123'
     if path in generatedUrlFiles:
         return {'success': True, 'url': generatedUrlFiles[path]}
     else:
         urlid = str(uuid.uuid4())
         generatedUrls[urlid] = fileInfo
-        generatedUrlFiles[path] = 'http://{}:{}/file/{}?name={}'.format(opt.host, opt.port, urlid, name)
+
         if kwargs.get('password', None):
             fileInfo['password'] = kwargs['password']
-            generatedUrlFiles[path] += ('&password=' + fileInfo['password'])
+            generatedUrlFiles[path] = '{}/file/{}/{}/{}'.format(opt.base_url, urlid, fileInfo['password'], name)
+        else:
+            generatedUrlFiles[path] = '{}/file/{}/{}'.format(opt.base_url, urlid, name)
         return {'success': True, 'url': generatedUrlFiles[path]}
 
 @sio.on('get_file_path', namespace=NAME_SPACE)
@@ -1048,7 +1056,7 @@ async def on_startup(app):
         print('ImJoy Plugin Engine is ready.')
         pass
     if opt.serve:
-        print('You can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
+        print('You can access your local ImJoy web app through '+opt.base_url+' , imjoy!')
     else:
         print('Please go to https://imjoy.io/#/app with your web browser (Chrome or FireFox)')
     print("Connection Token: " + opt.token)

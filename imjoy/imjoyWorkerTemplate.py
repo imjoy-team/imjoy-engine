@@ -59,7 +59,7 @@ def ndarray(typedArray, shape, dtype):
 api_utils = dotdict(ndarray=ndarray, kill=kill, debounce=debounce, setInterval=setInterval)
 
 class PluginConnection():
-    def __init__(self, pid, secret, protocol='http', host='127.0.0.1', port=9527, queue=None, loop=None, worker=None, namespace='/', work_dir=None, daemon=False, api=None):
+    def __init__(self, pid, secret, server, queue=None, loop=None, worker=None, namespace='/', work_dir=None, daemon=False, api=None):
         if work_dir is None or work_dir == '' or work_dir == '.':
             self.work_dir = os.getcwd()
         else:
@@ -67,7 +67,7 @@ class PluginConnection():
             if not os.path.exists(self.work_dir):
                 os.makedirs(self.work_dir)
             os.chdir(self.work_dir)
-        socketIO = SocketIO(host, port, LoggingNamespace)
+        socketIO = SocketIO(server, Namespace=LoggingNamespace)
         self.socketIO = socketIO
         self._init = False
         self.secret = secret
@@ -427,8 +427,7 @@ if __name__ == "__main__":
     parser.add_argument('--secret', type=str, required=True, help='plugin secret')
     parser.add_argument('--namespace', type=str, default='/', help='socketio namespace')
     parser.add_argument('--work_dir', type=str, default='.', help='plugin working directory')
-    parser.add_argument('--host', type=str, default='127.0.0.1', help='socketio host')
-    parser.add_argument('--port', type=str, default='9527', help='socketio port')
+    parser.add_argument('--server', type=str, default='http://127.0.0.1:9527', help='socketio server')
     parser.add_argument('--daemon', action="store_true", help='daemon mode')
     parser.add_argument('--debug', action="store_true", help='debug mode')
 
@@ -443,5 +442,5 @@ if __name__ == "__main__":
         loop = None
         q = None
 
-    pc = PluginConnection(opt.id, opt.secret, host=opt.host, port=int(opt.port), work_dir=opt.work_dir, queue=q, loop=loop, worker=task_worker)
+    pc = PluginConnection(opt.id, opt.secret, server=opt.server, work_dir=opt.work_dir, queue=q, loop=loop, worker=task_worker)
     pc.wait_forever()
