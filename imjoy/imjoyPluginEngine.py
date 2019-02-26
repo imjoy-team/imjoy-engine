@@ -771,8 +771,8 @@ async def download_file(request):
     else:
         raise web.HTTPForbidden(text='Unsupported file type: '+ fileInfo['type'])
 
-app.router.add_get('/file/{urlid}/{name}', download_file)
-app.router.add_get('/file/{urlid}/{password}/{name}', download_file)
+app.router.add_get('/file/{urlid}/{name:.+}', download_file)
+app.router.add_get('/file/{urlid}@{password}/{name:.+}', download_file)
 
 @sio.on('get_file_url', namespace=NAME_SPACE)
 async def on_get_file_url(sid, kwargs):
@@ -793,8 +793,6 @@ async def on_get_file_url(sid, kwargs):
         fileInfo['headers'] = kwargs['headers']
     _, name = os.path.split(path)
     fileInfo['name'] = name
-
-    kwargs['password'] = '123'
     if path in generatedUrlFiles:
         return {'success': True, 'url': generatedUrlFiles[path]}
     else:
@@ -803,7 +801,7 @@ async def on_get_file_url(sid, kwargs):
 
         if kwargs.get('password', None):
             fileInfo['password'] = kwargs['password']
-            generatedUrlFiles[path] = '{}/file/{}/{}/{}'.format(opt.base_url, urlid, fileInfo['password'], name)
+            generatedUrlFiles[path] = '{}/file/{}@{}/{}'.format(opt.base_url, urlid, fileInfo['password'], name)
         else:
             generatedUrlFiles[path] = '{}/file/{}/{}'.format(opt.base_url, urlid, name)
         return {'success': True, 'url': generatedUrlFiles[path]}
