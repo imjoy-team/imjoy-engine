@@ -87,11 +87,11 @@ END
 
 # Upgrade pip and conda
 pip install pip --upgrade
-conda update conda
+conda update conda --yes --prefix=$InstallDir
 
 # Install Conda Dependencies
 if [[ $CondaDeps ]]; then
-    conda install $CondaDeps -y
+    conda install $CondaDeps --yes --prefix=$InstallDir
 fi
 
 # Install Package from PyPi

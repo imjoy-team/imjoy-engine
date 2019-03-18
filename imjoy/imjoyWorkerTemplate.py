@@ -59,7 +59,7 @@ def ndarray(typedArray, shape, dtype):
 api_utils = dotdict(ndarray=ndarray, kill=kill, debounce=debounce, setInterval=setInterval)
 
 class PluginConnection():
-    def __init__(self, pid, secret, protocol='http', host='127.0.0.1', port=8080, queue=None, loop=None, worker=None, namespace='/', work_dir=None, daemon=False, api=None):
+    def __init__(self, pid, secret, server, queue=None, loop=None, worker=None, namespace='/', work_dir=None, daemon=False, api=None):
         if work_dir is None or work_dir == '' or work_dir == '.':
             self.work_dir = os.getcwd()
         else:
@@ -67,7 +67,7 @@ class PluginConnection():
             if not os.path.exists(self.work_dir):
                 os.makedirs(self.work_dir)
             os.chdir(self.work_dir)
-        socketIO = SocketIO(host, port, LoggingNamespace)
+        socketIO = SocketIO(server, Namespace=LoggingNamespace)
         self.socketIO = socketIO
         self._init = False
         self.secret = secret
@@ -82,6 +82,7 @@ class PluginConnection():
         _remote = dotdict()
         self._setLocalAPI(_remote)
         self._interface = {}
+        self._plugin_interfaces = {}
         self._remote_set = False
         self._store = ReferenceStore()
         self._executed = False
@@ -115,6 +116,11 @@ class PluginConnection():
             t.start()
             self.worker(self, self.sync_q, logger, self.abort)
 
+    def default_exit(self):
+        logger.info('terminating plugin: ' + self.id)
+        self.abort.set()
+        os._exit(0)
+
     def exit(self, code):
         if 'exit' in self._interface:
             try:
@@ -138,6 +144,18 @@ class PluginConnection():
         #skip if already encoded
         if type(aObject) is dict and '__jailed_type__' in aObject and '__value__' in aObject:
             return aObject
+
+        # encode interfaces
+        if type(aObject) is dict and '__id__' in aObject and '__jailed_type__' in aObject and aObject['__jailed_type__'] == 'plugin_api':
+            encoded_interface = {}
+            for k in aObject.keys():
+                v = aObject[k]
+                if callable(v):
+                    bObject[k] = {'__jailed_type__': 'plugin_interface', '__plugin_id__':aObject['__id__'], '__value__' : k, 'num': None}
+                    encoded_interface[k] = v
+            self._plugin_interfaces[aObject['__id__']] = encoded_interface
+            return bObject
+
         keys = range(len(aObject)) if isarray else aObject.keys()
         for k in keys:
             v = aObject[k]
@@ -200,6 +218,8 @@ class PluginConnection():
                     bObject = self._remote[name]
                 else:
                     bObject = self._genRemoteMethod(name)
+            elif aObject['__jailed_type__'] == 'plugin_interface':
+                bObject = self._genRemoteMethod(aObject['__value__'], aObject['__plugin_id__'])
             elif aObject['__jailed_type__'] == 'ndarray':
                 # create build array/tensor if used in the plugin
                 try:
@@ -257,6 +277,16 @@ class PluginConnection():
     def setInterface(self, api):
         if inspect.isclass(type(api)):
             api = {a:getattr(api, a) for a in dir(api) if not a.startswith('_')}
+        if 'exit' in api:
+            ext = api['exit']
+            def exit_wrapper():
+                try:
+                    ext()
+                finally:
+                    self.default_exit()
+            api['exit'] = exit_wrapper
+        else:
+            api['exit'] = self.default_exit
         self._interface = api
         self._sendInterface()
 
@@ -279,7 +309,7 @@ class PluginConnection():
                   names.append({"name":name, "data": data})
         self.emit({'type':'setInterface', 'api': names})
 
-    def _genRemoteMethod(self, name):
+    def _genRemoteMethod(self, name, plugin_id=None):
         def remoteMethod(*arguments, **kwargs):
             # wrap keywords to a dictionary and pass to the first argument
             if len(arguments) == 0 and len(kwargs) > 0:
@@ -288,8 +318,8 @@ class PluginConnection():
                 call_func = {
                     'type': 'method',
                     'name': name,
+                    'pid': plugin_id,
                     'args': self._wrap(arguments),
-                    # 'pid'  : self.id,
                     'promise': self._wrap([resolve, reject])
                 }
                 self.emit(call_func)
@@ -342,8 +372,8 @@ class PluginConnection():
                 name = api[i]["name"]
                 data = api[i].get("data", None)
                 if data is not None:
-                    if type(data) == 'dict':
-                        data2 = {}
+                    if type(data) is dict:
+                        data2 = dotdict()
                         for key in data:
                             if key in data:
                                 if data[key] == "**@@FUNCTION@@**:"+key:
@@ -397,8 +427,7 @@ if __name__ == "__main__":
     parser.add_argument('--secret', type=str, required=True, help='plugin secret')
     parser.add_argument('--namespace', type=str, default='/', help='socketio namespace')
     parser.add_argument('--work_dir', type=str, default='.', help='plugin working directory')
-    parser.add_argument('--host', type=str, default='127.0.0.1', help='socketio host')
-    parser.add_argument('--port', type=str, default='8080', help='socketio port')
+    parser.add_argument('--server', type=str, default='http://127.0.0.1:9527', help='socketio server')
     parser.add_argument('--daemon', action="store_true", help='daemon mode')
     parser.add_argument('--debug', action="store_true", help='debug mode')
 
@@ -413,5 +442,5 @@ if __name__ == "__main__":
         loop = None
         q = None
 
-    pc = PluginConnection(opt.id, opt.secret, host=opt.host, port=int(opt.port), work_dir=opt.work_dir, queue=q, loop=loop, worker=task_worker)
+    pc = PluginConnection(opt.id, opt.secret, server=opt.server, work_dir=opt.work_dir, queue=q, loop=loop, worker=task_worker)
     pc.wait_forever()

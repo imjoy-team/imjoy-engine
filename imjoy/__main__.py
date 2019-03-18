@@ -1,23 +1,39 @@
 import sys
 import os
 import subprocess
+import json
 
-if __name__ == '__main__':
+def main():
     # add executable path to PATH
     os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
+    CONDA_AVAILABLE = False
+    try:
+        # for fixing CondaHTTPError: https://github.com/conda/conda/issues/6064#issuecomment-458389796
+        process = subprocess.Popen(["conda", "info", "--json", "-s"], stdout=subprocess.PIPE)
+        cout, err = process.communicate()
+        conda_prefix = json.loads(cout.decode('ascii'))['conda_prefix']
+        print('Found conda environment: ' + conda_prefix)
+        CONDA_AVAILABLE = True
+        if os.name == 'nt':
+            os.environ["PATH"] = os.path.join(conda_prefix, 'Library', 'bin') + os.pathsep + os.environ["PATH"]
+    except OSError as e:
+        if sys.version_info > (3, 0):
+            print('WARNING: you are running ImJoy without conda, you may have problem with some plugins.')
+        conda_prefix = None
 
     if sys.version_info > (3, 0):
         # running in python 3
         print('Upgrading ImJoy Plugin Engine...')
-        ret = subprocess.Popen('pip install -U git+https://github.com/oeway/ImJoy-Engine#egg=imjoy'.split(), shell=False).wait()
+        ret = subprocess.Popen('pip install -U git+https://github.com/oeway/ImJoy-Engine#egg=imjoy'.split(), env=os.environ.copy(), shell=False).wait()
         if ret != 0:
             print('Failed to upgrade ImJoy Plugin Engine.')
-        from .imjoyPluginEngine import *
+        from .imjoyPluginEngine import main
+        main()
     else:
         # running in python 2
         print('ImJoy needs to run in Python 3.6+, bootstrapping with conda ...')
         imjoy_requirements = ['requests', 'six', 'websocket-client-py3', 'aiohttp', 'git+https://github.com/oeway/ImJoy-Engine#egg=imjoy', 'psutil', "numpy"]
-        ret = subprocess.Popen('conda create -y -n imjoy python=3.6'.split(), shell=False).wait()
+        ret = subprocess.Popen('conda create -y -n imjoy python=3.6'.split(), env=os.environ.copy(), shell=False).wait()
         if ret == 0:
             print('conda environment is now ready, installing pip requirements and start the engine...')
         else:
@@ -25,20 +41,22 @@ if __name__ == '__main__':
         requirements = imjoy_requirements
         pip_cmd = "pip install -U "+" ".join(requirements)
 
-        if sys.platform == "linux" or sys.platform == "linux2":
-            # linux
-            command_template = '/bin/bash -c "source {}/bin/activate"'
-            conda_activate = command_template.format("$(conda info --json -s | python -c \"import sys, json; print(json.load(sys.stdin)['conda_prefix']);\")") #os.environ['CONDA_PREFIX'])
-        elif sys.platform == "darwin":
-            # OS X
-            conda_activate = "source activate"
-        elif sys.platform == "win32":
-            # Windows...
-            conda_activate = "activate"
+        if CONDA_AVAILABLE:
+            if sys.platform == "linux" or sys.platform == "linux2":
+                # linux
+                conda_activate =  "/bin/bash -c 'source " + conda_prefix + "/bin/activate {}'"
+            elif sys.platform == "darwin":
+                # OS X
+                conda_activate = "source activate {}"
+            elif sys.platform == "win32":
+                # Windows...
+                conda_activate = "activate {}"
+            else:
+                conda_activate = "conda activate {}"
         else:
-            conda_activate = "conda activate"
+            conda_activate = '{}'
 
-        pip_cmd = conda_activate + " imjoy && " + pip_cmd + " && python -m imjoy"
+        pip_cmd = conda_activate.format(" imjoy && " + pip_cmd + " && python -m imjoy")
         ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
         if ret != 0:
             git_cmd = ''
@@ -59,3 +77,6 @@ if __name__ == '__main__':
                     if ret != 0:
                         print('ImJoy failed with exit code: '+str(ret))
                         sys.exit(2)
+
+if __name__ == '__main__':
+    main()

@@ -4,7 +4,6 @@ import socketio
 import logging
 import threading
 import sys
-import traceback
 import time
 import subprocess
 import signal
@@ -15,12 +14,16 @@ import logging
 import argparse
 import uuid
 import shutil
-import webbrowser
+import yaml
+import json
+
+# import webbrowser
 from aiohttp import web, hdrs
 from aiohttp import WSCloseCode
 from aiohttp import streamer
 from urllib.parse import urlparse
 from mimetypes import MimeTypes
+
 try:
     import psutil
 except Exception as e:
@@ -31,34 +34,46 @@ try:
 except ImportError:
     from queue import Queue, Empty  # python 3.x
 
-# add executable path to PATH
-os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
 
-
-try:
-    subprocess.call(["conda", "-V"])
-except OSError as e:
-    CONDA_AVAILABLE = False
-    if sys.version_info < (3, 0):
-        sys.exit('Sorry, ImJoy plugin engine can only run within a conda environment or at least in Python 3.')
-    print('WARNING: you are running ImJoy without conda, you may have problem with some plugins.')
-else:
-    CONDA_AVAILABLE = True
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger('ImJoyPluginEngine')
+
+# add executable path to PATH
+os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
+
+CONDA_AVAILABLE = False
+try:
+    process = subprocess.Popen(["conda", "info", "--json", "-s"], stdout=subprocess.PIPE)
+    cout, err = process.communicate()
+    conda_prefix = json.loads(cout.decode('ascii'))['conda_prefix']
+    logger.info('Found conda environment: %s', conda_prefix)
+    # for fixing CondaHTTPError: https://github.com/conda/conda/issues/6064#issuecomment-458389796
+    if os.name == 'nt':
+        os.environ['PATH'] = os.path.join(conda_prefix, 'Library', 'bin') + os.pathsep + os.environ['PATH']
+    CONDA_AVAILABLE = True
+except OSError as e:
+    conda_prefix = None
+    if sys.version_info < (3, 0):
+        sys.exit('Sorry, ImJoy plugin engine can only run within a conda environment or at least in Python 3.')
+    print('WARNING: you are running ImJoy without conda, you may have problem with some plugins.')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--token', type=str, default=None, help='connection token')
 parser.add_argument('--debug', action="store_true", help='debug mode')
 parser.add_argument('--serve', action="store_true", help='download ImJoy web app and serve it locally')
 parser.add_argument('--host', type=str, default='127.0.0.1', help='socketio host')
-parser.add_argument('--port', type=str, default='8080', help='socketio port')
+parser.add_argument('--base_url', type=str, default=None, help='the base url for accessing this plugin engine')
+parser.add_argument('--port', type=str, default='9527', help='socketio port')
 parser.add_argument('--force_quit_timeout', type=int, default=5, help='the time (in second) for waiting before kill a plugin process, default: 5 s')
 parser.add_argument('--workspace', type=str, default='~/ImJoyWorkspace', help='workspace folder for plugins')
 parser.add_argument('--freeze', action="store_true", help='disable conda and pip commands')
+parser.add_argument('--engine_container_token', type=str, default=None, help='A token set by the engine container which launches the engine')
 
 opt = parser.parse_args()
+
+if opt.base_url is None or opt.base_url == '':
+    opt.base_url = 'http://{}:{}'.format(opt.host, opt.port)
 
 if not CONDA_AVAILABLE and not opt.freeze:
     print('WARNING: `pip install` command may not work, in that case you may want to add "--freeze".')
@@ -91,7 +106,8 @@ def killProcess(pid):
     try:
         cp = psutil.Process(pid)
         for proc in cp.children(recursive=True):
-            proc.kill()
+            if proc.is_running():
+                proc.kill()
         cp.kill()
     except Exception as e:
         print("WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(pid))
@@ -120,14 +136,15 @@ if opt.serve:
             print('Failed to install git, please check whether you have internet access.')
             sys.exit(3)
     if os.path.exists(WEB_APP_DIR) and os.path.isdir(WEB_APP_DIR):
+        ret = subprocess.Popen(['git', 'stash'], cwd=WEB_APP_DIR, shell=False).wait()
+        if ret != 0:
+            print('Failed to clean files locally.')
         ret = subprocess.Popen(['git', 'pull', '--all'], cwd=WEB_APP_DIR, shell=False).wait()
-        # "subprocess.Popen can not recongnize '&&' after 'git pull' with nothing to add "
         if ret != 0:
             print('Failed to pull files for serving offline.')
         ret = subprocess.Popen(['git', 'checkout', 'gh-pages'], cwd=WEB_APP_DIR, shell=False).wait()
         if ret != 0:
-            print('Failed to pull files for serving offline.')
-            #shutil.rmtree(WEB_APP_DIR)
+            print('Failed to checkout files from gh-pages.')
     if not os.path.exists(WEB_APP_DIR):
         print('Downloading files for serving ImJoy locally...')
         ret = subprocess.Popen('git clone -b gh-pages --depth 1 https://github.com/oeway/ImJoy __ImJoy__'.split(), shell=False, cwd=WORKSPACE_DIR).wait()
@@ -137,7 +154,7 @@ if opt.serve:
 
 MAX_ATTEMPTS = 1000
 NAME_SPACE = '/'
-# ALLOWED_ORIGINS = ['http://'+opt.host+':'+opt.port, 'http://imjoy.io', 'https://imjoy.io']
+# ALLOWED_ORIGINS = [opt.base_url, 'http://imjoy.io', 'https://imjoy.io']
 sio = socketio.AsyncServer()
 app = web.Application()
 sio.attach(app)
@@ -158,7 +175,7 @@ if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, 'index.html')):
     async def docs_handler(request):
         raise web.HTTPFound(location='https://imjoy.io/docs')
     app.router.add_get('/docs', docs_handler, name='docs')
-    print('A local version of Imjoy web app is available at http://127.0.0.1:8080')
+    print('A local version of Imjoy web app is available at '+opt.base_url)
 else:
     async def index(request):
         return web.Response(body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>You can run "python -m imjoy --serve" to serve ImJoy web app locally.</p>', content_type="text/html")
@@ -173,13 +190,13 @@ async def about(request):
         body += '<p>Alternatively, you can launch a new ImJoy instance with the link below: </p>'
 
         if opt.serve:
-            body += '<p><a href="http://127.0.0.1:8080/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
+            body += '<p><a href="'+opt.base_url+'/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
         else:
             body += '<p><a href="https://imjoy.io/#/app?token='+params['token']+'">Open ImJoy App</a></p>'
 
     else:
         if opt.serve:
-            body = '<H1><a href="http://127.0.0.1:8080/#/app">Open ImJoy App</a></H1>'
+            body = '<H1><a href="'+opt.base_url+'/#/app">Open ImJoy App</a></H1>'
         else:
             body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
     body += '<H2>Please use the latest Google Chrome browser to run the ImJoy App.</H2><a href="https://www.google.com/chrome/">Download Chrome</a><p>Note: Safari is not supported due to its restrictions on connecting to localhost. Currently, only FireFox and Chrome (preferred) are supported.</p>'
@@ -195,18 +212,20 @@ default_requirements_py3 = ["requests", "six", "websocket-client", "janus", "num
 script_dir = os.path.dirname(os.path.normpath(__file__))
 template_script = os.path.abspath(os.path.join(script_dir, 'imjoyWorkerTemplate.py'))
 
-if sys.platform == "linux" or sys.platform == "linux2":
-    # linux
-    command_template = '/bin/bash -c "source {}/bin/activate"'
-    conda_activate = command_template.format("$(conda info --json -s | python -c \"import sys, json; print(json.load(sys.stdin)['conda_prefix']);\")")
-elif sys.platform == "darwin":
-    # OS X
-    conda_activate = "source activate"
-elif sys.platform == "win32":
-    # Windows...
-    conda_activate = "activate"
+if CONDA_AVAILABLE:
+    if sys.platform == "linux" or sys.platform == "linux2":
+        # linux
+        conda_activate =  "/bin/bash -c 'source " + conda_prefix + "/bin/activate {}'"
+    elif sys.platform == "darwin":
+        # OS X
+        conda_activate = "source activate {}"
+    elif sys.platform == "win32":
+        # Windows...
+        conda_activate = "activate {}"
+    else:
+        conda_activate = "conda activate {}"
 else:
-    conda_activate = "conda activate"
+    conda_activate = "{}"
 
 plugins = {}
 plugin_sessions = {}
@@ -316,46 +335,115 @@ def killAllPlugins():
             pass
     return asyncio.gather(*tasks)
 
-@sio.on('connect', namespace=NAME_SPACE)
-def connect(sid, environ):
-    logger.info("connect %s", sid)
+def parseRepos(requirements, work_dir):
+    repos = []
+    if type(requirements) is list:
+        requirements = [str(r) for r in requirements]
+        for r in requirements:
+            if ':' in r:
+                rs = r.split(':')
+                tp, libs = rs[0], ':'.join(rs[1:])
+                tp, libs = tp.strip(), libs.strip()
+                libs = [l.strip() for l in libs.split(' ') if l.strip() != '']
+                if tp == 'repo' and len(libs)>0:
+                    name = libs[0].split('/')[-1].replace('.git', '')
+                    repo = {"url":libs[0], "repo_dir": os.path.join(work_dir, libs[1] if len(libs)>1 else name)}
+                    repos.append(repo)
+    return repos
 
-@sio.on('init_plugin', namespace=NAME_SPACE)
-async def on_init_plugin(sid, kwargs):
-    if sid in registered_sessions:
-        client_id, session_id = registered_sessions[sid]
+def parseRequirements(requirements, default_requirements, work_dir):
+    requirements_cmd = "pip install " + " ".join(default_requirements)
+    if type(requirements) is list:
+        requirements = [str(r) for r in requirements]
+
+        for r in requirements:
+            if ':' in r:
+                rs = r.split(':')
+                tp, libs = rs[0], ':'.join(rs[1:])
+                tp, libs = tp.strip(), libs.strip()
+                libs = [l.strip() for l in libs.split(' ') if l.strip() != '']
+                if tp == 'conda' and len(libs)>0:
+                    requirements_cmd += ' && conda install -y '+ ' '.join(libs)
+                elif tp == 'pip' and len(libs)>0:
+                    requirements_cmd += ' && pip install '+ ' '.join(libs)
+                elif tp == 'repo' and len(libs)>0:
+                    pass
+                elif tp == 'cmd' and len(libs)>0:
+                    requirements_cmd += ' && ' + ' '.join(libs)
+                elif '+' in tp or 'http' in tp:
+                    requirements_cmd += ' && pip install '+ r
+                else:
+                    raise Exception('Unsupported requirement type: ' + tp)
+            else:
+                requirements_cmd += ' && pip install '+ r
+
+    elif type(requirements) is str and requirements.strip() != '':
+        requirements_cmd +=  ' && ' + requirements
     else:
-        logger.debug('client %s is not registered.', sid)
-        return {'success': False}
-    pid = kwargs['id']
-    config = kwargs.get('config', {})
-    env = config.get('env', None)
-    cmd = config.get('cmd', 'python')
-    pname = config.get('name', None)
-    flags = config.get('flags', [])
-    tag = config.get('tag', '')
-    requirements = config.get('requirements', []) or []
-    workspace = config.get('workspace', 'default')
-    work_dir = os.path.join(WORKSPACE_DIR, workspace)
-    if not os.path.exists(work_dir):
-        os.makedirs(work_dir)
-    plugin_env = os.environ.copy()
-    plugin_env['WORK_DIR'] = work_dir
+        raise Exception('Unsupported requirements type.')
+    return requirements_cmd
 
-    logger.info("initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s", pname, id, cmd, workspace)
+def console_to_str(s):
+    """ From pypa/pip project, pip.backwardwardcompat. License MIT. """
+    try:
+        return s.decode(sys.__stdout__.encoding)
+    except UnicodeDecodeError:
+        return s.decode('utf_8')
+    except AttributeError:  # for tests, #13
+        return s
 
-    plugin_signature = "{}/{}/{}".format(workspace, pname, tag)
+def runCmd(
+    cmd,
+    shell=False,
+    cwd=None,
+    log_in_real_time=True,
+    check_returncode=True,
+    callback=None,
+    plugin_id=None
+):
+    """ From https://github.com/vcs-python/libvcs/ """
+    proc = subprocess.Popen(
+        cmd,
+        shell=shell,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        creationflags=0,
+        bufsize=1,
+        cwd=cwd,
+    )
+    if plugin_id is not None:
+        setPluginPID(plugin_id, proc.pid)
 
-    if 'single-instance' in flags:
-        secret = resumePluginSession(pid, session_id, plugin_signature)
-        if secret is not None:
-            logger.debug('plugin already initialized: %s', pid)
-            # await sio.emit('message_from_plugin_'+secret, {"type": "initialized", "dedicatedThread": True})
-            return {'success': True, 'initialized': True, 'secret': secret, 'work_dir': os.path.abspath(work_dir)}
+    all_output = []
+    code = None
+    line = None
+    while code is None:
+        code = proc.poll()
+        if callback and callable(callback):
+            line = console_to_str(proc.stderr.read(128))
+            if line:
+                callback(output=line, timestamp=datetime.datetime.now())
+    if callback and callable(callback):
+        callback(output='\r', timestamp=datetime.datetime.now())
 
+    lines = filter(None, (line.strip() for line in proc.stdout.readlines()))
+    all_output = console_to_str(b'\n'.join(lines))
+    if code:
+        stderr_lines = filter(None, (line.strip() for line in proc.stderr.readlines()))
+        all_output = console_to_str(b''.join(stderr_lines))
+    output = ''.join(all_output)
+    if code != 0 and check_returncode:
+        raise Exception('Command failed with code {}: {}'.format(code, cmd))
+    return output
+
+def parseEnv(env, work_dir):
     env_name = ''
     is_py2 = False
     envs = None
+
+    if type(env) is str:
+        env = None if env.strip() == '' else env
+
     if env is not None:
         if not opt.freeze and CONDA_AVAILABLE:
             if type(env) is str:
@@ -379,64 +467,115 @@ async def on_init_plugin(sid, kwargs):
 
                     if '-y' not in parms:
                         envs[i] = env.replace('conda create', 'conda create -y')
+
+                if 'conda env create' in env:
+                    parms = shlex.split(env)
+                    if '-f' in parms:
+                        try:
+                            env_file = os.path.join(work_dir, parms[parms.index('-f') + 1])
+                            with open(env_file, "r") as stream:
+                                env_config = yaml.load(stream)
+                                assert 'name' in env_config
+                                env_name = env_config['name']
+                        except Exception as e:
+                            raise Exception('Failed to read the env name from the specified env file: ' + str(e))
+
+                    else:
+                        raise Exception('You should provided a environment file via the `conda env create -f`')
+
         else:
             print("WARNING: blocked env command: \n{}\nYou may want to run it yourself.".format(env))
             logger.warning('env command is blocked because conda is not avaialbe or in `--freeze` mode: %s', env)
 
+    if env_name.strip() == '':
+        env_name = None
 
-    if type(requirements) is list:
-        requirements_pip = " ".join(requirements)
-    elif type(requirements) is str:
-        requirements_pip = "&& " + requirements
-    else:
-        raise Exception('wrong requirements type.')
+    return env_name, envs, is_py2
 
-    default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
+@sio.on('connect', namespace=NAME_SPACE)
+def connect(sid, environ):
+    logger.info("connect %s", sid)
 
-    requirements_cmd = "pip install " + " ".join(default_requirements) + ' ' + requirements_pip
-    if opt.freeze:
-        print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
-        logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
-        requirements_cmd = None
-
-    if not opt.freeze and CONDA_AVAILABLE:
-        # if env_name is not None:
-        requirements_cmd = conda_activate + " "+ env_name + " && " + requirements_cmd
-        # if env_name is not None:
-        cmd = conda_activate + " " + env_name + " && " + cmd
-
-    secretKey = str(uuid.uuid4())
-    abort = threading.Event()
-    plugin_info = {'secret': secretKey, 'id': pid, 'abort': abort, 'flags': flags, 'session_id': session_id, 'name': config['name'], 'type': config['type'], 'client_id': client_id, 'signature': plugin_signature}
-    addPlugin(plugin_info)
-
-    @sio.on('from_plugin_'+secretKey, namespace=NAME_SPACE)
-    async def message_from_plugin(sid, kwargs):
-        # print('forwarding message_'+secretKey, kwargs)
-        if kwargs['type'] in ['initialized', 'importSuccess', 'importFailure', 'executeSuccess', 'executeFailure']:
-            await sio.emit('message_from_plugin_'+secretKey,  kwargs)
-            logger.debug('message from %s', pid)
-            if kwargs['type'] == 'initialized':
-                addPlugin(plugin_info, sid)
-        else:
-            await sio.emit('message_from_plugin_'+secretKey, {'type': 'message', 'data': kwargs})
-
-    @sio.on('message_to_plugin_'+secretKey, namespace=NAME_SPACE)
-    async def message_to_plugin(sid, kwargs):
-        # print('forwarding message_to_plugin_'+secretKey, kwargs)
-        if kwargs['type'] == 'message':
-            await sio.emit('to_plugin_'+secretKey, kwargs['data'])
-        logger.debug('message to plugin %s', secretKey)
-
+@sio.on('init_plugin', namespace=NAME_SPACE)
+async def on_init_plugin(sid, kwargs):
     try:
-        taskThread = threading.Thread(target=launch_plugin, args=[pid, envs, requirements_cmd,
-                                      '{} "{}" --id="{}" --host={} --port={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, opt.host, opt.port, secretKey, NAME_SPACE), work_dir, abort, pid, plugin_env])
+        if sid in registered_sessions:
+            client_id, session_id = registered_sessions[sid]
+        else:
+            logger.debug('client %s is not registered.', sid)
+            return {'success': False}
+        pid = kwargs['id']
+        config = kwargs.get('config', {})
+        env = config.get('env', None)
+        cmd = config.get('cmd', 'python')
+        pname = config.get('name', None)
+        flags = config.get('flags', [])
+        tag = config.get('tag', '')
+        requirements = config.get('requirements', []) or []
+        workspace = config.get('workspace', 'default')
+        work_dir = os.path.join(WORKSPACE_DIR, workspace)
+        if not os.path.exists(work_dir):
+            os.makedirs(work_dir)
+        plugin_env = os.environ.copy()
+        plugin_env['WORK_DIR'] = work_dir
+        logger.info("initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s", pname, id, cmd, workspace)
+
+        plugin_signature = "{}/{}/{}".format(workspace, pname, tag)
+
+        if 'single-instance' in flags:
+            secret = resumePluginSession(pid, session_id, plugin_signature)
+            if secret is not None:
+                logger.debug('plugin already initialized: %s', pid)
+                # await sio.emit('message_from_plugin_'+secret, {"type": "initialized", "dedicatedThread": True})
+                return {'success': True, 'initialized': True, 'secret': secret, 'work_dir': os.path.abspath(work_dir)}
+
+
+        secretKey = str(uuid.uuid4())
+        abort = threading.Event()
+        plugin_info = {'secret': secretKey, 'id': pid, 'abort': abort, 'flags': flags, 'session_id': session_id, 'name': config['name'], 'type': config['type'], 'client_id': client_id, 'signature': plugin_signature}
+        addPlugin(plugin_info)
+
+        @sio.on('from_plugin_'+secretKey, namespace=NAME_SPACE)
+        async def message_from_plugin(sid, kwargs):
+            # print('forwarding message_'+secretKey, kwargs)
+            if kwargs['type'] in ['initialized', 'importSuccess', 'importFailure', 'executeSuccess', 'executeFailure']:
+                await sio.emit('message_from_plugin_'+secretKey,  kwargs)
+                logger.debug('message from %s', pid)
+                if kwargs['type'] == 'initialized':
+                    addPlugin(plugin_info, sid)
+            else:
+                await sio.emit('message_from_plugin_'+secretKey, {'type': 'message', 'data': kwargs})
+
+        @sio.on('message_to_plugin_'+secretKey, namespace=NAME_SPACE)
+        async def message_to_plugin(sid, kwargs):
+            # print('forwarding message_to_plugin_'+secretKey, kwargs)
+            if kwargs['type'] == 'message':
+                await sio.emit('to_plugin_'+secretKey, kwargs['data'])
+            logger.debug('message to plugin %s', secretKey)
+
+        eloop = asyncio.get_event_loop()
+        def stop_callback(success, message):
+            message = str(message or '')
+            message = message[:100] + (message[100:] and '..')
+            logger.info('disconnecting from plugin (success:%s, message: %s)', str(success), message)
+            coro = sio.emit('message_from_plugin_'+secretKey,  {'type': 'disconnected', 'details': {'success': success, 'message': message}})
+            asyncio.run_coroutine_threadsafe(coro, eloop).result()
+
+        def logging_callback(msg, type='info'):
+            if msg == '':
+                return
+            coro = sio.emit('message_from_plugin_'+secretKey,  {'type': 'logging', 'details': {'value': msg, 'type': type}})
+            asyncio.run_coroutine_threadsafe(coro, eloop).result()
+
+        args = '{} "{}" --id="{}" --server={} --secret="{}" --namespace={}'.format(cmd, template_script, pid, 'http://127.0.0.1:'+opt.port, secretKey, NAME_SPACE)
+        taskThread = threading.Thread(target=launch_plugin, args=[stop_callback, logging_callback, pid, env, requirements, args, work_dir, abort, pid, plugin_env])
         taskThread.daemon = True
         taskThread.start()
         return {'success': True, 'initialized': False, 'secret': secretKey, 'work_dir': os.path.abspath(work_dir)}
+
     except Exception as e:
         logger.error(e)
-        return {'success': False}
+        return {'success': False, 'reason': str(e)}
 
 async def force_kill_timeout(t, obj):
     pid = obj['pid']
@@ -478,10 +617,12 @@ async def on_register_client(sid, kwargs):
     if token != opt.token:
         logger.debug('token mismatch: %s != %s', token, opt.token)
         print('======== Connection Token: '+opt.token + ' ========')
-        try:
-            webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-        except Exception as e:
-            print('Failed to open the browser.')
+        if opt.engine_container_token is not None:
+            await sio.emit('message_to_container_'+opt.engine_container_token, {'type': 'popup_token', 'client_id': client_id, 'session_id': session_id})
+        # try:
+        #     webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
+        # except Exception as e:
+        #     print('Failed to open the browser.')
         attempt_count += 1
         if attempt_count>= MAX_ATTEMPTS:
             logger.info("Client exited because max attemps exceeded: %s", attempt_count)
@@ -556,13 +697,13 @@ async def download_file(request):
     #         text="CORS preflight request failed: "
     #              "origin header is not specified in the request")
     urlid = request.match_info['urlid']  # Could be a HUGE file
+    name = request.match_info['name']
     if urlid not in generatedUrls:
         raise web.HTTPForbidden(
             text="Invalid URL")
     fileInfo = generatedUrls[urlid]
-    name = request.rel_url.query.get('name', None)
     if fileInfo.get('password', False):
-        password = request.rel_url.query.get('password', None)
+        password = request.match_info.get('password', None)
         if password != fileInfo['password']:
             raise web.HTTPForbidden(text="Incorrect password for accessing this file.")
     headers = fileInfo.get('headers', None)
@@ -630,7 +771,8 @@ async def download_file(request):
     else:
         raise web.HTTPForbidden(text='Unsupported file type: '+ fileInfo['type'])
 
-app.router.add_get('/file/{urlid}', download_file)
+app.router.add_get('/file/{urlid}/{name:.+}', download_file)
+app.router.add_get('/file/{urlid}@{password}/{name:.+}', download_file)
 
 @sio.on('get_file_url', namespace=NAME_SPACE)
 async def on_get_file_url(sid, kwargs):
@@ -651,18 +793,18 @@ async def on_get_file_url(sid, kwargs):
         fileInfo['headers'] = kwargs['headers']
     _, name = os.path.split(path)
     fileInfo['name'] = name
-
     if path in generatedUrlFiles:
         return {'success': True, 'url': generatedUrlFiles[path]}
     else:
         urlid = str(uuid.uuid4())
         generatedUrls[urlid] = fileInfo
-        generatedUrlFiles[path] = 'http://{}:{}/file/{}?name={}'.format(opt.host, opt.port, urlid, name)
+
         if kwargs.get('password', None):
             fileInfo['password'] = kwargs['password']
-            generatedUrlFiles[path] += ('&password=' + fileInfo['password'])
+            generatedUrlFiles[path] = '{}/file/{}@{}/{}'.format(opt.base_url, urlid, fileInfo['password'], name)
+        else:
+            generatedUrlFiles[path] = '{}/file/{}/{}'.format(opt.base_url, urlid, name)
         return {'success': True, 'url': generatedUrlFiles[path]}
-
 
 @sio.on('get_file_path', namespace=NAME_SPACE)
 async def on_get_file_path(sid, kwargs):
@@ -679,6 +821,45 @@ async def on_get_file_path(sid, kwargs):
     else:
         return {'success': False, 'error': 'url not found.' }
 
+@sio.on('get_engine_status', namespace=NAME_SPACE)
+async def on_get_engine_status(sid, kwargs):
+    if sid not in registered_sessions:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False, 'error': 'client has not been registered.'}
+    current_process = psutil.Process()
+    children = current_process.children(recursive=True)
+    pid_dict = {}
+    for i in plugins:
+        p = plugins[i]
+        pid_dict[p['process_id']] = p
+    procs = []
+    for proc in children:
+        if proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE:
+            if proc.pid in pid_dict:
+                procs.append({'name': pid_dict[proc.pid]['name'], 'pid': proc.pid})
+            else:
+                procs.append({'name': proc.name(), 'pid': proc.pid})
+    return {'success': True, 'plugin_num': len(plugins), 'plugin_processes': procs, 'engine_process': current_process.pid}
+
+@sio.on('kill_plugin_process', namespace=NAME_SPACE)
+async def on_kill_plugin_process(sid, kwargs):
+    if sid not in registered_sessions:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False, 'error': 'client has not been registered.'}
+    if 'all' not in kwargs:
+        return {'success': False, 'error': 'You must provide the pid of the plugin process or "all=true".'}
+    if kwargs['all']:
+        print('Killing all the plugins...')
+        killAllPlugins()
+        return {'success': True}
+    else:
+        try:
+            print('Killing plugin process (pid='+ str(kwargs['pid']) + ')...')
+            killProcess(int(kwargs['pid']))
+            return {'success': True}
+        except:
+            return {'success': False, 'error': 'Failed to kill plugin process: #' + str(kwargs['pid'])}
+
 @sio.on('message', namespace=NAME_SPACE)
 async def on_message(sid, kwargs):
     logger.info("message recieved: %s", kwargs)
@@ -690,34 +871,81 @@ async def disconnect(sid):
     asyncio.gather(*tasks)
     logger.info('disconnect %s', sid)
 
-def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plugin_env):
+def launch_plugin(stop_callback, logging_callback, pid, env, requirements, args, work_dir, abort, name, plugin_env):
     if abort.is_set():
         logger.info('plugin aborting...')
+        logging_callback('plugin aborting...')
         return False
+    env_name = None
     try:
+        repos = parseRepos(requirements, work_dir)
+        logging_callback(2, type='progress')
+        for k, r in enumerate(repos):
+            try:
+                print('Cloning repo ' + r['url'] + ' to ' + r['repo_dir'])
+                logging_callback('Cloning repo ' + r['url'] + ' to ' + r['repo_dir'])
+                if os.path.exists(r['repo_dir']):
+                    assert os.path.isdir(r['repo_dir'])
+                    cmd = 'git pull --all'
+                    runCmd(cmd.split(' '), cwd=r['repo_dir'], plugin_id=pid)
+                else:
+                    cmd = 'git clone --progress --depth=1 '+r['url'] + ' ' + r['repo_dir']
+                    runCmd(cmd.split(' '), cwd=work_dir, plugin_id=pid)
+                logging_callback(k*5, type='progress')
+            except Exception as ex:
+                 logging_callback('Failed to obtain the git repo: '+str(ex), type='error')
+
+        env_name, envs, is_py2 = parseEnv(env, work_dir)
+        default_requirements = default_requirements_py2 if is_py2 else default_requirements_py3
+        requirements_cmd = parseRequirements(requirements, default_requirements, work_dir)
+
         if envs is not None and len(envs)>0:
             for env in envs:
                 print('Running env command: ' + env)
                 logger.info('running env command: %s', env)
                 if env not in cmd_history:
-                    process = subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir)
+                    logging_callback('running env command: {}'.format(env))
+                    process = subprocess.Popen(env.split(), shell=False, env=plugin_env, cwd=work_dir, stderr=subprocess.PIPE)
                     setPluginPID(pid, process.pid)
-                    process.wait()
-                    cmd_history.append(env)
+                    ret = process.wait()
+                    if ret == 0:
+                        cmd_history.append(env)
+                        logging_callback('env command executed successfully.')
+
+                    _, errors = process.communicate()
+                    if errors is not None:
+                        logging_callback(str(errors, 'utf-8'), type='error')
+
+                    logging_callback(30, type='progress')
                 else:
                     logger.debug('skip command: %s', env)
+                    logging_callback('skip env command: ' + env)
 
                 if abort.is_set():
                     logger.info('plugin aborting...')
                     return False
 
+        if opt.freeze:
+            print("WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(requirements_cmd))
+            logger.warning('pip command is blocked due to `--freeze` mode: %s', requirements_cmd)
+            requirements_cmd = None
+
+        if not opt.freeze and CONDA_AVAILABLE:
+            if env_name is not None:
+                requirements_cmd = conda_activate.format(env_name + " && " + requirements_cmd)
+
         logger.info('Running requirements command: %s', requirements_cmd)
         print('Running requirements command: ' + requirements_cmd)
+        logging_callback('Running requirements command: {}'.format(requirements_cmd))
         if requirements_cmd is not None and requirements_cmd not in cmd_history:
-            process = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir)
+            process = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir, stderr=subprocess.PIPE)
             setPluginPID(pid, process.pid)
             ret = process.wait()
+            _, errors = process.communicate()
             if ret != 0:
+                logging_callback('Failed to run requirements command: {}'.format(requirements_cmd), type='error')
+                if errors is not None:
+                    logging_callback(str(errors, 'utf-8'), type='error')
                 git_cmd = ''
                 if shutil.which('git') is None:
                     git_cmd += " git"
@@ -731,26 +959,33 @@ def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plug
                     setPluginPID(pid, process.pid)
                     ret = process.wait()
                     if ret != 0:
+                        logging_callback('Failed to install git/pip and dependencies with exit code: '+str(ret), type='error')
                         raise Exception('Failed to install git/pip and dependencies with exit code: '+str(ret))
                     else:
                         process = subprocess.Popen(requirements_cmd, shell=True, env=plugin_env, cwd=work_dir)
                         setPluginPID(pid, process.pid)
                         ret = process.wait()
                         if ret != 0:
+                            logging_callback('Failed to install dependencies with exit code: '+str(ret), type='error')
                             raise Exception('Failed to install dependencies with exit code: '+str(ret))
-                else:
-                    raise Exception('Failed to install dependencies with exit code: '+str(ret))
-            cmd_history.append(requirements_cmd)
+            else:
+                cmd_history.append(requirements_cmd)
+                logging_callback('Requirements command executed successfully.')
+            logging_callback(70, type='progress')
         else:
             logger.debug('skip command: %s', requirements_cmd)
     except Exception as e:
         # await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
-        logger.error('failed to execute plugin: %s', str(e))
+        logger.error('Failed to setup plugin virtual environment or its requirements: %s', str(e))
+        logging_callback('Failed to setup plugin virual environment or its requirements: ' + str(e), type='error')
 
     if abort.is_set():
-        logger.info('plugin aborting...')
+        logger.info('Plugin aborting...')
+        logging_callback('Plugin aborting...')
         return False
     # env = os.environ.copy()
+    if env_name is not None:
+        args = conda_activate.format(env_name + " && " + args)
     if type(args) is str:
         args = args.split()
     if not args:
@@ -758,47 +993,56 @@ def launch_plugin(pid, envs, requirements_cmd, args, work_dir, abort, name, plug
     # Convert them all to strings
     args = [str(x) for x in args if str(x) != '']
     logger.info('%s task started.', name)
-    unrecognized_output = []
-    # env['PYTHONPATH'] = os.pathsep.join(
-    #     ['.', work_dir, env.get('PYTHONPATH', '')] + sys.path)
 
     args = ' '.join(args)
     logger.info('Task subprocess args: %s', args)
-
+    logging_callback('running subprocess with {}'.format(args))
     # set system/version dependent "start_new_session" analogs
     # https://docs.python.org/2/library/subprocess.html#converting-argument-sequence
     kwargs = {}
     if sys.platform != "win32":
         kwargs.update(preexec_fn=os.setsid)
-
-    process = subprocess.Popen(args, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-              shell=True, env=plugin_env, cwd=work_dir, **kwargs)
-    setPluginPID(pid, process.pid)
-    # Poll process for new output until finished
-    stdfn = sys.stdout.fileno()
-    while True:
-        out = process.stdout.read(1)
-        if out == '' and process.poll() != None:
-            break
-        os.write(stdfn, out)
-        sys.stdout.flush()
-        if abort.is_set():
-            break
-        time.sleep(0)
-
+    logging_callback(100, type='progress')
     try:
+        process = subprocess.Popen(args, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                  shell=True, env=plugin_env, cwd=work_dir, **kwargs)
+        setPluginPID(pid, process.pid)
+        # Poll process for new output until finished
+        stdfn = sys.stdout.fileno()
+
+        logging_callback(0, type='progress')
+
+        while True:
+            out = process.stdout.read(1)
+            if out == '' and process.poll() != None:
+                break
+            os.write(stdfn, out)
+            sys.stdout.flush()
+            if abort.is_set() or process.poll() is not None:
+                break
+            time.sleep(0)
+
         logger.info('Plugin aborting...')
         killProcess(process.pid)
         logger.info('plugin process is killed.')
-        output = process.communicate()[0]
+        outputs, errors = process.communicate()
+        if outputs is not None:
+            outputs = str(outputs, 'utf-8')
+        if errors is not None:
+            errors = str(errors, 'utf-8')
         exitCode = process.returncode
     except Exception as e:
+        outputs, errors = '', str(e)
         exitCode = 100
     finally:
-        if (exitCode == 0):
+        if exitCode == 0:
+            logging_callback('plugin process exited with code {}'.format(0))
+            stop_callback(True, outputs)
             return True
         else:
+            logging_callback('plugin process exited with code {}'.format(exitCode), type='error')
             logger.info('Error occured during terminating a process.\ncommand: %s\n exit code: %s\n', str(args), str(exitCode))
+            stop_callback(False, (errors or '') + '\nplugin process exited with code {}'.format(exitCode))
             return False
 
 async def on_startup(app):
@@ -810,26 +1054,11 @@ async def on_startup(app):
         print('ImJoy Plugin Engine is ready.')
         pass
     if opt.serve:
-        print('You can access your local ImJoy web app through http://'+opt.host+':'+opt.port+' , imjoy!')
+        print('You can access your local ImJoy web app through '+opt.base_url+' , imjoy!')
     else:
         print('Please go to https://imjoy.io/#/app with your web browser (Chrome or FireFox)')
     print("Connection Token: " + opt.token)
     sys.stdout.flush()
-    # try:
-    #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/#/app?token='+opt.token, new=0, autoraise=True)
-    # except Exception as e:
-    #     try:
-    #         webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-    #     except Exception as e:
-    #         print('Failed to open the browser.')
-
-    # try:
-    #     webbrowser.get(using='chrome').open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-    # except Exception as e:
-    #     try:
-    #         webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
-    #     except Exception as e:
-    #         print('Failed to open the browser.')
 
 # print('======>> Connection Token: '+opt.token + ' <<======')
 async def on_shutdown(app):
@@ -854,15 +1083,20 @@ async def on_shutdown(app):
     killAllPlugins()
     # stopped.set()
     logger.info('Plugin engine exited.')
-    # try:
-    #     os.remove(pid_file)
-    # except Exception as e:
-    #     logger.info('Failed to remove the pid file.')
+    try:
+        os.remove(pid_file)
+    except Exception as e:
+        logger.info('Failed to remove the pid file.')
 
 app.on_startup.append(on_startup)
 app.on_shutdown.append(on_shutdown)
-try:
-    web.run_app(app, host=opt.host, port=int(opt.port))
-except OSError as e:
-    if e.errno in {48}:
-        print("ERROR: Failed to open port {}, please try to terminate the process which is using that port, or restart your computer.".format(opt.port))
+
+def main():
+    try:
+        web.run_app(app, host=opt.host, port=int(opt.port))
+    except OSError as e:
+        if e.errno in {48}:
+            print("ERROR: Failed to open port {}, please try to terminate the process which is using that port, or restart your computer.".format(opt.port))
+
+if __name__ == '__main__':
+    main()
