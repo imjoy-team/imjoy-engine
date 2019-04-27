@@ -1060,7 +1060,6 @@ async def on_startup(app):
     print("Connection Token: " + opt.token)
     sys.stdout.flush()
 
-# print('======>> Connection Token: '+opt.token + ' <<======')
 async def on_shutdown(app):
     print('Shutting down...')
     logger.info('Shutting down the plugin engine...')
