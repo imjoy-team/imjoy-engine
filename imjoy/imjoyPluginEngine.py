@@ -23,6 +23,8 @@ from aiohttp import WSCloseCode
 from aiohttp import streamer
 from urllib.parse import urlparse
 from mimetypes import MimeTypes
+import aiohttp_cors
+
 
 try:
     import psutil
@@ -767,46 +769,18 @@ async def on_request_upload_url(sid, kwargs):
             return {'success': False, 'error': 'file already exist.'}
         fileInfo['path'] = path
 
-    loop = asyncio.get_event_loop()
-    fileInfo['future'] = loop.create_future()
     base_url = kwargs.get('base_url', registered_sessions[sid]['base_url'])
     url = '{}/upload/{}'.format(base_url, urlid)
     requestUrls[url] = fileInfo
     requestUploadFiles[urlid] = fileInfo
     return {'success': True, 'id': urlid, 'url': url}
 
-@sio.on('wait_for_upload', namespace=NAME_SPACE)
-async def on_wait_for_upload(sid, kwargs):
-    logger.info("waiting for upload: %s", kwargs)
-    if sid not in registered_sessions:
-        logger.debug('client %s is not registered.', sid)
-        return {'success': False, 'error': 'client has not been registered'}
-    if 'url' not in kwargs:
-        return {'success': False, 'error': 'Please provide a upload url'}
-
-    if kwargs['url'] not in requestUrls:
-        return {'success': False, 'error': 'Please provide a valid upload id'}
-
-    try:
-        fileInfo = requestUrls[kwargs['url']]
-        await fileInfo['future']
-        logger.info("stop waiting, the file has been uploaded.")
-        del requestUploadFiles[fileInfo['id']]
-        del requestUrls[kwargs['url']]
-        return {'success': True, 'path': fileInfo['path'], 'size': fileInfo['size']}
-    except Exception as e:
-        logger.error("failed to wait for the file to upload. Error: %s", str(e))
-        return {'success': False, 'error': str(e)}
-
 async def upload_file(request):
     urlid = request.match_info['urlid']  # Could be a HUGE file
     if urlid not in requestUploadFiles:
         raise web.HTTPForbidden(
             text="Invalid URL")
-    default_headers = {'Access-Control-Allow-Origin': '*',
-                       'Access-Control-Allow-Headers': 'origin',
-                       'Access-Control-Allow-Methods': 'POST'
-                      }
+
     fileInfo = requestUploadFiles[urlid]
     try:
         reader = await request.multipart()
@@ -845,21 +819,25 @@ async def upload_file(request):
         fileInfo['size'] = size
         fileInfo['path'] = path
         logger.info("file saved to %s (size %d)", path, size)
-        if 'future' in fileInfo:
-            logger.info("notify the upload waiter")
-            fileInfo['future'].set_result(fileInfo)
-        return web.Response(text='{} (size: {} bytes) successfully uploaded'
-                                 ''.format(path, size), headers= default_headers)
+        return web.json_response(fileInfo)
+
     except Exception as e:
         logger.error("failed to upload file error: %s", str(e))
-        if 'future' in fileInfo:
-            fileInfo['future'].set_exception(e)
         return web.Response(
              body='Failed to upload, error: {}'.format(str(e)),
              status=404
         )
+
+cors = aiohttp_cors.setup(app, defaults={
+    "*": aiohttp_cors.ResourceOptions(
+        allow_credentials=True,
+        expose_headers="*",
+        allow_headers="*",
+    )
+})
+
 # app.router.add_post('/upload/{urlid}', upload_file)
-app.router.add_route('*', '/upload/{urlid}', upload_file)
+cors.add(app.router.add_route("POST", '/upload/{urlid}', upload_file))
 
 async def download_file(request):
     # origin = request.headers.get(hdrs.ORIGIN)
@@ -879,10 +857,7 @@ async def download_file(request):
         if password != fileInfo['password']:
             raise web.HTTPForbidden(text="Incorrect password for accessing this file.")
     headers = fileInfo.get('headers', None)
-    default_headers = {'Access-Control-Allow-Origin': '*',
-                       'Access-Control-Allow-Headers': 'origin',
-                       'Access-Control-Allow-Methods': 'GET'
-                      }
+    default_headers = {}
     if fileInfo['type'] == 'dir':
         dirname = os.path.dirname(name)
         # list the folder
@@ -943,8 +918,8 @@ async def download_file(request):
     else:
         raise web.HTTPForbidden(text='Unsupported file type: '+ fileInfo['type'])
 
-app.router.add_get('/file/{urlid}/{name:.+}', download_file)
-app.router.add_get('/file/{urlid}@{password}/{name:.+}', download_file)
+cors.add(app.router.add_get('/file/{urlid}/{name:.+}', download_file))
+cors.add(app.router.add_get('/file/{urlid}@{password}/{name:.+}', download_file))
 
 @sio.on('get_file_url', namespace=NAME_SPACE)
 async def on_get_file_url(sid, kwargs):
