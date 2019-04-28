@@ -892,7 +892,8 @@ async def download_file(request):
             else:
                 _, file_name = os.path.split(file_path)
                 mime_type = MimeTypes().guess_type(file_name)[0] or 'application/octet-stream'
-                headers = headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=file_name), 'Content-Type': mime_type}
+                file_size = os.path.getsize(file_path)
+                headers = headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=file_name), 'Content-Type': mime_type, 'Content-Length': str(file_size)}
                 headers.update(default_headers)
                 return web.Response(
                     body=file_sender(file_path=file_path),
@@ -909,7 +910,8 @@ async def download_file(request):
                 status=404
             )
         mime_type = MimeTypes().guess_type(file_name)[0] or 'application/octet-stream'
-        headers = headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=file_name), 'Content-Type': mime_type}
+        file_size = os.path.getsize(file_path)
+        headers = headers or {'Content-Disposition': 'inline; filename="{filename}"'.format(filename=file_name), 'Content-Type': mime_type, 'Content-Length': str(file_size)}
         headers.update(default_headers)
         return web.Response(
             body=file_sender(file_path=file_path),
