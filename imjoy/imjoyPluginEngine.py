@@ -75,6 +75,9 @@ opt = parser.parse_args()
 if opt.base_url is None or opt.base_url == '':
     opt.base_url = 'http://{}:{}'.format(opt.host, opt.port)
 
+if opt.base_url.endswith('/'):
+    opt.base_url = opt.base_url[:-1]
+
 if not CONDA_AVAILABLE and not opt.freeze:
     print('WARNING: `pip install` command may not work, in that case you may want to add "--freeze".')
 
@@ -204,8 +207,19 @@ async def about(request):
 app.router.add_get('/about', about)
 
 attempt_count = 0
-
 cmd_history = []
+plugins = {}
+plugin_sessions = {}
+plugin_sids = {}
+plugin_signatures = {}
+clients = {}
+client_sessions = {}
+registered_sessions = {}
+generatedUrls = {}
+generatedUrlFiles = {}
+requestUploadFiles = {}
+requestUrls = {}
+
 default_requirements_py2 = ["requests", "six", "websocket-client", "numpy", "psutil"]
 default_requirements_py3 = ["requests", "six", "websocket-client", "janus", "numpy", "psutil"]
 
@@ -227,13 +241,7 @@ if CONDA_AVAILABLE:
 else:
     conda_activate = "{}"
 
-plugins = {}
-plugin_sessions = {}
-plugin_sids = {}
-plugin_signatures = {}
-clients = {}
-client_sessions = {}
-registered_sessions = {}
+
 
 def resumePluginSession(pid, session_id, plugin_signature):
     if pid in plugins:
@@ -247,20 +255,21 @@ def resumePluginSession(pid, session_id, plugin_signature):
     else:
         return None
 
-def addClientSession(session_id, client_id, sid):
+def addClientSession(session_id, client_id, sid, base_url, workspace):
     if client_id in clients:
         clients[client_id].append(sid)
         client_connected = True
     else:
         clients[client_id] = [sid]
         client_connected = False
-    registered_sessions[sid] = (client_id, session_id)
+    registered_sessions[sid] = {'client': client_id, 'session': session_id, 'base_url': base_url, 'workspace': workspace}
     return client_connected
 
 def disconnectClientSession(sid):
     tasks = []
     if sid in registered_sessions:
-        client_id, session_id = registered_sessions[sid]
+        obj = registered_sessions[sid]
+        client_id, session_id = obj['client'], obj['session']
         del registered_sessions[sid]
         if client_id in clients and sid in clients[client_id]:
             clients[client_id].remove(sid)
@@ -331,8 +340,9 @@ def killAllPlugins():
     for sid in plugin_sids:
         try:
             tasks.append(on_kill_plugin(sid, {"id":plugin_sids[sid]['id']}))
-        finally:
-            pass
+        except Exception as e:
+            logger.error(str(e))
+
     return asyncio.gather(*tasks)
 
 def parseRepos(requirements, work_dir):
@@ -500,7 +510,8 @@ def connect(sid, environ):
 async def on_init_plugin(sid, kwargs):
     try:
         if sid in registered_sessions:
-            client_id, session_id = registered_sessions[sid]
+            obj = registered_sessions[sid]
+            client_id, session_id = obj['client'], obj['session']
         else:
             logger.debug('client %s is not registered.', sid)
             return {'success': False}
@@ -590,8 +601,56 @@ async def force_kill_timeout(t, obj):
     finally:
         return
 
+@sio.on('reset_engine', namespace=NAME_SPACE)
+async def on_reset_engine(sid, kwargs):
+    logger.info("kill plugin: %s", kwargs)
+    if sid not in registered_sessions:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False, 'error': 'client has not been registered'}
+
+    global attempt_count
+    global attempt_count
+    global cmd_history
+    global plugins
+    global plugin_sessions
+    global plugin_sids
+    global plugin_signatures
+    # global clients
+    # global client_sessions
+    # global registered_sessions
+    global generatedUrls
+    global generatedUrlFiles
+    global requestUploadFiles
+    global requestUrls
+
+
+
+
+    await killAllPlugins()
+
+    attempt_count = 0
+    cmd_history = []
+    plugins = {}
+    plugin_sessions = {}
+    plugin_sids = {}
+    plugin_signatures = {}
+    # clients = {}
+    # client_sessions = {}
+    # registered_sessions = {}
+    generatedUrls = {}
+    generatedUrlFiles = {}
+    requestUploadFiles = {}
+    requestUrls = {}
+
+    return {'success': True}
+
 @sio.on('kill_plugin', namespace=NAME_SPACE)
 async def on_kill_plugin(sid, kwargs):
+    logger.info("kill plugin: %s", kwargs)
+    if sid not in registered_sessions:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False, 'error': 'client has not been registered'}
+
     pid = kwargs['id']
     timeout_kill = None
     if pid in plugins:
@@ -613,6 +672,10 @@ async def on_register_client(sid, kwargs):
     client_id = kwargs.get('id', str(uuid.uuid4()))
     workspace = kwargs.get('workspace', 'default')
     session_id = kwargs.get('session_id', str(uuid.uuid4()))
+    base_url = kwargs.get('base_url', opt.base_url)
+    if base_url.endswith('/'):
+        base_url = base_url[:-1]
+
     token = kwargs.get('token', None)
     if token != opt.token:
         logger.debug('token mismatch: %s != %s', token, opt.token)
@@ -630,7 +693,7 @@ async def on_register_client(sid, kwargs):
         return {'success': False}
     else:
         attempt_count = 0
-        if addClientSession(session_id, client_id, sid):
+        if addClientSession(session_id, client_id, sid, base_url, workspace):
             confirmation = True
             message = "Another ImJoy session is connected to this Plugin Engine, allow a new session to connect?"
         else:
@@ -675,8 +738,6 @@ async def on_list_dir(sid, kwargs):
     files_list['children'] = scandir(files_list['path'], type, recursive)
     return files_list
 
-generatedUrls = {}
-generatedUrlFiles = {}
 @streamer
 async def file_sender(writer, file_path=None):
     """
@@ -688,6 +749,112 @@ async def file_sender(writer, file_path=None):
         while chunk:
             await writer.write(chunk)
             chunk = f.read(2 ** 16)
+
+@sio.on('request_upload_url', namespace=NAME_SPACE)
+async def on_request_upload_url(sid, kwargs):
+    logger.info("requesting file upload url: %s", kwargs)
+    if sid not in registered_sessions:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False, 'error': 'client has not been registered'}
+
+    urlid = str(uuid.uuid4())
+    fileInfo = {'id': urlid, 'overwrite': kwargs.get('overwrite', False), 'workspace': registered_sessions[sid]['workspace']}
+    if 'path' in kwargs:
+        path = os.path.expanduser(kwargs['path'])
+        if not os.path.isabs(path):
+            path = os.path.join(WORKSPACE_DIR, fileInfo['workspace'], fileInfo['path'])
+        if os.path.exists(path) and not kwargs.get('overwrite', False):
+            return {'success': False, 'error': 'file already exist.'}
+        fileInfo['path'] = path
+
+    loop = asyncio.get_event_loop()
+    fileInfo['future'] = loop.create_future()
+    base_url = kwargs.get('base_url', registered_sessions[sid]['base_url'])
+    url = '{}/upload/{}'.format(base_url, urlid)
+    requestUrls[url] = fileInfo
+    requestUploadFiles[urlid] = fileInfo
+    return {'success': True, 'id': urlid, 'url': url}
+
+@sio.on('wait_for_upload', namespace=NAME_SPACE)
+async def on_wait_for_upload(sid, kwargs):
+    logger.info("waiting for upload: %s", kwargs)
+    if sid not in registered_sessions:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False, 'error': 'client has not been registered'}
+    if 'url' not in kwargs:
+        return {'success': False, 'error': 'Please provide a upload url'}
+
+    if kwargs['url'] not in requestUrls:
+        return {'success': False, 'error': 'Please provide a valid upload id'}
+    fileInfo = requestUrls[kwargs['url']]
+    try:
+        await fileInfo['future']
+        requestUploadFiles[fileInfo['id']]
+        del requestUrls[kwargs['url']]
+        return {'success': True, 'path': fileInfo['path'], 'size': fileInfo['size']}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+async def upload_file(request):
+    urlid = request.match_info['urlid']  # Could be a HUGE file
+    if urlid not in requestUploadFiles:
+        raise web.HTTPForbidden(
+            text="Invalid URL")
+    default_headers = {'Access-Control-Allow-Origin': '*',
+                       'Access-Control-Allow-Headers': 'origin',
+                       'Access-Control-Allow-Methods': 'POST'
+                      }
+    fileInfo = requestUploadFiles[urlid]
+    try:
+        reader = await request.multipart()
+        field = None
+        while True:
+            part = await reader.next()
+            print(part, part.filename)
+            if part.filename is None:
+                continue
+            field = part
+            break
+        filename = field.filename
+        # You cannot rely on Content-Length if transfer is chunked.
+        size = 0
+        if 'path' in fileInfo:
+            path = fileInfo['path']
+        else:
+            path = os.path.join(WORKSPACE_DIR, fileInfo['workspace'], filename)
+        if os.path.exists(path) and not kwargs.get('overwrite', False):
+            return web.Response(
+                 body='File {} already exists.'.format(path),
+                 status=404
+            )
+
+        logger.info("uploading file to %s", path)
+        directory, _ = os.path.split(path)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        with open(path, 'wb') as f:
+            while True:
+                chunk = await field.read_chunk()  # 8192 bytes by default.
+                if not chunk:
+                    break
+                size += len(chunk)
+                f.write(chunk)
+        fileInfo['size'] = size
+        logger.info("file saved to %s (size %d)", path, size)
+        if 'future' in fileInfo:
+            fileInfo['future'].set_result(fileInfo)
+        return web.Response(text='{} sized of {} successfully stored'
+                                 ''.format(path, size), headers= default_headers)
+    except Exception as e:
+        logger.error("failed to upload file error: %s", str(e))
+        if 'future' in fileInfo:
+            fileInfo['future'].set_exception(e)
+        return web.Response(
+             body='Failed to upload, error: {}'.format(str(e)),
+             status=404
+        )
+# app.router.add_post('/upload/{urlid}', upload_file)
+app.router.add_route('*', '/upload/{urlid}', upload_file)
 
 async def download_file(request):
     # origin = request.headers.get(hdrs.ORIGIN)
@@ -798,12 +965,12 @@ async def on_get_file_url(sid, kwargs):
     else:
         urlid = str(uuid.uuid4())
         generatedUrls[urlid] = fileInfo
-
+        base_url = kwargs.get('base_url', registered_sessions[sid]['base_url'])
         if kwargs.get('password', None):
             fileInfo['password'] = kwargs['password']
-            generatedUrlFiles[path] = '{}/file/{}@{}/{}'.format(opt.base_url, urlid, fileInfo['password'], name)
+            generatedUrlFiles[path] = '{}/file/{}@{}/{}'.format(base_url, urlid, fileInfo['password'], name)
         else:
-            generatedUrlFiles[path] = '{}/file/{}/{}'.format(opt.base_url, urlid, name)
+            generatedUrlFiles[path] = '{}/file/{}/{}'.format(base_url, urlid, name)
         return {'success': True, 'url': generatedUrlFiles[path]}
 
 @sio.on('get_file_path', namespace=NAME_SPACE)
