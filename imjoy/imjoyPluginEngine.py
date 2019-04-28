@@ -786,13 +786,16 @@ async def on_wait_for_upload(sid, kwargs):
 
     if kwargs['url'] not in requestUrls:
         return {'success': False, 'error': 'Please provide a valid upload id'}
-    fileInfo = requestUrls[kwargs['url']]
+
     try:
+        fileInfo = requestUrls[kwargs['url']]
         await fileInfo['future']
-        requestUploadFiles[fileInfo['id']]
+        logger.info("stop waiting, the file has been uploaded.")
+        del requestUploadFiles[fileInfo['id']]
         del requestUrls[kwargs['url']]
         return {'success': True, 'path': fileInfo['path'], 'size': fileInfo['size']}
     except Exception as e:
+        logger.error("failed to wait for the file to upload. Error: %s", str(e))
         return {'success': False, 'error': str(e)}
 
 async def upload_file(request):
@@ -822,7 +825,7 @@ async def upload_file(request):
             path = fileInfo['path']
         else:
             path = os.path.join(WORKSPACE_DIR, fileInfo['workspace'], filename)
-        if os.path.exists(path) and not kwargs.get('overwrite', False):
+        if os.path.exists(path) and not fileInfo.get('overwrite', False):
             return web.Response(
                  body='File {} already exists.'.format(path),
                  status=404
@@ -840,10 +843,12 @@ async def upload_file(request):
                 size += len(chunk)
                 f.write(chunk)
         fileInfo['size'] = size
+        fileInfo['path'] = path
         logger.info("file saved to %s (size %d)", path, size)
         if 'future' in fileInfo:
+            logger.info("notify the upload waiter")
             fileInfo['future'].set_result(fileInfo)
-        return web.Response(text='{} sized of {} successfully stored'
+        return web.Response(text='{} (size: {} bytes) successfully uploaded'
                                  ''.format(path, size), headers= default_headers)
     except Exception as e:
         logger.error("failed to upload file error: %s", str(e))
