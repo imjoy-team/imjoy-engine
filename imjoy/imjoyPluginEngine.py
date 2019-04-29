@@ -728,11 +728,15 @@ async def on_list_dir(sid, kwargs):
     if sid not in registered_sessions:
         logger.debug('client %s is not registered.', sid)
         return {'success': False, 'error': 'client has not been registered.'}
-    path = kwargs.get('path', '~')
+    workspace_dir = os.path.join(WORKSPACE_DIR, registered_sessions[sid]['workspace'])
+    path = kwargs.get('path', workspace_dir)
+    if not os.path.isabs(path)::
+        path = os.path.join(workspace_dir, path)
+    path = os.path.normpath(os.path.expanduser(path))
+
     type = kwargs.get('type', None)
     recursive = kwargs.get('recursive', False)
     files_list = {'success': True}
-    path = os.path.normpath(os.path.expanduser(path))
     files_list['path'] = path
     files_list['name'] = os.path.basename(os.path.abspath(path))
     files_list['type'] = 'dir'
