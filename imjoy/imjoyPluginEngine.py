@@ -815,7 +815,7 @@ async def upload_file(request):
             path = os.path.join(fileInfo['dir'], path)
         else:
             path = os.path.join(WORKSPACE_DIR, fileInfo['workspace'], path)
-        print('===========', fileInfo)
+
         if os.path.exists(path) and not fileInfo.get('overwrite', False):
             return web.Response(
                  body='File {} already exists.'.format(path),
