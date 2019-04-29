@@ -744,6 +744,40 @@ async def on_list_dir(sid, kwargs):
     files_list['children'] = scandir(files_list['path'], type, recursive)
     return files_list
 
+@sio.on('remove_files', namespace=NAME_SPACE)
+async def on_remove_files(sid, kwargs):
+    if sid not in registered_sessions:
+        logger.debug('client %s is not registered.', sid)
+        return {'success': False, 'error': 'client has not been registered.'}
+    logger.info("removing files: %s", kwargs)
+    workspace_dir = os.path.join(WORKSPACE_DIR, registered_sessions[sid]['workspace'])
+    path = kwargs.get('path', workspace_dir)
+    if not os.path.isabs(path):
+        path = os.path.join(workspace_dir, path)
+    path = os.path.normpath(os.path.expanduser(path))
+    type = kwargs.get('type', None)
+    recursive = kwargs.get('recursive', False)
+
+    if os.path.exists(path) and not os.path.isdir(path) and type == 'file':
+        try:
+            os.remove(path)
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    elif os.path.exists(path) and os.path.isdir(path) and type == 'dir':
+        try:
+            if recursive:
+                dirname, filename = os.path.split(path)
+                shutil.move(path, os.path.join(dirname, '.'+filename))
+                # shutil.rmtree(path)
+            else:
+                os.rmdir(path)
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    else:
+        return {'success': False, 'error': 'File not exists or type mismatch.'}
+
 @streamer
 async def file_sender(writer, file_path=None):
     """
