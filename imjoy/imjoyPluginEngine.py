@@ -730,7 +730,7 @@ async def on_list_dir(sid, kwargs):
         return {'success': False, 'error': 'client has not been registered.'}
     workspace_dir = os.path.join(WORKSPACE_DIR, registered_sessions[sid]['workspace'])
     path = kwargs.get('path', workspace_dir)
-    if not os.path.isabs(path)::
+    if not os.path.isabs(path):
         path = os.path.join(workspace_dir, path)
     path = os.path.normpath(os.path.expanduser(path))
 
