@@ -762,12 +762,23 @@ async def on_request_upload_url(sid, kwargs):
     urlid = str(uuid.uuid4())
     fileInfo = {'id': urlid, 'overwrite': kwargs.get('overwrite', False), 'workspace': registered_sessions[sid]['workspace']}
     if 'path' in kwargs:
-        path = os.path.expanduser(kwargs['path'])
+        fileInfo['path'] = kwargs['path']
+
+    if 'dir' in kwargs:
+        path = os.path.expanduser(kwargs['dir'])
         if not os.path.isabs(path):
-            path = os.path.join(WORKSPACE_DIR, fileInfo['workspace'], fileInfo['path'])
+            path = os.path.join(WORKSPACE_DIR, fileInfo['workspace'], path)
+        fileInfo['dir'] = path
+
+    if 'path' in fileInfo:
+        path = fileInfo['path']
+        if 'dir' in fileInfo:
+            path = os.path.join(fileInfo['dir'], path)
+        else:
+            path = os.path.join(WORKSPACE_DIR, fileInfo['workspace'], path)
+
         if os.path.exists(path) and not kwargs.get('overwrite', False):
             return {'success': False, 'error': 'file already exist.'}
-        fileInfo['path'] = path
 
     base_url = kwargs.get('base_url', registered_sessions[sid]['base_url'])
     url = '{}/upload/{}'.format(base_url, urlid)
@@ -798,7 +809,13 @@ async def upload_file(request):
         if 'path' in fileInfo:
             path = fileInfo['path']
         else:
-            path = os.path.join(WORKSPACE_DIR, fileInfo['workspace'], filename)
+            path = filename
+
+        if 'dir' in fileInfo:
+            path = os.path.join(fileInfo['dir'], path)
+        else:
+            path = os.path.join(WORKSPACE_DIR, fileInfo['workspace'], path)
+        print('===========', fileInfo)
         if os.path.exists(path) and not fileInfo.get('overwrite', False):
             return web.Response(
                  body='File {} already exists.'.format(path),
