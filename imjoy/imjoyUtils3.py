@@ -27,10 +27,15 @@ async def task_worker(self, async_q, logger, abort=None):
             elif d['type'] == 'execute':
                 if not self._executed:
                     try:
-                        type = d['code']['type']
-                        content = d['code']['content']
-                        exec(content, self._local)
-                        self._executed = True
+                        t = d['code']['type']
+                        if t == 'script':
+                            content = d['code']['content']
+                            exec(content, self._local)
+                            self._executed = True
+                        elif t == 'requirements':
+                            pass
+                        else:
+                            raise Exception('unsupported type')
                         self.emit({'type':'executeSuccess'})
                     except Exception as e:
                         logger.info('error during execution: %s', traceback.format_exc())

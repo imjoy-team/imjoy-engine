@@ -16,6 +16,7 @@ import uuid
 import shutil
 import yaml
 import json
+import platform
 
 # import webbrowser
 from aiohttp import web, hdrs
@@ -36,7 +37,10 @@ try:
 except ImportError:
     from queue import Queue, Empty  # python 3.x
 
-
+CONDA_AVAILABLE = False
+MAX_ATTEMPTS = 1000
+NAME_SPACE = '/'
+API_VERSION = "0.1.1"
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger('ImJoyPluginEngine')
@@ -44,7 +48,7 @@ logger = logging.getLogger('ImJoyPluginEngine')
 # add executable path to PATH
 os.environ['PATH'] = os.path.split(sys.executable)[0]  + os.pathsep +  os.environ.get('PATH', '')
 
-CONDA_AVAILABLE = False
+
 try:
     process = subprocess.Popen(["conda", "info", "--json", "-s"], stdout=subprocess.PIPE)
     cout, err = process.communicate()
@@ -157,8 +161,6 @@ if opt.serve:
             print('Failed to download files, please check whether you have internet access.')
             sys.exit(4)
 
-MAX_ATTEMPTS = 1000
-NAME_SPACE = '/'
 # ALLOWED_ORIGINS = [opt.base_url, 'http://imjoy.io', 'https://imjoy.io']
 sio = socketio.AsyncServer()
 app = web.Application()
@@ -703,7 +705,17 @@ async def on_register_client(sid, kwargs):
             message = None
 
         logger.info("register client: %s", kwargs)
-        return {'success': True, 'confirmation': confirmation, 'message': message}
+        
+        engine_info = { 'api_version': API_VERSION }
+        engine_info['platform'] = {
+            'uname': ', '.join(platform.uname()),
+            'machine':  platform.machine(),
+            'system': platform.system(),
+            'processor': platform.processor(),
+            'node': platform.node()
+        }
+
+        return {'success': True, 'confirmation': confirmation, 'message': message, 'engine_info': engine_info}
 
 def scandir(path, type=None, recursive=False):
     file_list = []
