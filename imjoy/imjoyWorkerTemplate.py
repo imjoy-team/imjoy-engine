@@ -273,6 +273,10 @@ class PluginConnection():
     def setInterface(self, api):
         if inspect.isclass(type(api)):
             api = {a:getattr(api, a) for a in dir(api) if not a.startswith('_')}
+        elif type(api) is dict:
+            api = api
+        else:
+            raise Exception('unsupported api export')
         if 'exit' in api:
             ext = api['exit']
             def exit_wrapper():
