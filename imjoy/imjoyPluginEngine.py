@@ -266,11 +266,11 @@ def addClientSession(session_id, client_id, sid, base_url, workspace):
     else:
         clients[client_id] = [sid]
         client_connected = False
+    logger.info('adding client session %s', sid)
     registered_sessions[sid] = {'client': client_id, 'session': session_id, 'base_url': base_url, 'workspace': workspace}
     return client_connected
 
 def disconnectClientSession(sid):
-    tasks = []
     if sid in registered_sessions:
         obj = registered_sessions[sid]
         client_id, session_id = obj['client'], obj['session']
@@ -282,9 +282,8 @@ def disconnectClientSession(sid):
         if session_id in plugin_sessions:
             for plugin in plugin_sessions[session_id]:
                 if 'allow-detach' not in plugin['flags']:
-                    tasks.append(on_kill_plugin(sid, plugin))
+                    killPlugin(plugin['id'])
             del plugin_sessions[session_id]
-    return tasks
 
 def addPlugin(plugin_info, sid=None):
     pid = plugin_info['id']
@@ -301,7 +300,6 @@ def addPlugin(plugin_info, sid=None):
         plugin_info['sid'] = sid
 
 def disconnectPlugin(sid):
-    tasks = []
     if sid in plugin_sids:
         pid = plugin_sids[sid]['id']
         if pid in plugins:
@@ -316,8 +314,7 @@ def disconnectPlugin(sid):
                     exist = p
             if exist:
                 plugin_sessions[session_id].remove(exist)
-                tasks.append(on_kill_plugin(sid, exist))
-    return tasks
+                killPlugin(exist['id'])
 
 def setPluginPID(plugin_id, pid):
     plugins[plugin_id]['process_id'] = pid
@@ -542,7 +539,7 @@ async def on_init_plugin(sid, kwargs):
             if secret is not None:
                 logger.debug('plugin already initialized: %s', pid)
                 # await sio.emit('message_from_plugin_'+secret, {"type": "initialized", "dedicatedThread": True})
-                return {'success': True, 'initialized': True, 'secret': secret, 'work_dir': os.path.abspath(work_dir)}
+                return {'success': True, 'resumed': True 'initialized': True, 'secret': secret, 'work_dir': os.path.abspath(work_dir)}
 
 
         secretKey = str(uuid.uuid4())
@@ -699,7 +696,7 @@ async def on_register_client(sid, kwargs):
         attempt_count = 0
         if addClientSession(session_id, client_id, sid, base_url, workspace):
             confirmation = True
-            message = "Another ImJoy session is connected to this Plugin Engine, allow a new session to connect?"
+            message = "Another ImJoy session is connected to this Plugin Engine({}), allow a new session to connect?".format(base_url)
         else:
             confirmation = False
             message = None
@@ -1082,9 +1079,8 @@ async def on_message(sid, kwargs):
 
 @sio.on('disconnect', namespace=NAME_SPACE)
 async def disconnect(sid):
-    tasks = disconnectClientSession(sid)
-    tasks += disconnectPlugin(sid)
-    asyncio.gather(*tasks)
+    disconnectClientSession(sid)
+    disconnectPlugin(sid)
     logger.info('disconnect %s', sid)
 
 def launch_plugin(stop_callback, logging_callback, pid, env, requirements, args, work_dir, abort, name, plugin_env):
