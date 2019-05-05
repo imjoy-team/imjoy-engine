@@ -46,6 +46,12 @@ class dotdict(dict):
     def __deepcopy__(self, memo=None):
         return dotdict(copy.deepcopy(dict(self), memo=memo))
 
+def getKeyByValue(d, value):
+    for k, v in d.items():
+        if value == v:
+            return k
+    return None
+
 class ReferenceStore():
     def __init__(self):
         self._store = {}
@@ -59,8 +65,14 @@ class ReferenceStore():
         return id
 
     def fetch(self, id):
+        if id not in self._store:
+            return None
         obj = self._store[id]
-        del self._store[id]
+        if not hasattr(obj, '__remote_method'):
+            del self._store[id]
+        if hasattr(obj, '__jailed_pairs__'):
+            _id = getKeyByValue(self._store, obj.__jailed_pairs__)
+            self.fetch(_id)
         return obj
 
 def task_worker(self, q, logger, abort):
@@ -86,10 +98,15 @@ def task_worker(self, q, logger, abort):
             elif d['type'] == 'execute':
                 if not self._executed:
                     try:
-                        type = d['code']['type']
-                        content = d['code']['content']
-                        exec(content, self._local)
-                        self._executed = True
+                        t = d['code']['type']
+                        if t == 'script':
+                            content = d['code']['content']
+                            exec(content, self._local)
+                            self._executed = True
+                        elif t == 'requirements':
+                            pass
+                        else:
+                            raise Exception('unsupported type')
                         self.emit({'type':'executeSuccess'})
                     except Exception as e:
                         logger.info('error during execution: %s', traceback.format_exc())
@@ -122,24 +139,26 @@ def task_worker(self, q, logger, abort):
                     raise Exception('method '+d['name'] +' is not found.')
             elif d['type'] == 'callback':
                 if 'promise' in d:
+                    resolve, reject = self._unwrap(d['promise'], False)
                     try:
-                        resolve, reject = self._unwrap(d['promise'], False)
-                        method = self._store.fetch(d['id'])[d['num']]
+                        method = self._store.fetch(d['num'])
+                        if method is None:
+                            raise Exception("Callback function can only called once, if you want to call a function for multiple times, please make it as a plugin api function. See https://imjoy.io/docs for more details.")
                         args = self._unwrap(d['args'], True)
-                        # args.append({'id': self.id})
                         result = method(*args)
                         resolve(result)
                     except Exception as e:
-                        logger.error('error in method %s: %s', d['id'], traceback.format_exc())
+                        logger.error('error in method %s: %s', d['num'], traceback.format_exc())
                         reject(e)
                 else:
                     try:
-                        method = self._store.fetch(d['id'])[d['num']]
+                        method = self._store.fetch(d['num'])
+                        if method is None:
+                            raise Exception("Callback function can only called once, if you want to call a function for multiple times, please make it as a plugin api function. See https://imjoy.io/docs for more details.")
                         args = self._unwrap(d['args'], True)
-                        # args.append({'id': self.id})
                         method(*args)
                     except Exception as e:
-                        logger.error('error in method %s: %s', d['id'], traceback.format_exc())
+                        logger.error('error in method %s: %s', d['num'], traceback.format_exc())
             sys.stdout.flush()
         except queue.Empty:
             time.sleep(0.1)
@@ -185,4 +204,8 @@ class Promise(object):
         self._resolve_handler = None
         self._finally_handler = None
         self._catch_handler = None
-        pfunc(self.resolve, self.reject)
+        def resolve(*args, **kwargs):
+            self.resolve(*args, **kwargs)
+        def reject(*args, **kwargs):
+            self.reject(*args, **kwargs)
+        pfunc(resolve, reject)

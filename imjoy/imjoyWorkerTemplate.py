@@ -134,7 +134,7 @@ class PluginConnection():
         else:
             sys.exit(0)
 
-    def _encode(self, aObject, callbacks):
+    def _encode(self, aObject):
         if aObject is None:
             return aObject
         if type(aObject) is tuple:
@@ -171,8 +171,7 @@ class PluginConnection():
                         interfaceFuncName = name
                         break
                 if interfaceFuncName is None:
-                    cid = str(uuid.uuid4())
-                    callbacks[cid] = v
+                    cid = self._store.put(v)
                     vObj = {'__jailed_type__': 'callback', '__value__' : 'f', 'num': cid}
                 else:
                     vObj = {'__jailed_type__': 'interface', '__value__' : interfaceFuncName}
@@ -191,7 +190,7 @@ class PluginConnection():
                     v_bytes = vb
                 vObj = {'__jailed_type__': 'ndarray', '__value__' : v_bytes, '__shape__': v.shape, '__dtype__': str(v.dtype)}
             elif type(v) is dict or type(v) is list:
-                vObj = self._encode(v, callbacks)
+                vObj = self._encode(v)
             elif not isinstance(v, basestring) and type(v) is bytes:
                 vObj = v.decode() # covert python3 bytes to str
             elif isinstance(v, Exception):
@@ -259,11 +258,8 @@ class PluginConnection():
             return bObject
 
     def _wrap(self, args):
-        callbacks = {}
-        wrapped = self._encode(args, callbacks)
+        wrapped = self._encode(args)
         result = {'args': wrapped}
-        if len(callbacks.keys()) > 0:
-            result['callbackId'] = self._store.put(callbacks)
         return result
 
     def _unwrap(self, args, withPromise):
@@ -277,6 +273,10 @@ class PluginConnection():
     def setInterface(self, api):
         if inspect.isclass(type(api)):
             api = {a:getattr(api, a) for a in dir(api) if not a.startswith('_')}
+        elif type(api) is dict:
+            api = api
+        else:
+            raise Exception('unsupported api export')
         if 'exit' in api:
             ext = api['exit']
             def exit_wrapper():
@@ -315,6 +315,8 @@ class PluginConnection():
             if len(arguments) == 0 and len(kwargs) > 0:
                 arguments = [kwargs]
             def p(resolve, reject):
+                resolve.__jailed_pairs__ = reject
+                reject.__jailed_pairs__ = resolve
                 call_func = {
                     'type': 'method',
                     'name': name,
@@ -327,7 +329,7 @@ class PluginConnection():
                 return FuturePromise(p, self.loop)
             else:
                 return Promise(p)
-
+        remoteMethod.__remote_method = True
         return remoteMethod
 
     def _genRemoteCallback(self, id, argNum, withPromise):
@@ -337,6 +339,8 @@ class PluginConnection():
                 if len(arguments) == 0 and len(kwargs) > 0:
                     arguments = [kwargs]
                 def p(resolve, reject):
+                    resolve.__jailed_pairs__ = reject
+                    reject.__jailed_pairs__ = resolve
                     self.emit({
                         'type' : 'callback',
                         'id'   : id,

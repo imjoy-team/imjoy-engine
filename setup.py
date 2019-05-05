@@ -22,7 +22,7 @@ except OSError as e:
 
 requirements = []
 if sys.version_info > (3, 0):
-    requirements = ['aiohttp', 'python-socketio', 'requests', 'six', 'websocket-client', 'numpy', 'janus', 'pyyaml']
+    requirements = ['aiohttp', 'aiohttp_cors', 'python-socketio', 'requests', 'six', 'websocket-client', 'numpy', 'janus', 'pyyaml']
     print('Trying to install psutil with pip...')
     ret = subprocess.Popen(['pip', 'install', 'psutil'], env=os.environ.copy(), shell=False).wait()
     if ret != 0:
@@ -36,7 +36,7 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 setup(name='imjoy',
-      version='0.7.31',
+      version='0.7.57',
       description='ImJoy Plugin Engine for running Python plugins locally or remotely from ImJoy.io',
       long_description=README,
       long_description_content_type="text/markdown",
