@@ -539,7 +539,7 @@ async def on_init_plugin(sid, kwargs):
             if secret is not None:
                 logger.debug('plugin already initialized: %s', pid)
                 # await sio.emit('message_from_plugin_'+secret, {"type": "initialized", "dedicatedThread": True})
-                return {'success': True, 'resumed': True 'initialized': True, 'secret': secret, 'work_dir': os.path.abspath(work_dir)}
+                return {'success': True, 'resumed': True, 'initialized': True, 'secret': secret, 'work_dir': os.path.abspath(work_dir)}
 
 
         secretKey = str(uuid.uuid4())
