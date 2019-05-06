@@ -90,7 +90,10 @@ On windows, it's typically located in `C:\Users\<CurrentUserName>`, you can remo
 
 ## More details and FAQs in [Docs](https://imjoy.io/docs/#/user_manual)
 
+# Roadmap
+You can track the progress of the project here: https://github.com/oeway/ImJoy/projects/2
+
 # Bug report and feature request
 
-Please submit your issue to https://github.com/oeway/ImJoy/issues 
+Please submit your issue to [ImJoy/issues ](https://github.com/oeway/ImJoy/issues)
 
