@@ -264,7 +264,8 @@ else:
             body=(
                 '<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>'
                 'You can run "python -m imjoy --serve" '
-                'to serve ImJoy web app locally.</p>'),
+                "to serve ImJoy web app locally.</p>"
+            ),
             content_type="text/html",
         )
 
@@ -283,11 +284,13 @@ async def about(request):
         body += (
             "<p>You have to specify this token when you connect the ImJoy web app "
             "to this Plugin Engine. The token will be saved and automatically reused "
-            "when you launch the App again. </p>")
+            "when you launch the App again. </p>"
+        )
         body += "<br>"
         body += (
             "<p>Alternatively, you can launch a new ImJoy instance "
-            "with the link below: </p>")
+            "with the link below: </p>"
+        )
 
         if opt.serve:
             body += (
@@ -310,11 +313,12 @@ async def about(request):
         else:
             body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
     body += (
-        '<H2>Please use the latest Google Chrome browser to run the ImJoy App.'
+        "<H2>Please use the latest Google Chrome browser to run the ImJoy App."
         '</H2><a href="https://www.google.com/chrome/">Download Chrome</a><p>'
-        'Note: Safari is not supported '
-        'due to its restrictions on connecting to localhost. '
-        'Currently, only FireFox and Chrome (preferred) are supported.</p>')
+        "Note: Safari is not supported "
+        "due to its restrictions on connecting to localhost. "
+        "Currently, only FireFox and Chrome (preferred) are supported.</p>"
+    )
     return web.Response(body=body, content_type="text/html")
 
 
@@ -632,8 +636,7 @@ def parseEnv(env, work_dir):
                         except Exception as e:
                             raise Exception(
                                 "Failed to read the env name "
-                                "from the specified env file: "
-                                + str(e)
+                                "from the specified env file: " + str(e)
                             )
 
                     else:
@@ -645,9 +648,7 @@ def parseEnv(env, work_dir):
         else:
             print(
                 "WARNING: blocked env command: \n{}\n"
-                "You may want to run it yourself.".format(
-                    env
-                )
+                "You may want to run it yourself.".format(env)
             )
             logger.warning(
                 "env command is blocked because conda is not avaialbe "
@@ -1479,9 +1480,7 @@ def launch_plugin(
         if opt.freeze:
             print(
                 "WARNING: blocked pip command: \n{}\n"
-                "You may want to run it yourself.".format(
-                    requirements_cmd
-                )
+                "You may want to run it yourself.".format(requirements_cmd)
             )
             logger.warning(
                 "pip command is blocked due to `--freeze` mode: %s", requirements_cmd
