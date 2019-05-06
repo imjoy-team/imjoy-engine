@@ -274,7 +274,7 @@ class PluginConnection():
 
     def setInterface(self, api):
         if type(api) is dict:
-            api = api
+            api = {a:api[a] for a in api.keys() if not a.startswith('_')}
         elif inspect.isclass(type(api)):
             api = {a:getattr(api, a) for a in dir(api) if not a.startswith('_')}
         else:
