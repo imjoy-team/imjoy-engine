@@ -1,3 +1,5 @@
+# See https://pre-commit.com/
+# See https://github.com/python/black#version-control-integration
 repos:
   - repo: https://github.com/python/black
     rev: stable
