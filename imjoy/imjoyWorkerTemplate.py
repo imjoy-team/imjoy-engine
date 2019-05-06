@@ -11,6 +11,8 @@ from functools import reduce
 import inspect
 import threading
 import copy
+from types import ModuleType
+
 from imjoySocketIO_client import SocketIO, LoggingNamespace, find_callback
 from imjoyUtils import debounce, setInterval, dotdict, ReferenceStore
 
@@ -397,7 +399,14 @@ class PluginConnection():
         _remote["export"] = self.setInterface
         _remote["utils"] = api_utils
         _remote["WORK_DIR"] = self.work_dir
+        
         self._local["api"] = _remote
+
+        # make a fake module with api
+        m = ModuleType("imjoy")
+        sys.modules[m.__name__] = m
+        m.__file__ = m.__name__ + ".py"
+        m.api = _remote
 
     def sio_plugin_message(self, *args):
         data = args[0]
