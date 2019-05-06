@@ -228,9 +228,22 @@ class PluginConnection:
                         "__value__": interfaceFuncName,
                     }
 
-            # // send objects supported by structure clone algorithm
-            # // https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm
-            # if(v !== Object(v) || v instanceof Boolean || v instanceof String || v instanceof Date || v instanceof RegExp || v instanceof Blob || v instanceof File || v instanceof FileList || v instanceof ArrayBuffer || v instanceof ArrayBufferView || v instanceof ImageData){
+            # send objects supported by structure clone algorithm
+            # https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm
+            # if (
+            #   v !== Object(v) ||
+            #   v instanceof Boolean ||
+            #   v instanceof String ||
+            #   v instanceof Date ||
+            #   v instanceof RegExp ||
+            #   v instanceof Blob ||
+            #   v instanceof File ||
+            #   v instanceof FileList ||
+            #   v instanceof ArrayBuffer ||
+            #   v instanceof ArrayBufferView ||
+            #   v instanceof ImageData
+            # ) {
+            # }
             elif "np" in self._local and isinstance(
                 v, (self._local["np"].ndarray, self._local["np"].generic)
             ):

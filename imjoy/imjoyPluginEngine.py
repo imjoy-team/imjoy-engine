@@ -31,7 +31,8 @@ try:
     import psutil
 except Exception as e:
     print(
-        "WARNING: a library called 'psutil' can not be imported, this may cause problem when killing processes."
+        "WARNING: a library called 'psutil' can not be imported, "
+        "this may cause problem when killing processes."
     )
 
 try:
@@ -60,7 +61,8 @@ try:
     cout, err = process.communicate()
     conda_prefix = json.loads(cout.decode("ascii"))["conda_prefix"]
     logger.info("Found conda environment: %s", conda_prefix)
-    # for fixing CondaHTTPError: https://github.com/conda/conda/issues/6064#issuecomment-458389796
+    # for fixing CondaHTTPError:
+    # https://github.com/conda/conda/issues/6064#issuecomment-458389796
     if os.name == "nt":
         os.environ["PATH"] = (
             os.path.join(conda_prefix, "Library", "bin")
@@ -72,10 +74,12 @@ except OSError as e:
     conda_prefix = None
     if sys.version_info < (3, 0):
         sys.exit(
-            "Sorry, ImJoy plugin engine can only run within a conda environment or at least in Python 3."
+            "Sorry, ImJoy plugin engine can only run within a conda environment "
+            "or at least in Python 3."
         )
     print(
-        "WARNING: you are running ImJoy without conda, you may have problem with some plugins."
+        "WARNING: you are running ImJoy without conda, "
+        "you may have problem with some plugins."
     )
 
 parser = argparse.ArgumentParser()
@@ -124,12 +128,14 @@ if opt.base_url.endswith("/"):
 
 if not CONDA_AVAILABLE and not opt.freeze:
     print(
-        'WARNING: `pip install` command may not work, in that case you may want to add "--freeze".'
+        "WARNING: `pip install` command may not work, "
+        "in that case you may want to add `--freeze`."
     )
 
 if opt.freeze:
     print(
-        "WARNING: you are running the plugin engine with `--freeze`, this means you need to handle all the plugin requirements yourself."
+        "WARNING: you are running the plugin engine with `--freeze`, "
+        "this means you need to handle all the plugin requirements yourself."
     )
 
 FORCE_QUIT_TIMEOUT = opt.force_quit_timeout
@@ -163,9 +169,8 @@ def killProcess(pid):
         cp.kill()
     except Exception as e:
         print(
-            "WARNING: failed to kill a process (PID={}), you may want to kill it manually.".format(
-                pid
-            )
+            "WARNING: failed to kill a process (PID={}), "
+            "you may want to kill it manually.".format(pid)
         )
 
 
@@ -189,7 +194,8 @@ if opt.serve:
     if shutil.which("git") is None:
         print("Installing git...")
         ret = subprocess.Popen(
-            "conda install -y git && git clone -b gh-pages --depth 1 https://github.com/oeway/ImJoy".split(),
+            "conda install -y git && git clone -b gh-pages --depth 1 "
+            "https://github.com/oeway/ImJoy".split(),
             shell=False,
         ).wait()
         if ret != 0:
@@ -214,13 +220,15 @@ if opt.serve:
     if not os.path.exists(WEB_APP_DIR):
         print("Downloading files for serving ImJoy locally...")
         ret = subprocess.Popen(
-            "git clone -b gh-pages --depth 1 https://github.com/oeway/ImJoy __ImJoy__".split(),
+            "git clone -b gh-pages --depth 1 "
+            "https://github.com/oeway/ImJoy __ImJoy__".split(),
             shell=False,
             cwd=WORKSPACE_DIR,
         ).wait()
         if ret != 0:
             print(
-                "Failed to download files, please check whether you have internet access."
+                "Failed to download files, "
+                "please check whether you have internet access."
             )
             sys.exit(4)
 
@@ -253,7 +261,10 @@ else:
 
     async def index(request):
         return web.Response(
-            body='<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>You can run "python -m imjoy --serve" to serve ImJoy web app locally.</p>',
+            body=(
+                '<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>'
+                'You can run "python -m imjoy --serve" '
+                'to serve ImJoy web app locally.</p>'),
             content_type="text/html",
         )
 
@@ -269,9 +280,14 @@ async def about(request):
             + params["token"]
             + "</H3><br>"
         )
-        body += "<p>You have to specify this token when you connect the ImJoy web app to this Plugin Engine. The token will be saved and automatically reused when you launch the App again. </p>"
+        body += (
+            "<p>You have to specify this token when you connect the ImJoy web app "
+            "to this Plugin Engine. The token will be saved and automatically reused "
+            "when you launch the App again. </p>")
         body += "<br>"
-        body += "<p>Alternatively, you can launch a new ImJoy instance with the link below: </p>"
+        body += (
+            "<p>Alternatively, you can launch a new ImJoy instance "
+            "with the link below: </p>")
 
         if opt.serve:
             body += (
@@ -293,7 +309,12 @@ async def about(request):
             body = '<H1><a href="' + opt.base_url + '/#/app">Open ImJoy App</a></H1>'
         else:
             body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
-    body += '<H2>Please use the latest Google Chrome browser to run the ImJoy App.</H2><a href="https://www.google.com/chrome/">Download Chrome</a><p>Note: Safari is not supported due to its restrictions on connecting to localhost. Currently, only FireFox and Chrome (preferred) are supported.</p>'
+    body += (
+        '<H2>Please use the latest Google Chrome browser to run the ImJoy App.'
+        '</H2><a href="https://www.google.com/chrome/">Download Chrome</a><p>'
+        'Note: Safari is not supported '
+        'due to its restrictions on connecting to localhost. '
+        'Currently, only FireFox and Chrome (preferred) are supported.</p>')
     return web.Response(body=body, content_type="text/html")
 
 
@@ -610,23 +631,27 @@ def parseEnv(env, work_dir):
                                 env_name = env_config["name"]
                         except Exception as e:
                             raise Exception(
-                                "Failed to read the env name from the specified env file: "
+                                "Failed to read the env name "
+                                "from the specified env file: "
                                 + str(e)
                             )
 
                     else:
                         raise Exception(
-                            "You should provided a environment file via the `conda env create -f`"
+                            "You should provided a environment file "
+                            "via the `conda env create -f`"
                         )
 
         else:
             print(
-                "WARNING: blocked env command: \n{}\nYou may want to run it yourself.".format(
+                "WARNING: blocked env command: \n{}\n"
+                "You may want to run it yourself.".format(
                     env
                 )
             )
             logger.warning(
-                "env command is blocked because conda is not avaialbe or in `--freeze` mode: %s",
+                "env command is blocked because conda is not avaialbe "
+                "or in `--freeze` mode: %s",
                 env,
             )
 
@@ -678,7 +703,9 @@ async def on_init_plugin(sid, kwargs):
             secret = resumePluginSession(pid, session_id, plugin_signature)
             if secret is not None:
                 logger.debug("plugin already initialized: %s", pid)
-                # await sio.emit('message_from_plugin_'+secret, {"type": "initialized", "dedicatedThread": True})
+                # await sio.emit(
+                #     'message_from_plugin_'+secret,
+                #     {"type": "initialized", "dedicatedThread": True})
                 return {
                     "success": True,
                     "resumed": True,
@@ -902,7 +929,9 @@ async def on_register_client(sid, kwargs):
                 },
             )
         # try:
-        #     webbrowser.open('http://'+opt.host+':'+opt.port+'/about?token='+opt.token, new=0, autoraise=True)
+        #     webbrowser.open(
+        #         'http://'+opt.host+':'+opt.port+'/about?token='+opt.token,
+        #         new=0, autoraise=True)
         # except Exception as e:
         #     print('Failed to open the browser.')
         attempt_count += 1
@@ -914,8 +943,9 @@ async def on_register_client(sid, kwargs):
         attempt_count = 0
         if addClientSession(session_id, client_id, sid, base_url, workspace):
             confirmation = True
-            message = "Another ImJoy session is connected to this Plugin Engine({}), allow a new session to connect?".format(
-                base_url
+            message = (
+                "Another ImJoy session is connected to this Plugin Engine({}), "
+                "allow a new session to connect?".format(base_url)
             )
         else:
             confirmation = False
@@ -1448,7 +1478,8 @@ def launch_plugin(
 
         if opt.freeze:
             print(
-                "WARNING: blocked pip command: \n{}\nYou may want to run it yourself.".format(
+                "WARNING: blocked pip command: \n{}\n"
+                "You may want to run it yourself.".format(
                     requirements_cmd
                 )
             )
@@ -1500,13 +1531,13 @@ def launch_plugin(
                     ret = process.wait()
                     if ret != 0:
                         logging_callback(
-                            "Failed to install git/pip and dependencies with exit code: "
-                            + str(ret),
+                            "Failed to install git/pip and dependencies "
+                            "with exit code: " + str(ret),
                             type="error",
                         )
                         raise Exception(
-                            "Failed to install git/pip and dependencies with exit code: "
-                            + str(ret)
+                            "Failed to install git/pip and dependencies "
+                            "with exit code: " + str(ret)
                         )
                     else:
                         process = subprocess.Popen(
@@ -1531,7 +1562,9 @@ def launch_plugin(
         else:
             logger.debug("skip command: %s", requirements_cmd)
     except Exception as e:
-        # await sio.emit('message_from_plugin_'+pid,  {"type": "executeFailure", "error": "failed to install requirements."})
+        # await sio.emit(
+        #     'message_from_plugin_'+pid,
+        #     {"type": "executeFailure", "error": "failed to install requirements."})
         logger.error(
             "Failed to setup plugin virtual environment or its requirements: %s", str(e)
         )
@@ -1613,7 +1646,8 @@ def launch_plugin(
                 "plugin process exited with code {}".format(exitCode), type="error"
             )
             logger.info(
-                "Error occured during terminating a process.\ncommand: %s\n exit code: %s\n",
+                "Error occured during terminating a process.\n"
+                "command: %s\n exit code: %s\n",
                 str(args),
                 str(exitCode),
             )
@@ -1642,7 +1676,8 @@ async def on_startup(app):
         )
     else:
         print(
-            "Please go to https://imjoy.io/#/app with your web browser (Chrome or FireFox)"
+            "Please go to https://imjoy.io/#/app "
+            "with your web browser (Chrome or FireFox)"
         )
     print("Connection Token: " + opt.token)
     sys.stdout.flush()
@@ -1688,9 +1723,9 @@ def main():
     except OSError as e:
         if e.errno in {48}:
             print(
-                "ERROR: Failed to open port {}, please try to terminate the process which is using that port, or restart your computer.".format(
-                    opt.port
-                )
+                "ERROR: Failed to open port {}, "
+                "please try to terminate the process which is using that port, "
+                "or restart your computer.".format(opt.port)
             )
 
 

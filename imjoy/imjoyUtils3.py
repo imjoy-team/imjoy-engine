@@ -85,7 +85,10 @@ async def task_worker(self, async_q, logger, abort=None):
                         method = self._store.fetch(d["num"])
                         if method is None:
                             raise Exception(
-                                "Callback function can only called once, if you want to call a function for multiple times, please make it as a plugin api function. See https://imjoy.io/docs for more details."
+                                "Callback function can only called once, "
+                                "if you want to call a function for multiple times, "
+                                "please make it as a plugin api function. "
+                                "See https://imjoy.io/docs for more details."
                             )
                         args = self._unwrap(d["args"], True)
                         result = method(*args)
@@ -102,7 +105,10 @@ async def task_worker(self, async_q, logger, abort=None):
                         method = self._store.fetch(d["num"])
                         if method is None:
                             raise Exception(
-                                "Callback function can only called once, if you want to call a function for multiple times, please make it as a plugin api function. See https://imjoy.io/docs for more details."
+                                "Callback function can only called once, "
+                                "if you want to call a function for multiple times, "
+                                "please make it as a plugin api function. "
+                                "See https://imjoy.io/docs for more details."
                             )
                         args = self._unwrap(d["args"], True)
                         result = method(*args)

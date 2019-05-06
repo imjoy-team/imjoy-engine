@@ -11,7 +11,8 @@ def main():
     )
     CONDA_AVAILABLE = False
     try:
-        # for fixing CondaHTTPError: https://github.com/conda/conda/issues/6064#issuecomment-458389796
+        # for fixing CondaHTTPError:
+        # https://github.com/conda/conda/issues/6064#issuecomment-458389796
         process = subprocess.Popen(
             ["conda", "info", "--json", "-s"], stdout=subprocess.PIPE
         )
@@ -28,7 +29,8 @@ def main():
     except OSError as e:
         if sys.version_info > (3, 0):
             print(
-                "WARNING: you are running ImJoy without conda, you may have problem with some plugins."
+                "WARNING: you are running ImJoy without conda, "
+                "you may have problem with some plugins."
             )
         conda_prefix = None
 
@@ -36,7 +38,8 @@ def main():
         # running in python 3
         print("Upgrading ImJoy Plugin Engine...")
         ret = subprocess.Popen(
-            "pip install -U git+https://github.com/oeway/ImJoy-Engine#egg=imjoy".split(),
+            "pip install -U "
+            "git+https://github.com/oeway/ImJoy-Engine#egg=imjoy".split(),
             env=os.environ.copy(),
             shell=False,
         ).wait()
@@ -64,11 +67,13 @@ def main():
         ).wait()
         if ret == 0:
             print(
-                "conda environment is now ready, installing pip requirements and start the engine..."
+                "conda environment is now ready, "
+                "installing pip requirements and start the engine..."
             )
         else:
             print(
-                "conda environment failed to setup, maybe it already exists. Otherwise, please make sure you are running in a conda environment..."
+                "conda environment failed to setup, maybe it already exists. "
+                "Otherwise, please make sure you are running in a conda environment..."
             )
         requirements = imjoy_requirements
         pip_cmd = "pip install -U " + " ".join(requirements)
