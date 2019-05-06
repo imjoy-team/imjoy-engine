@@ -97,3 +97,14 @@ You can track the progress of the project here: https://github.com/oeway/ImJoy/p
 
 Please submit your issue to [ImJoy/issues ](https://github.com/oeway/ImJoy/issues)
 
+## Development
+
+- Development requires Python 3.6, since we use [`black`](https://github.com/ambv/black) for code formatting.
+
+```
+  git clone git@github.com:oeway/ImJoy-Engine.git
+  # Enter directory.
+  cd ImJoy-Engine
+  # Install all development requirements and package in development mode.
+  pip3 install -r requirements_dev.txt
+```
