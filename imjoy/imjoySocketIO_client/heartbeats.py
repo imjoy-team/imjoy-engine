@@ -9,9 +9,8 @@ class HeartbeatThread(Thread):
     daemon = True
 
     def __init__(
-            self, send_heartbeat,
-            relax_interval_in_seconds,
-            hurry_interval_in_seconds):
+        self, send_heartbeat, relax_interval_in_seconds, hurry_interval_in_seconds
+    ):
         super(HeartbeatThread, self).__init__()
         self._send_heartbeat = send_heartbeat
         self._relax_interval_in_seconds = relax_interval_in_seconds
@@ -33,7 +32,7 @@ class HeartbeatThread(Thread):
                     interval_in_seconds = self._relax_interval_in_seconds
                 self._rest.wait(interval_in_seconds)
         except ConnectionError:
-            logging.debug('[heartbeat connection error]')
+            logging.debug("[heartbeat connection error]")
 
     def relax(self):
         self._adrenaline.clear()
