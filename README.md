@@ -1,4 +1,4 @@
-# ImJoy Plugin Engine
+# ImJoy Plugin Engine [![Build Status](https://travis-ci.com/oeway/ImJoy-Engine.svg?branch=master)](https://travis-ci.com/oeway/ImJoy-Engine)
 The plugin engine used for running python plugins in ImJoy (https://imjoy.io).
 
 ## Installation (Desktop App)
