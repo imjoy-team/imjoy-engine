@@ -26,6 +26,17 @@ from urllib.parse import urlparse
 from mimetypes import MimeTypes
 import aiohttp_cors
 
+if sys.platform == "win32":
+	import string
+	from ctypes import windll
+	def get_drives():
+		drives = []
+		bitmask = windll.kernel32.GetLogicalDrives()
+		for letter in string.ascii_uppercase:
+			if bitmask & 1:
+				drives.append(os.path.abspath(letter + ':/'))
+			bitmask >>= 1
+		return drives
 
 try:
     import psutil
@@ -1002,7 +1013,9 @@ async def on_list_dir(sid, kwargs):
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
     workspace_dir = os.path.join(WORKSPACE_DIR, registered_sessions[sid]["workspace"])
+	
     path = kwargs.get("path", workspace_dir)
+
     if not os.path.isabs(path):
         path = os.path.join(workspace_dir, path)
     path = os.path.normpath(os.path.expanduser(path))
@@ -1013,8 +1026,11 @@ async def on_list_dir(sid, kwargs):
     files_list["path"] = path
     files_list["name"] = os.path.basename(os.path.abspath(path))
     files_list["type"] = "dir"
-
     files_list["children"] = scandir(files_list["path"], type, recursive)
+	
+    if os.path.abspath(path) == os.path.abspath('/') and sys.platform == "win32":
+        files_list["drives"] = get_drives()
+
     return files_list
 
 
