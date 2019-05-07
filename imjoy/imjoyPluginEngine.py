@@ -1030,7 +1030,7 @@ async def on_list_dir(sid, kwargs):
     files_list["type"] = "dir"
     files_list["children"] = scandir(files_list["path"], type, recursive)
 
-    if os.path.abspath(path) == os.path.abspath("/") and sys.platform == "win32":
+    if sys.platform == "win32" and os.path.abspath(path) == os.path.abspath("/"):
         files_list["drives"] = get_drives()
 
     return files_list
