@@ -108,3 +108,5 @@ Please submit your issue to [ImJoy/issues ](https://github.com/oeway/ImJoy/issue
   # Install all development requirements and package in development mode.
   pip3 install -r requirements_dev.txt
 ```
+
+- Run `tox` to run all tests and lint, including checking that `black` doesn't change any files.

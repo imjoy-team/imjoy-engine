@@ -1014,6 +1014,7 @@ async def on_list_dir(sid, kwargs):
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
+
     try:
         workspace_dir = os.path.join(
             WORKSPACE_DIR, registered_sessions[sid]["workspace"]
