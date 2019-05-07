@@ -331,7 +331,7 @@ class PluginConnection:
             if isinstance(aObject, tuple):
                 aObject = list(aObject)
             isarray = isinstance(aObject, list)
-            bObject =  [] if isarray else dotdict()
+            bObject = [] if isarray else dotdict()
             keys = range(len(aObject)) if isarray else aObject.keys()
             for k in keys:
                 if isarray or k in aObject:
@@ -358,13 +358,9 @@ class PluginConnection:
 
     def setInterface(self, api):
         if isinstance(api, dict):
-            api = {
-                a: api[a] for a in api.keys()
-                if not a.startswith('_')}
+            api = {a: api[a] for a in api.keys() if not a.startswith("_")}
         elif inspect.isclass(type(api)):
-            api = {
-                a: getattr(api, a) for a in dir(api)
-                if not a.startswith('_')}
+            api = {a: getattr(api, a) for a in dir(api) if not a.startswith("_")}
         else:
             raise Exception("unsupported api export")
         if "exit" in api:
