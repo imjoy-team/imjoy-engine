@@ -2,7 +2,7 @@ from .logs import LoggingMixin
 
 
 class EngineIONamespace(LoggingMixin):
-    'Define engine.io client behavior'
+    "Define engine.io client behavior"
 
     def __init__(self, io):
         self._io = io
@@ -15,11 +15,11 @@ class EngineIONamespace(LoggingMixin):
         You can override this method."""
 
     def on(self, event, callback):
-        'Define a callback to handle an event emitted by the server'
+        "Define a callback to handle an event emitted by the server"
         self._callback_by_event[event] = callback
 
     def send(self, data):
-        'Send a message'
+        "Send a message"
         self._io.send(data)
 
     def on_open(self):
@@ -57,11 +57,11 @@ class EngineIONamespace(LoggingMixin):
         except KeyError:
             pass
         # Check callbacks defined explicitly
-        return getattr(self, 'on_' + event)
+        return getattr(self, "on_" + event)
 
 
 class SocketIONamespace(EngineIONamespace):
-    'Define socket.io client behavior'
+    "Define socket.io client behavior"
 
     def __init__(self, io, path):
         self.path = path
@@ -76,7 +76,7 @@ class SocketIONamespace(EngineIONamespace):
     def emit(self, event, *args, **kw):
         self._io.emit(event, path=self.path, *args, **kw)
 
-    def send(self, data='', callback=None):
+    def send(self, data="", callback=None):
         self._io.send(data, callback)
 
     def on_connect(self):
@@ -122,11 +122,11 @@ class SocketIONamespace(EngineIONamespace):
 
     def _find_packet_callback(self, event):
         # Interpret events
-        if event == 'connect':
-            if not hasattr(self, '_was_connected'):
+        if event == "connect":
+            if not hasattr(self, "_was_connected"):
                 self._was_connected = True
             else:
-                event = 'reconnect'
+                event = "reconnect"
         # Check callbacks defined by on()
         try:
             return self._callback_by_event[event]
@@ -134,91 +134,90 @@ class SocketIONamespace(EngineIONamespace):
             pass
         # Check callbacks defined explicitly or use on_event()
         return getattr(
-            self, 'on_' + event.replace(' ', '_'),
-            lambda *args: self.on_event(event, *args))
+            self,
+            "on_" + event.replace(" ", "_"),
+            lambda *args: self.on_event(event, *args),
+        )
 
 
 class LoggingEngineIONamespace(EngineIONamespace):
-
     def on_open(self):
-        self._debug('[engine.io open]')
+        self._debug("[engine.io open]")
         super(LoggingEngineIONamespace, self).on_open()
 
     def on_close(self):
-        self._debug('[engine.io close]')
+        self._debug("[engine.io close]")
         super(LoggingEngineIONamespace, self).on_close()
 
     def on_ping(self, data):
-        self._debug('[engine.io ping] %s', data)
+        self._debug("[engine.io ping] %s", data)
         super(LoggingEngineIONamespace, self).on_ping(data)
 
     def on_pong(self, data):
-        self._debug('[engine.io pong] %s', data)
+        self._debug("[engine.io pong] %s", data)
         super(LoggingEngineIONamespace, self).on_pong(data)
 
     def on_message(self, data):
-        self._debug('[engine.io message] %s', data)
+        self._debug("[engine.io message] %s", data)
         super(LoggingEngineIONamespace, self).on_message(data)
 
     def on_upgrade(self):
-        self._debug('[engine.io upgrade]')
+        self._debug("[engine.io upgrade]")
         super(LoggingEngineIONamespace, self).on_upgrade()
 
     def on_noop(self):
-        self._debug('[engine.io noop]')
+        self._debug("[engine.io noop]")
         super(LoggingEngineIONamespace, self).on_noop()
 
     def on_event(self, event, *args):
         callback, args = find_callback(args)
         arguments = [repr(_) for _ in args]
         if callback:
-            arguments.append('callback(*args)')
-        self._info('[engine.io event] %s(%s)', event, ', '.join(arguments))
+            arguments.append("callback(*args)")
+        self._info("[engine.io event] %s(%s)", event, ", ".join(arguments))
         super(LoggingEngineIONamespace, self).on_event(event, *args)
 
 
 class LoggingSocketIONamespace(SocketIONamespace, LoggingEngineIONamespace):
-
     def on_connect(self):
-        self._debug(
-            '%s[socket.io connect]', _make_logging_header(self.path))
+        self._debug("%s[socket.io connect]", _make_logging_header(self.path))
         super(LoggingSocketIONamespace, self).on_connect()
 
     def on_reconnect(self):
-        self._debug(
-            '%s[socket.io reconnect]', _make_logging_header(self.path))
+        self._debug("%s[socket.io reconnect]", _make_logging_header(self.path))
         super(LoggingSocketIONamespace, self).on_reconnect()
 
     def on_disconnect(self):
-        self._debug(
-            '%s[socket.io disconnect]', _make_logging_header(self.path))
+        self._debug("%s[socket.io disconnect]", _make_logging_header(self.path))
         super(LoggingSocketIONamespace, self).on_disconnect()
 
     def on_event(self, event, *args):
         callback, args = find_callback(args)
         arguments = [repr(_) for _ in args]
         if callback:
-            arguments.append('callback(*args)')
+            arguments.append("callback(*args)")
         self._info(
-            '%s[socket.io event] %s(%s)', _make_logging_header(self.path),
-            event, ', '.join(arguments))
+            "%s[socket.io event] %s(%s)",
+            _make_logging_header(self.path),
+            event,
+            ", ".join(arguments),
+        )
         super(LoggingSocketIONamespace, self).on_event(event, *args)
 
     def on_error(self, data):
-        self._debug(
-            '%s[socket.io error] %s', _make_logging_header(self.path), data)
+        self._debug("%s[socket.io error] %s", _make_logging_header(self.path), data)
         super(LoggingSocketIONamespace, self).on_error(data)
 
 
 def find_callback(args, kw=None):
-    'Return callback whether passed as a last argument or as a keyword'
+    "Return callback whether passed as a last argument or as a keyword"
     if args and callable(args[-1]):
         return args[-1], args[:-1]
     try:
-        return kw['callback'], args
+        return kw["callback"], args
     except (KeyError, TypeError):
         return None, args
 
 
 def _make_logging_header(path):
-    return path + ' ' if path else ''
+    return path + " " if path else ""

@@ -4,9 +4,12 @@ try:
     from logging import NullHandler
 except ImportError:  # Python 2.6
     from logging import Handler
+
     class NullHandler(Handler):
         def emit(self, record):
             pass
+
+
 try:
     from urllib import urlencode as format_query
 except ImportError:
@@ -37,8 +40,8 @@ def get_byte(x, index):
 
 
 def encode_string(x):
-    return x.encode('utf-8')
+    return x.encode("utf-8")
 
 
 def decode_string(x):
-    return x.decode('utf-8')
+    return x.decode("utf-8")
