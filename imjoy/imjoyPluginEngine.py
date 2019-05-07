@@ -1015,7 +1015,9 @@ async def on_list_dir(sid, kwargs):
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
     try:
-        workspace_dir = os.path.join(WORKSPACE_DIR, registered_sessions[sid]["workspace"])
+        workspace_dir = os.path.join(
+            WORKSPACE_DIR, registered_sessions[sid]["workspace"]
+        )
 
         path = kwargs.get("path", workspace_dir)
 
@@ -1038,7 +1040,6 @@ async def on_list_dir(sid, kwargs):
     except Exception as e:
         logger.error("list dir error: %s", str(e))
         return {"success": False, "error": str(e)}
-
 
 
 @sio.on("remove_files", namespace=NAME_SPACE)
