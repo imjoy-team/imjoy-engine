@@ -1014,26 +1014,33 @@ async def on_list_dir(sid, kwargs):
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
-    workspace_dir = os.path.join(WORKSPACE_DIR, registered_sessions[sid]["workspace"])
 
-    path = kwargs.get("path", workspace_dir)
+    try:
+        workspace_dir = os.path.join(
+            WORKSPACE_DIR, registered_sessions[sid]["workspace"]
+        )
 
-    if not os.path.isabs(path):
-        path = os.path.join(workspace_dir, path)
-    path = os.path.normpath(os.path.expanduser(path))
+        path = kwargs.get("path", workspace_dir)
 
-    type = kwargs.get("type", None)
-    recursive = kwargs.get("recursive", False)
-    files_list = {"success": True}
-    files_list["path"] = path
-    files_list["name"] = os.path.basename(os.path.abspath(path))
-    files_list["type"] = "dir"
-    files_list["children"] = scandir(files_list["path"], type, recursive)
+        if not os.path.isabs(path):
+            path = os.path.join(workspace_dir, path)
+        path = os.path.normpath(os.path.expanduser(path))
 
-    if sys.platform == "win32" and os.path.abspath(path) == os.path.abspath("/"):
-        files_list["drives"] = get_drives()
+        type = kwargs.get("type", None)
+        recursive = kwargs.get("recursive", False)
+        files_list = {"success": True}
+        files_list["path"] = path
+        files_list["name"] = os.path.basename(os.path.abspath(path))
+        files_list["type"] = "dir"
+        files_list["children"] = scandir(files_list["path"], type, recursive)
 
-    return files_list
+        if sys.platform == "win32" and os.path.abspath(path) == os.path.abspath("/"):
+            files_list["drives"] = get_drives()
+
+        return files_list
+    except Exception as e:
+        logger.error("list dir error: %s", str(e))
+        return {"success": False, "error": str(e)}
 
 
 @sio.on("remove_files", namespace=NAME_SPACE)
@@ -1055,6 +1062,7 @@ async def on_remove_files(sid, kwargs):
             os.remove(path)
             return {"success": True}
         except Exception as e:
+            logger.error("remove files error: %s", str(e))
             return {"success": False, "error": str(e)}
     elif os.path.exists(path) and os.path.isdir(path) and type == "dir":
         try:
@@ -1066,8 +1074,10 @@ async def on_remove_files(sid, kwargs):
                 os.rmdir(path)
             return {"success": True}
         except Exception as e:
+            logger.error("remove files error: %s", str(e))
             return {"success": False, "error": str(e)}
     else:
+        logger.error("remove files error: %s", "File not exists or type mismatch.")
         return {"success": False, "error": "File not exists or type mismatch."}
 
 
