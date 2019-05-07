@@ -328,15 +328,15 @@ class PluginConnection:
                 bObject = aObject["__value__"]
             return bObject
         else:
-            if type(aObject) is tuple:
+            if isinstance(aObject, tuple):
                 aObject = list(aObject)
-            isarray = type(aObject) is list
-            bObject = [] if isarray else dotdict()
+            isarray = isinstance(aObject, list)
+            bObject =  [] if isarray else dotdict()
             keys = range(len(aObject)) if isarray else aObject.keys()
             for k in keys:
                 if isarray or k in aObject:
                     v = aObject[k]
-                    if isinstance(v, dict) or type(v) is list:
+                    if isinstance(v, dict) or isinstance(v, list):
                         if isarray:
                             bObject.append(self._decode(v, callbackId, withPromise))
                         else:
@@ -357,10 +357,14 @@ class PluginConnection:
         return result
 
     def setInterface(self, api):
-        if inspect.isclass(type(api)):
-            api = {a: getattr(api, a) for a in dir(api) if not a.startswith("_")}
-        elif type(api) is dict:
-            api = api
+        if isinstance(api, dict):
+            api = {
+                a: api[a] for a in api.keys()
+                if not a.startswith('_')}
+        elif inspect.isclass(type(api)):
+            api = {
+                a: getattr(api, a) for a in dir(api)
+                if not a.startswith('_')}
         else:
             raise Exception("unsupported api export")
         if "exit" in api:
@@ -385,7 +389,7 @@ class PluginConnection:
                 names.append({"name": name, "data": None})
             else:
                 data = self._interface[name]
-                if data is not None and type(data) is dict:
+                if data is not None and isinstance(data, dict):
                     data2 = {}
                     for k in data:
                         if callable(data[k]):
@@ -472,11 +476,11 @@ class PluginConnection:
     def _setRemote(self, api):
         _remote = dotdict()
         for i in range(len(api)):
-            if type(api[i]) is dict and "name" in api[i]:
+            if isinstance(api[i], dict) and "name" in api[i]:
                 name = api[i]["name"]
                 data = api[i].get("data", None)
                 if data is not None:
-                    if type(data) is dict:
+                    if isinstance(data, dict):
                         data2 = dotdict()
                         for key in data:
                             if key in data:
