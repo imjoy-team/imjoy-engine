@@ -56,7 +56,7 @@ except ImportError:
 CONDA_AVAILABLE = False
 MAX_ATTEMPTS = 1000
 NAME_SPACE = "/"
-API_VERSION = "0.1.1"
+API_VERSION = "0.1.2"
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("ImJoyPluginEngine")
@@ -350,6 +350,8 @@ generatedUrls = {}
 generatedUrlFiles = {}
 requestUploadFiles = {}
 requestUrls = {}
+publications = {}
+publishedPlugins = {}
 
 default_requirements_py2 = ["requests", "six", "websocket-client", "numpy", "psutil"]
 default_requirements_py3 = [
@@ -423,7 +425,7 @@ def disconnectClientSession(sid):
             for plugin in plugin_sessions[session_id]:
                 if "allow-detach" not in plugin["flags"]:
                     killPlugin(plugin["id"])
-            del plugin_sessions[session_id]
+                    del plugin_sessions[session_id]
 
 
 def addPlugin(plugin_info, sid=None):
@@ -431,6 +433,11 @@ def addPlugin(plugin_info, sid=None):
     session_id = plugin_info["session_id"]
     plugin_signatures[plugin_info["signature"]] = plugin_info["secret"]
     plugins[pid] = plugin_info
+    if "publish_id" in plugin_info and plugin_info["publish_id"] is not None:
+        publishedPlugins[
+            plugin_info["publish_id"] + "/" + plugin_info["name"]
+        ] = plugin_info
+        print('============================== update published plugins:', plugin_info["publish_id"] + "/" + plugin_info["name"], plugin_info)
     if session_id in plugin_sessions:
         plugin_sessions[session_id].append(plugin_info)
     else:
@@ -447,6 +454,10 @@ def disconnectPlugin(sid):
         if pid in plugins:
             if plugins[pid]["signature"] in plugin_signatures:
                 del plugin_signatures[plugins[pid]["signature"]]
+            if "publish_id" in plugins[pid] and plugins[pid]["publish_id"] is not None:
+                del publishedPlugins[
+                    plugins[pid]["publish_id"] + "/" + plugins[pid]["name"]
+                ]
             del plugins[pid]
         del plugin_sids[sid]
         for session_id in plugin_sessions.keys():
@@ -477,6 +488,10 @@ def killPlugin(pid):
         if "sid" in plugins[pid]:
             if plugins[pid]["sid"] in plugin_sids:
                 del plugin_sids[plugins[pid]["sid"]]
+        if "publish_id" in plugins[pid] and plugins[pid]["publish_id"]  is not None:
+            del publishedPlugins[
+                plugins[pid]["publish_id"] + "/" + plugins[pid]["name"]
+            ]
         del plugins[pid]
 
 
@@ -683,50 +698,85 @@ def connect(sid, environ):
 @sio.on("init_plugin", namespace=NAME_SPACE)
 async def on_init_plugin(sid, kwargs):
     try:
-        if sid in registered_sessions:
+        logger.info("init plugin %s", kwargs)
+        pid = kwargs["id"]
+        role = kwargs.get("role", "admin")
+        publish_id = kwargs.get("publish_id", None)
+        pname = kwargs.get("name", None)
+        if sid in registered_sessions and role == "admin":
             obj = registered_sessions[sid]
             client_id, session_id = obj["client"], obj["session"]
-        else:
-            logger.debug("client %s is not registered.", sid)
-            return {"success": False}
-        pid = kwargs["id"]
-        config = kwargs.get("config", {})
-        env = config.get("env", None)
-        cmd = config.get("cmd", "python")
-        pname = config.get("name", None)
-        flags = config.get("flags", [])
-        tag = config.get("tag", "")
-        requirements = config.get("requirements", []) or []
-        workspace = config.get("workspace", "default")
-        work_dir = os.path.join(WORKSPACE_DIR, workspace)
-        if not os.path.exists(work_dir):
-            os.makedirs(work_dir)
-        plugin_env = os.environ.copy()
-        plugin_env["WORK_DIR"] = work_dir
-        logger.info(
-            "initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s",
-            pname,
-            id,
-            cmd,
-            workspace,
-        )
+            config = kwargs.get("config", {})
+            env = config.get("env", None)
+            cmd = config.get("cmd", "python")
+            flags = config.get("flags", [])
+            tag = config.get("tag", "")
+            requirements = config.get("requirements", []) or []
+            workspace = config.get("workspace", "default")
+            work_dir = os.path.join(WORKSPACE_DIR, workspace)
+            if not os.path.exists(work_dir):
+                os.makedirs(work_dir)
+            plugin_env = os.environ.copy()
+            plugin_env["WORK_DIR"] = work_dir
+            logger.info(
+                "initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s",
+                pname,
+                pid,
+                cmd,
+                workspace,
+            )
 
-        plugin_signature = "{}/{}/{}".format(workspace, pname, tag)
+            plugin_signature = "{}/{}/{}".format(workspace, pname, tag)
 
-        if "single-instance" in flags:
-            secret = resumePluginSession(pid, session_id, plugin_signature)
-            if secret is not None:
-                logger.debug("plugin already initialized: %s", pid)
-                # await sio.emit(
-                #     'message_from_plugin_'+secret,
-                #     {"type": "initialized", "dedicatedThread": True})
+            if "single-instance" in flags:
+                secret = resumePluginSession(pid, session_id, plugin_signature)
+                if secret is not None:
+                    logger.debug("plugin already initialized: %s", pid)
+                    # await sio.emit(
+                    #     'message_from_plugin_'+secret,
+                    #     {"type": "initialized", "dedicatedThread": True})
+                    return {
+                        "success": True,
+                        "resumed": True,
+                        "initialized": True,
+                        "secret": secret,
+                        "work_dir": os.path.abspath(work_dir),
+                    }
+        elif role == "user" and publish_id is not None:
+            ptoken = kwargs.get("plugin_token", None)
+            if publish_id in publications:
+                if not publications[publish_id]["require_token"] or (
+                    publications[publish_id]["token"]
+                    and ptoken == publications[publish_id]["token"]
+                ):
+                    plugin_list = publications[publish_id]["plugin_list"]
+                    config = kwargs.get("config", {})
+                    ppid = publish_id + "/" + pname
+                    if ppid in publishedPlugins:
+                        plugin_info = publishedPlugins[ppid]
+                        return {
+                            "success": True,
+                            "resumed": True,
+                            "initialized": True,
+                            "secret": plugin_info["secret"],
+                            "work_dir": plugin_info["work_dir"],
+                        }
+                    else:
+                        print('====================', publishedPlugins, ppid, pname)
+                        return {"success": False, "reason": "plugin is not running."}
+                else:
+                    return {"success": False, "reason": "plugin token mismatch."}
+            else:
                 return {
-                    "success": True,
-                    "resumed": True,
-                    "initialized": True,
-                    "secret": secret,
-                    "work_dir": os.path.abspath(work_dir),
+                    "success": False,
+                    "reason": "plugin is not found in the published plugins.",
                 }
+        else:
+            logger.debug("client %s is not registered or invalid engine role.", sid)
+            return {
+                "success": False,
+                "reason": "client is not registered or invalid engine role",
+            }
 
         secretKey = str(uuid.uuid4())
         abort = threading.Event()
@@ -740,6 +790,9 @@ async def on_init_plugin(sid, kwargs):
             "type": config["type"],
             "client_id": client_id,
             "signature": plugin_signature,
+            "workspace": workspace,
+            "work_dir": os.path.abspath(work_dir),
+            "publish_id": publish_id,
         }
         addPlugin(plugin_info)
 
@@ -952,7 +1005,7 @@ async def on_register_client(sid, kwargs):
         if attempt_count >= MAX_ATTEMPTS:
             logger.info("Client exited because max attemps exceeded: %s", attempt_count)
             sys.exit(100)
-        return {"success": False}
+        return {"success": False, "reason": "token mismatch!"}
     else:
         attempt_count = 0
         if addClientSession(session_id, client_id, sid, base_url, workspace):
@@ -1007,6 +1060,113 @@ def scandir(path, type=None, recursive=False):
             if os.path.isdir(f.path):
                 file_list.append({"name": f.name})
     return file_list
+
+
+@sio.on("publish_plugin", namespace=NAME_SPACE)
+async def on_publish_plugin(sid, kwargs):
+    logger.info("publish plugin: %s", kwargs)
+    if sid not in registered_sessions:
+        logger.debug("client %s is not registered.", sid)
+        return {"success": False, "error": "client has not been registered."}
+
+    pid = kwargs.get("id", None)
+    name = kwargs.get("name", None)
+    plugin_list = kwargs.get("plugin_list", None)
+    publish_id = kwargs.get("publish_id", None)
+    require_token = kwargs.get("require_token", None)
+
+    if publish_id is None:
+        publish_id = str(uuid.uuid4())
+
+    if publish_id in publications:
+        if require_token and not publications[publish_id]["require_token"]:
+            return {
+                "success": False,
+                "reason": "this plugin has been published without token",
+            }
+        publish_token = publications[publish_id]["token"]
+    else:
+        publish_token = str(uuid.uuid4())
+
+    for p in plugin_list:
+        p['publish_id'] = publish_id
+
+    publications[publish_id] = {
+        "name": name,
+        "publish_id": publish_id,
+        "id": pid,
+        "plugin_list": plugin_list,
+        "token": publish_token,
+        "require_token": require_token,
+    }
+
+    if pid in plugins and publish_id is not None:
+        plugins[pid]["publish_id"] = publish_id
+        publishedPlugins[publish_id + "/" + plugins[pid]["name"]] = plugins[pid]
+
+    return {
+        "success": True,
+        "token": publish_token,
+        "publish_id": publish_id,
+        "exits": False,
+    }
+
+
+@sio.on("unpublish_plugin", namespace=NAME_SPACE)
+async def on_unpublish_plugin(sid, kwargs):
+    logger.info("unpublish plugins: %s", kwargs)
+    if sid not in registered_sessions:
+        logger.debug("client %s is not registered.", sid)
+        return {"success": False, "error": "client has not been registered."}
+
+    publish_id = kwargs.get("publish_id", None)
+    if publish_id in publications:
+        del publications[publish_id]
+        return {"success": True}
+    else:
+        return {"success": False, "reason": "plugin not found"}
+
+
+@sio.on("get_published_plugins", namespace=NAME_SPACE)
+async def on_get_published_plugins(sid, kwargs):
+    logger.info("get published plugin: %s", kwargs)
+
+    plugin_list = []
+    for k in publications.keys():
+        pc = publications[k]
+        plugin_list.append(
+            {
+                "name": pc["name"],
+                "id": pc["id"],
+                "publish_id": pc["publish_id"],
+                "require_token": pc["require_token"],
+            }
+        )
+
+    return {"success": True, "plugins": plugin_list}
+
+
+@sio.on("get_publication_info", namespace=NAME_SPACE)
+async def on_get_publication_info(sid, kwargs):
+    logger.info("get publication info: %s", kwargs)
+    publish_id = kwargs.get("publish_id", None)
+    ptoken = kwargs.get("token", None)
+
+    if publish_id is not None and publish_id in publications:
+        pc = publications[publish_id]
+        print('========================', pc)
+        if not pc["require_token"] or (pc["token"] and ptoken == pc["token"]):
+            return {
+                "success": True,
+                "name": pc["name"],
+                "id": pc["id"],
+                "publish_id": pc["publish_id"],
+                "plugin_list": pc["plugin_list"],
+            }
+        else:
+            return {"success": False, "reason": "toke mismatch"}
+    else:
+        return {"success": False, "reason": "plugin not found"}
 
 
 @sio.on("list_dir", namespace=NAME_SPACE)
