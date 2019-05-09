@@ -437,7 +437,6 @@ def addPlugin(plugin_info, sid=None):
         publishedPlugins[
             plugin_info["publish_id"] + "/" + plugin_info["name"]
         ] = plugin_info
-        print('============================== update published plugins:', plugin_info["publish_id"] + "/" + plugin_info["name"], plugin_info)
     if session_id in plugin_sessions:
         plugin_sessions[session_id].append(plugin_info)
     else:
@@ -488,7 +487,7 @@ def killPlugin(pid):
         if "sid" in plugins[pid]:
             if plugins[pid]["sid"] in plugin_sids:
                 del plugin_sids[plugins[pid]["sid"]]
-        if "publish_id" in plugins[pid] and plugins[pid]["publish_id"]  is not None:
+        if "publish_id" in plugins[pid] and plugins[pid]["publish_id"] is not None:
             del publishedPlugins[
                 plugins[pid]["publish_id"] + "/" + plugins[pid]["name"]
             ]
@@ -762,7 +761,6 @@ async def on_init_plugin(sid, kwargs):
                             "work_dir": plugin_info["work_dir"],
                         }
                     else:
-                        print('====================', publishedPlugins, ppid, pname)
                         return {"success": False, "reason": "plugin is not running."}
                 else:
                     return {"success": False, "reason": "plugin token mismatch."}
@@ -1089,7 +1087,7 @@ async def on_publish_plugin(sid, kwargs):
         publish_token = str(uuid.uuid4())
 
     for p in plugin_list:
-        p['publish_id'] = publish_id
+        p["publish_id"] = publish_id
 
     publications[publish_id] = {
         "name": name,
@@ -1154,7 +1152,6 @@ async def on_get_publication_info(sid, kwargs):
 
     if publish_id is not None and publish_id in publications:
         pc = publications[publish_id]
-        print('========================', pc)
         if not pc["require_token"] or (pc["token"] and ptoken == pc["token"]):
             return {
                 "success": True,
