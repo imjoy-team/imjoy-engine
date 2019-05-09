@@ -454,9 +454,9 @@ def disconnectPlugin(sid):
             if plugins[pid]["signature"] in plugin_signatures:
                 del plugin_signatures[plugins[pid]["signature"]]
             if "publish_id" in plugins[pid] and plugins[pid]["publish_id"] is not None:
-                del publishedPlugins[
-                    plugins[pid]["publish_id"] + "/" + plugins[pid]["name"]
-                ]
+                k = plugins[pid]["publish_id"] + "/" + plugins[pid]["name"]
+                if k in publishedPlugins:
+                    del publishedPlugins[k]
             del plugins[pid]
         del plugin_sids[sid]
         for session_id in plugin_sessions.keys():
