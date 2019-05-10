@@ -17,6 +17,7 @@ import shutil
 import yaml
 import json
 import platform
+import traceback
 
 # import webbrowser
 from aiohttp import web, hdrs
@@ -177,13 +178,25 @@ def killProcess(pid):
     try:
         cp = psutil.Process(pid)
         for proc in cp.children(recursive=True):
-            if proc.is_running():
-                proc.kill()
+            try:
+                if proc.is_running():
+                    proc.kill()
+            except psutil.NoSuchProcess:
+                logger.info("subprocess %s has already been killed", pid)
+            except Exception as e:
+                logger.error(
+                    "WARNING: failed to kill a subprocess (PID={}). Error: {}".format(
+                        pid, str(e)
+                    )
+                )
         cp.kill()
+        logger.info("plugin process %s was killed.", pid)
+    except psutil.NoSuchProcess:
+        logger.info("process %s has already been killed", pid)
     except Exception as e:
-        print(
+        logger.error(
             "WARNING: failed to kill a process (PID={}), "
-            "you may want to kill it manually.".format(pid)
+            "you may want to kill it manually. Error: {}".format(pid, str(e))
         )
 
 
@@ -386,9 +399,11 @@ def resumePluginSession(pid, session_id, plugin_signature):
             plugin_sessions[session_id].append(plugins[pid])
         else:
             plugin_sessions[session_id] = [plugins[pid]]
+
     if plugin_signature in plugin_signatures:
-        secret = plugin_signatures[plugin_signature]
-        return secret
+        plugin_info = plugin_signatures[plugin_signature]
+        logger.info("resuming plugin %s", pid)
+        return plugin_info
     else:
         return None
 
@@ -412,6 +427,7 @@ def addClientSession(session_id, client_id, sid, base_url, workspace):
 
 def disconnectClientSession(sid):
     if sid in registered_sessions:
+        logger.info("disconnecting client session %s", sid)
         obj = registered_sessions[sid]
         client_id, session_id = obj["client"], obj["session"]
         del registered_sessions[sid]
@@ -429,7 +445,7 @@ def disconnectClientSession(sid):
 def addPlugin(plugin_info, sid=None):
     pid = plugin_info["id"]
     session_id = plugin_info["session_id"]
-    plugin_signatures[plugin_info["signature"]] = plugin_info["secret"]
+    plugin_signatures[plugin_info["signature"]] = plugin_info
     plugins[pid] = plugin_info
     if session_id in plugin_sessions:
         plugin_sessions[session_id].append(plugin_info)
@@ -443,9 +459,12 @@ def addPlugin(plugin_info, sid=None):
 
 def disconnectPlugin(sid):
     if sid in plugin_sids:
+        logger.info("disconnecting plugin session %s", sid)
         pid = plugin_sids[sid]["id"]
         if pid in plugins:
+            logger.info("clean up plugin %s", pid)
             if plugins[pid]["signature"] in plugin_signatures:
+                logger.info("clean up plugin signature %s", plugins[pid]["signature"])
                 del plugin_signatures[plugins[pid]["signature"]]
             del plugins[pid]
         del plugin_sids[sid]
@@ -455,6 +474,7 @@ def disconnectPlugin(sid):
                 if p["id"] == pid:
                     exist = p
             if exist:
+                logger.info("clean up plugin session %s", session_id)
                 plugin_sessions[session_id].remove(exist)
                 killPlugin(exist["id"])
 
@@ -465,10 +485,9 @@ def setPluginPID(plugin_id, pid):
 
 def killPlugin(pid):
     if pid in plugins:
-        if plugins[pid]["signature"] in plugin_signatures:
-            del plugin_signatures[plugins[pid]["signature"]]
         try:
             plugins[pid]["abort"].set()
+            plugins[pid]["aborting"] = asyncio.get_event_loop().create_future()
             killProcess(plugins[pid]["process_id"])
             print('INFO: "{}" was killed.'.format(pid))
         except Exception as e:
@@ -477,14 +496,21 @@ def killPlugin(pid):
         if "sid" in plugins[pid]:
             if plugins[pid]["sid"] in plugin_sids:
                 del plugin_sids[plugins[pid]["sid"]]
+
+        if plugins[pid]["signature"] in plugin_signatures:
+            logger.info(
+                "clean up killed plugin signature %s", plugins[pid]["signature"]
+            )
+            del plugin_signatures[plugins[pid]["signature"]]
+        logger.info("clean up killed plugin %s", pid)
         del plugins[pid]
 
 
-def killAllPlugins():
+async def killAllPlugins(ssid):
     tasks = []
-    for sid in plugin_sids:
+    for sid in list(plugin_sids.keys()):
         try:
-            tasks.append(on_kill_plugin(sid, {"id": plugin_sids[sid]["id"]}))
+            await on_kill_plugin(ssid, {"id": plugin_sids[sid]["id"]})
         except Exception as e:
             logger.error(str(e))
 
@@ -691,9 +717,9 @@ async def on_init_plugin(sid, kwargs):
             return {"success": False}
         pid = kwargs["id"]
         config = kwargs.get("config", {})
-        env = config.get("env", None)
+        env = config.get("env")
         cmd = config.get("cmd", "python")
-        pname = config.get("name", None)
+        pname = config.get("name")
         flags = config.get("flags", [])
         tag = config.get("tag", "")
         requirements = config.get("requirements", []) or []
@@ -706,27 +732,34 @@ async def on_init_plugin(sid, kwargs):
         logger.info(
             "initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s",
             pname,
-            id,
+            pid,
             cmd,
             workspace,
         )
 
-        plugin_signature = "{}/{}/{}".format(workspace, pname, tag)
+        plugin_signature = "{}/{}/{}/{}".format(client_id, workspace, pname, tag)
 
         if "single-instance" in flags:
-            secret = resumePluginSession(pid, session_id, plugin_signature)
-            if secret is not None:
-                logger.debug("plugin already initialized: %s", pid)
-                # await sio.emit(
-                #     'message_from_plugin_'+secret,
-                #     {"type": "initialized", "dedicatedThread": True})
-                return {
-                    "success": True,
-                    "resumed": True,
-                    "initialized": True,
-                    "secret": secret,
-                    "work_dir": os.path.abspath(work_dir),
-                }
+            plugin_info = resumePluginSession(pid, session_id, plugin_signature)
+            if plugin_info is not None:
+                if "aborting" in plugin_info:
+                    logger.info("Waiting for plugin %s to abort", plugin_info["id"])
+                    await plugin_info["aborting"]
+                else:
+                    logger.debug("plugin already initialized: %s", pid)
+                    return {
+                        "success": True,
+                        "resumed": True,
+                        "initialized": True,
+                        "secret": plugin_info["secret"],
+                        "work_dir": os.path.abspath(work_dir),
+                    }
+            else:
+                logger.info(
+                    "failed to resume single instance plugin: %s, %s",
+                    pid,
+                    plugin_signature,
+                )
 
         secretKey = str(uuid.uuid4())
         abort = threading.Event()
@@ -741,6 +774,7 @@ async def on_init_plugin(sid, kwargs):
             "client_id": client_id,
             "signature": plugin_signature,
         }
+        logger.info("Add plugin: %s", str(plugin_info))
         addPlugin(plugin_info)
 
         @sio.on("from_plugin_" + secretKey, namespace=NAME_SPACE)
@@ -773,6 +807,8 @@ async def on_init_plugin(sid, kwargs):
         eloop = asyncio.get_event_loop()
 
         def stop_callback(success, message):
+            if "aborting" in plugin_info:
+                plugin_info["aborting"].set_result(success)
             message = str(message or "")
             message = message[:100] + (message[100:] and "..")
             logger.info(
@@ -831,8 +867,8 @@ async def on_init_plugin(sid, kwargs):
         }
 
     except Exception as e:
-        logger.error(e)
-        return {"success": False, "reason": str(e)}
+        logger.error(traceback.format_exc())
+        return {"success": False, "reason": traceback.format_exc()}
 
 
 async def force_kill_timeout(t, obj):
@@ -871,7 +907,7 @@ async def on_reset_engine(sid, kwargs):
     global requestUploadFiles
     global requestUrls
 
-    await killAllPlugins()
+    await killAllPlugins(sid)
 
     attempt_count = 0
     cmd_history = []
@@ -929,7 +965,7 @@ async def on_register_client(sid, kwargs):
     if base_url.endswith("/"):
         base_url = base_url[:-1]
 
-    token = kwargs.get("token", None)
+    token = kwargs.get("token")
     if token != opt.token:
         logger.debug("token mismatch: %s != %s", token, opt.token)
         print("======== Connection Token: " + opt.token + " ========")
@@ -1026,7 +1062,7 @@ async def on_list_dir(sid, kwargs):
             path = os.path.join(workspace_dir, path)
         path = os.path.normpath(os.path.expanduser(path))
 
-        type = kwargs.get("type", None)
+        type = kwargs.get("type")
         recursive = kwargs.get("recursive", False)
         files_list = {"success": True}
         files_list["path"] = path
@@ -1054,7 +1090,7 @@ async def on_remove_files(sid, kwargs):
     if not os.path.isabs(path):
         path = os.path.join(workspace_dir, path)
     path = os.path.normpath(os.path.expanduser(path))
-    type = kwargs.get("type", None)
+    type = kwargs.get("type")
     recursive = kwargs.get("recursive", False)
 
     if os.path.exists(path) and not os.path.isdir(path) and type == "file":
@@ -1214,10 +1250,10 @@ async def download_file(request):
         raise web.HTTPForbidden(text="Invalid URL")
     fileInfo = generatedUrls[urlid]
     if fileInfo.get("password", False):
-        password = request.match_info.get("password", None)
+        password = request.match_info.get("password")
         if password != fileInfo["password"]:
             raise web.HTTPForbidden(text="Incorrect password for accessing this file.")
-    headers = fileInfo.get("headers", None)
+    headers = fileInfo.get("headers")
     default_headers = {}
     if fileInfo["type"] == "dir":
         dirname = os.path.dirname(name)
@@ -1323,7 +1359,7 @@ async def on_get_file_url(sid, kwargs):
         fileInfo["type"] = "dir"
     else:
         fileInfo["type"] = "file"
-    if kwargs.get("headers", None):
+    if kwargs.get("headers"):
         fileInfo["headers"] = kwargs["headers"]
     _, name = os.path.split(path)
     fileInfo["name"] = name
@@ -1333,7 +1369,7 @@ async def on_get_file_url(sid, kwargs):
         urlid = str(uuid.uuid4())
         generatedUrls[urlid] = fileInfo
         base_url = kwargs.get("base_url", registered_sessions[sid]["base_url"])
-        if kwargs.get("password", None):
+        if kwargs.get("password"):
             fileInfo["password"] = kwargs["password"]
             generatedUrlFiles[path] = "{}/file/{}@{}/{}".format(
                 base_url, urlid, fileInfo["password"], name
@@ -1396,8 +1432,8 @@ async def on_kill_plugin_process(sid, kwargs):
             "error": 'You must provide the pid of the plugin process or "all=true".',
         }
     if kwargs["all"]:
-        print("Killing all the plugins...")
-        killAllPlugins()
+        logger.info("Killing all the plugins...")
+        await killAllPlugins(sid)
         return {"success": True}
     else:
         try:
@@ -1523,7 +1559,6 @@ def launch_plugin(
 
         logger.info("Running requirements command: %s", requirements_cmd)
         print("Running requirements command: " + requirements_cmd)
-        logging_callback("Running requirements command: {}".format(requirements_cmd))
         if requirements_cmd is not None and requirements_cmd not in cmd_history:
             process = subprocess.Popen(
                 requirements_cmd,
@@ -1531,6 +1566,11 @@ def launch_plugin(
                 env=plugin_env,
                 cwd=work_dir,
                 stderr=subprocess.PIPE,
+            )
+            logging_callback(
+                "Running requirements subprocess(pid={}): {}".format(
+                    process.pid, requirements_cmd
+                )
             )
             setPluginPID(pid, process.pid)
             ret = process.wait()
@@ -1617,7 +1657,7 @@ def launch_plugin(
 
     args = " ".join(args)
     logger.info("Task subprocess args: %s", args)
-    logging_callback("running subprocess with {}".format(args))
+
     # set system/version dependent "start_new_session" analogs
     # https://docs.python.org/2/library/subprocess.html#converting-argument-sequence
     kwargs = {}
@@ -1635,6 +1675,7 @@ def launch_plugin(
             cwd=work_dir,
             **kwargs
         )
+        logging_callback("running subprocess(pid={}) with {}".format(process.pid, args))
         setPluginPID(pid, process.pid)
         # Poll process for new output until finished
         stdfn = sys.stdout.fileno()
@@ -1653,7 +1694,7 @@ def launch_plugin(
 
         logger.info("Plugin aborting...")
         killProcess(process.pid)
-        logger.info("plugin process is killed.")
+
         outputs, errors = process.communicate()
         if outputs is not None:
             outputs = str(outputs, "utf-8")
@@ -1731,7 +1772,6 @@ async def on_shutdown(app):
     t.start()
 
     print("Shutting down the plugins...", flush=True)
-    killAllPlugins()
     # stopped.set()
     logger.info("Plugin engine exited.")
     try:
