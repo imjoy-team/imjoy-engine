@@ -721,9 +721,9 @@ async def on_init_plugin(sid, kwargs):
             return {"success": False}
         pid = kwargs["id"]
         config = kwargs.get("config", {})
-        env = config.get("env", None)
+        env = config.get("env")
         cmd = config.get("cmd", "python")
-        pname = config.get("name", None)
+        pname = config.get("name")
         flags = config.get("flags", [])
         tag = config.get("tag", "")
         requirements = config.get("requirements", []) or []
@@ -965,7 +965,7 @@ async def on_register_client(sid, kwargs):
     if base_url.endswith("/"):
         base_url = base_url[:-1]
 
-    token = kwargs.get("token", None)
+    token = kwargs.get("token")
     if token != opt.token:
         logger.debug("token mismatch: %s != %s", token, opt.token)
         print("======== Connection Token: " + opt.token + " ========")
@@ -1062,7 +1062,7 @@ async def on_list_dir(sid, kwargs):
             path = os.path.join(workspace_dir, path)
         path = os.path.normpath(os.path.expanduser(path))
 
-        type = kwargs.get("type", None)
+        type = kwargs.get("type")
         recursive = kwargs.get("recursive", False)
         files_list = {"success": True}
         files_list["path"] = path
@@ -1090,7 +1090,7 @@ async def on_remove_files(sid, kwargs):
     if not os.path.isabs(path):
         path = os.path.join(workspace_dir, path)
     path = os.path.normpath(os.path.expanduser(path))
-    type = kwargs.get("type", None)
+    type = kwargs.get("type")
     recursive = kwargs.get("recursive", False)
 
     if os.path.exists(path) and not os.path.isdir(path) and type == "file":
@@ -1250,10 +1250,10 @@ async def download_file(request):
         raise web.HTTPForbidden(text="Invalid URL")
     fileInfo = generatedUrls[urlid]
     if fileInfo.get("password", False):
-        password = request.match_info.get("password", None)
+        password = request.match_info.get("password")
         if password != fileInfo["password"]:
             raise web.HTTPForbidden(text="Incorrect password for accessing this file.")
-    headers = fileInfo.get("headers", None)
+    headers = fileInfo.get("headers")
     default_headers = {}
     if fileInfo["type"] == "dir":
         dirname = os.path.dirname(name)
@@ -1359,7 +1359,7 @@ async def on_get_file_url(sid, kwargs):
         fileInfo["type"] = "dir"
     else:
         fileInfo["type"] = "file"
-    if kwargs.get("headers", None):
+    if kwargs.get("headers"):
         fileInfo["headers"] = kwargs["headers"]
     _, name = os.path.split(path)
     fileInfo["name"] = name
@@ -1369,7 +1369,7 @@ async def on_get_file_url(sid, kwargs):
         urlid = str(uuid.uuid4())
         generatedUrls[urlid] = fileInfo
         base_url = kwargs.get("base_url", registered_sessions[sid]["base_url"])
-        if kwargs.get("password", None):
+        if kwargs.get("password"):
             fileInfo["password"] = kwargs["password"]
             generatedUrlFiles[path] = "{}/file/{}@{}/{}".format(
                 base_url, urlid, fileInfo["password"], name
