@@ -743,7 +743,7 @@ async def on_init_plugin(sid, kwargs):
             plugin_info = resumePluginSession(pid, session_id, plugin_signature)
             if plugin_info is not None:
                 if "aborting" in plugin_info:
-                    logger.info("Waiting for plugin %s to abort", plugin_info['id'])
+                    logger.info("Waiting for plugin %s to abort", plugin_info["id"])
                     await plugin_info["aborting"]
                 else:
                     logger.debug("plugin already initialized: %s", pid)
@@ -758,7 +758,11 @@ async def on_init_plugin(sid, kwargs):
                         "work_dir": os.path.abspath(work_dir),
                     }
             else:
-                logger.info("failed to resume single instance plugin: %s, %s", pid, plugin_signature)
+                logger.info(
+                    "failed to resume single instance plugin: %s, %s",
+                    pid,
+                    plugin_signature,
+                )
 
         secretKey = str(uuid.uuid4())
         abort = threading.Event()
