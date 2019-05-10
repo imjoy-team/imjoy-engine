@@ -181,15 +181,17 @@ def killProcess(pid):
                 if proc.is_running():
                     proc.kill()
             except psutil.NoSuchProcess:
-                logger.info('subprocess %s has already been killed', pid)
+                logger.info("subprocess %s has already been killed", pid)
             except Exception as e:
                 logger.error(
-                    "WARNING: failed to kill a subprocess (PID={}). Error: {}".format(pid, str(e))
+                    "WARNING: failed to kill a subprocess (PID={}). Error: {}".format(
+                        pid, str(e)
+                    )
                 )
         cp.kill()
         logger.info("plugin process %s was killed.", pid)
     except psutil.NoSuchProcess:
-        logger.info('process %s has already been killed', pid)
+        logger.info("process %s has already been killed", pid)
     except Exception as e:
         logger.error(
             "WARNING: failed to kill a process (PID={}), "
@@ -460,13 +462,13 @@ def addPlugin(plugin_info, sid=None):
 
 
 def disconnectPlugin(sid):
-    logger.info('disconnecting plugin session %s', sid)
+    logger.info("disconnecting plugin session %s", sid)
     if sid in plugin_sids:
         pid = plugin_sids[sid]["id"]
         if pid in plugins:
-            logger.info('clean up plugin %s', pid)
+            logger.info("clean up plugin %s", pid)
             if plugins[pid]["signature"] in plugin_signatures:
-                logger.info('clean up plugin signature %s', plugins[pid]["signature"])
+                logger.info("clean up plugin signature %s", plugins[pid]["signature"])
                 del plugin_signatures[plugins[pid]["signature"]]
             del plugins[pid]
         del plugin_sids[sid]
@@ -476,7 +478,7 @@ def disconnectPlugin(sid):
                 if p["id"] == pid:
                     exist = p
             if exist:
-                logger.info('clean up plugin session %s', session_id)
+                logger.info("clean up plugin session %s", session_id)
                 plugin_sessions[session_id].remove(exist)
                 killPlugin(exist["id"])
 
@@ -498,13 +500,14 @@ def killPlugin(pid):
         if "sid" in plugins[pid]:
             if plugins[pid]["sid"] in plugin_sids:
                 del plugin_sids[plugins[pid]["sid"]]
-        
+
         if plugins[pid]["signature"] in plugin_signatures:
-            logger.info('clean up killed plugin signature %s', plugins[pid]["signature"])
+            logger.info(
+                "clean up killed plugin signature %s", plugins[pid]["signature"]
+            )
             del plugin_signatures[plugins[pid]["signature"]]
-        logger.info('clean up killed plugin %s', pid)
+        logger.info("clean up killed plugin %s", pid)
         del plugins[pid]
-        
 
 
 async def killAllPlugins(ssid):
@@ -744,7 +747,7 @@ async def on_init_plugin(sid, kwargs):
             secret = resumePluginSession(pid, session_id, plugin_signature)
             if secret is not None:
                 if "aborting" in plugins[pid]:
-                    logger.info('Waiting for plugin %s to abort', pid)
+                    logger.info("Waiting for plugin %s to abort", pid)
                     await plugins[pid]["aborting"]
                 else:
                     logger.debug("plugin already initialized: %s", pid)
@@ -1564,7 +1567,11 @@ def launch_plugin(
                 cwd=work_dir,
                 stderr=subprocess.PIPE,
             )
-            logging_callback("Running requirements subprocess(pid={}): {}".format(process.pid, requirements_cmd))
+            logging_callback(
+                "Running requirements subprocess(pid={}): {}".format(
+                    process.pid, requirements_cmd
+                )
+            )
             setPluginPID(pid, process.pid)
             ret = process.wait()
             _, errors = process.communicate()
@@ -1650,7 +1657,7 @@ def launch_plugin(
 
     args = " ".join(args)
     logger.info("Task subprocess args: %s", args)
-    
+
     # set system/version dependent "start_new_session" analogs
     # https://docs.python.org/2/library/subprocess.html#converting-argument-sequence
     kwargs = {}
