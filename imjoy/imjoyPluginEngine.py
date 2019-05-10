@@ -17,6 +17,7 @@ import shutil
 import yaml
 import json
 import platform
+import traceback
 
 # import webbrowser
 from aiohttp import web, hdrs
@@ -398,15 +399,11 @@ def resumePluginSession(pid, session_id, plugin_signature):
             plugin_sessions[session_id].append(plugins[pid])
         else:
             plugin_sessions[session_id] = [plugins[pid]]
-    else:
-        if plugin_signature in plugin_signatures:
-            del plugin_signatures[plugin_signature]
-        return None
 
     if plugin_signature in plugin_signatures:
-        secret = plugin_signatures[plugin_signature]
+        plugin_info = plugin_signatures[plugin_signature]
         logger.info("resuming plugin %s", pid)
-        return secret
+        return plugin_info
     else:
         return None
 
@@ -430,6 +427,7 @@ def addClientSession(session_id, client_id, sid, base_url, workspace):
 
 def disconnectClientSession(sid):
     if sid in registered_sessions:
+        logger.info("disconnecting client session %s", sid)
         obj = registered_sessions[sid]
         client_id, session_id = obj["client"], obj["session"]
         del registered_sessions[sid]
@@ -441,15 +439,13 @@ def disconnectClientSession(sid):
             for plugin in plugin_sessions[session_id]:
                 if "allow-detach" not in plugin["flags"]:
                     killPlugin(plugin["id"])
-            if plugin["signature"] in plugin_signatures:
-                del plugin_signatures[plugin["signature"]]
             del plugin_sessions[session_id]
 
 
 def addPlugin(plugin_info, sid=None):
     pid = plugin_info["id"]
     session_id = plugin_info["session_id"]
-    plugin_signatures[plugin_info["signature"]] = plugin_info["secret"]
+    plugin_signatures[plugin_info["signature"]] = plugin_info
     plugins[pid] = plugin_info
     if session_id in plugin_sessions:
         plugin_sessions[session_id].append(plugin_info)
@@ -462,8 +458,8 @@ def addPlugin(plugin_info, sid=None):
 
 
 def disconnectPlugin(sid):
-    logger.info("disconnecting plugin session %s", sid)
     if sid in plugin_sids:
+        logger.info("disconnecting plugin session %s", sid)
         pid = plugin_sids[sid]["id"]
         if pid in plugins:
             logger.info("clean up plugin %s", pid)
@@ -736,7 +732,7 @@ async def on_init_plugin(sid, kwargs):
         logger.info(
             "initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s",
             pname,
-            id,
+            pid,
             cmd,
             workspace,
         )
@@ -744,11 +740,11 @@ async def on_init_plugin(sid, kwargs):
         plugin_signature = "{}/{}/{}/{}".format(client_id, workspace, pname, tag)
 
         if "single-instance" in flags:
-            secret = resumePluginSession(pid, session_id, plugin_signature)
-            if secret is not None:
-                if "aborting" in plugins[pid]:
-                    logger.info("Waiting for plugin %s to abort", pid)
-                    await plugins[pid]["aborting"]
+            plugin_info = resumePluginSession(pid, session_id, plugin_signature)
+            if plugin_info is not None:
+                if "aborting" in plugin_info:
+                    logger.info("Waiting for plugin %s to abort", plugin_info['id'])
+                    await plugin_info["aborting"]
                 else:
                     logger.debug("plugin already initialized: %s", pid)
                     # await sio.emit(
@@ -758,9 +754,11 @@ async def on_init_plugin(sid, kwargs):
                         "success": True,
                         "resumed": True,
                         "initialized": True,
-                        "secret": secret,
+                        "secret": plugin_info["secret"],
                         "work_dir": os.path.abspath(work_dir),
                     }
+            else:
+                logger.info("failed to resume single instance plugin: %s, %s", pid, plugin_signature)
 
         secretKey = str(uuid.uuid4())
         abort = threading.Event()
@@ -775,6 +773,7 @@ async def on_init_plugin(sid, kwargs):
             "client_id": client_id,
             "signature": plugin_signature,
         }
+        logger.info("Add plugin: %s", str(plugin_info))
         addPlugin(plugin_info)
 
         @sio.on("from_plugin_" + secretKey, namespace=NAME_SPACE)
@@ -867,8 +866,8 @@ async def on_init_plugin(sid, kwargs):
         }
 
     except Exception as e:
-        logger.error(e)
-        return {"success": False, "reason": str(e)}
+        logger.error(traceback.format_exc())
+        return {"success": False, "reason": traceback.format_exc()}
 
 
 async def force_kill_timeout(t, obj):
