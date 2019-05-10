@@ -747,9 +747,6 @@ async def on_init_plugin(sid, kwargs):
                     await plugin_info["aborting"]
                 else:
                     logger.debug("plugin already initialized: %s", pid)
-                    # await sio.emit(
-                    #     'message_from_plugin_'+secret,
-                    #     {"type": "initialized", "dedicatedThread": True})
                     return {
                         "success": True,
                         "resumed": True,
