@@ -752,6 +752,7 @@ async def on_init_plugin(sid, kwargs):
             plugin_signature = "{}/{}/{}/{}".format(client_id, workspace, pname, tag)
             resume = True
         else:
+            plugin_signature = None
             resume = False
 
         if resume:
