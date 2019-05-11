@@ -18,6 +18,7 @@ import yaml
 import json
 import platform
 import traceback
+import pathlib
 
 # import webbrowser
 from aiohttp import web, hdrs
@@ -42,14 +43,6 @@ if sys.platform == "win32":
 
 
 try:
-    import pkg_resources  # part of setuptools
-
-    engine_version = pkg_resources.require("imjoy")[0].version
-except Exception as e:
-    print("Engine version cannot be determined:" + str(e))
-    engine_version = None
-
-try:
     import psutil
 except Exception as e:
     print(
@@ -62,10 +55,16 @@ try:
 except ImportError:
     from queue import Queue, Empty  # python 3.x
 
+# read version information from file
+HERE = pathlib.Path(__file__).parent
+version_info = json.loads((HERE / "VERSION").read_text())
+
+__version__ = version_info["version"]
+API_VERSION = version_info["api_version"]
+
 CONDA_AVAILABLE = False
 MAX_ATTEMPTS = 1000
 NAME_SPACE = "/"
-API_VERSION = "0.1.1"
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("ImJoyPluginEngine")
@@ -1019,9 +1018,7 @@ async def on_register_client(sid, kwargs):
 
         logger.info("register client: %s", kwargs)
 
-        engine_info = {"api_version": API_VERSION}
-        if engine_version is not None:
-            engine_info["version"] = engine_version
+        engine_info = {"api_version": API_VERSION, "version": __version__}
         engine_info["platform"] = {
             "uname": ", ".join(platform.uname()),
             "machine": platform.machine(),
@@ -1746,10 +1743,7 @@ def launch_plugin(
 
 
 async def on_startup(app):
-    if engine_version:
-        print("ImJoy Python Plugin Engine (version {})".format(engine_version))
-    else:
-        print("ImJoy Plugin Engine is ready.")
+    print("ImJoy Python Plugin Engine (version {})".format(__version__))
 
     if opt.serve:
         print(
