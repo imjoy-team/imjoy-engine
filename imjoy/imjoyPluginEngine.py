@@ -1159,7 +1159,7 @@ async def on_remove_files(sid, kwargs):
 async def file_sender(writer, file_path=None):
     """Read a large file chunk by chunk and send it through HTTP.
 
-    Do no read the chunks into memory.
+    Do not read the chunks into memory.
     """
     with open(file_path, "rb") as f:
         chunk = f.read(2 ** 16)
