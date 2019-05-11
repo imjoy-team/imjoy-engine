@@ -634,7 +634,7 @@ def runCmd(
     return output
 
 
-def parseEnv(env, work_dir):
+def parseEnv(env, work_dir, pname):
     env_name = ""
     is_py2 = False
     envs = None
@@ -863,6 +863,7 @@ async def on_init_plugin(sid, kwargs):
                 stop_callback,
                 logging_callback,
                 pid,
+                pname,
                 env,
                 requirements,
                 args,
@@ -1478,6 +1479,7 @@ def launch_plugin(
     stop_callback,
     logging_callback,
     pid,
+    pname,
     env,
     requirements,
     args,
@@ -1490,6 +1492,7 @@ def launch_plugin(
         logger.info("plugin aborting...")
         logging_callback("plugin aborting...")
         return False
+    error = None
     env_name = None
     try:
         repos = parseRepos(requirements, work_dir)
@@ -1516,7 +1519,7 @@ def launch_plugin(
                     "Failed to obtain the git repo: " + str(ex), type="error"
                 )
 
-        env_name, envs, is_py2 = parseEnv(env, work_dir)
+        env_name, envs, is_py2 = parseEnv(env, work_dir, pname)
         default_requirements = (
             default_requirements_py2 if is_py2 else default_requirements_py3
         )
@@ -1654,8 +1657,9 @@ def launch_plugin(
             "Failed to setup plugin virual environment or its requirements: " + str(e),
             type="error",
         )
+        error = e
 
-    if abort.is_set():
+    if abort.is_set() or error:
         logger.info("Plugin aborting...")
         logging_callback("Plugin aborting...")
         return False
