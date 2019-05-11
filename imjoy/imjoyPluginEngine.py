@@ -41,6 +41,15 @@ if sys.platform == "win32":
             bitmask >>= 1
         return drives
 
+
+try:
+    import pkg_resources  # part of setuptools
+
+    engine_version = pkg_resources.require("imjoy")[0].version
+except Exception as e:
+    print("Engine version cannot be determined:" + str(e))
+    engine_version = None
+
 try:
     import psutil
 except Exception as e:
@@ -58,8 +67,8 @@ except ImportError:
 HERE = pathlib.Path(__file__).parent
 version_info = json.loads((HERE / ".." / "VERSION").read_text())
 
-__version__ = version_info['version']
-__api_version__ = version_info['api_version']
+__version__ = version_info["version"]
+__api_version__ = version_info["api_version"]
 
 CONDA_AVAILABLE = False
 MAX_ATTEMPTS = 1000
