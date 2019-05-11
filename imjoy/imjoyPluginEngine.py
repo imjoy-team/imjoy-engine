@@ -41,6 +41,7 @@ if sys.platform == "win32":
             bitmask >>= 1
         return drives
 
+
 try:
     import psutil
 except Exception as e:
