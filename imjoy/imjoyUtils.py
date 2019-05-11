@@ -1,6 +1,9 @@
-import sys
-import traceback
+"""Provide utils for Python 2 plugins."""
 import copy
+import sys
+import threading
+import time
+import traceback
 import uuid
 
 try:
@@ -10,8 +13,7 @@ except ImportError:
 
 
 def debounce(s):
-    """Decorator ensures function that can only be called once every `s` seconds.
-    """
+    """Decorate to ensure function can only be called once every `s` seconds."""
 
     def decorate(f):
         d = {"t": None}
@@ -28,6 +30,8 @@ def debounce(s):
 
 
 def setInterval(interval):
+    """Set interval."""
+
     def decorator(function):
         def wrapper(*args, **kwargs):
             stopped = threading.Event()
@@ -47,17 +51,19 @@ def setInterval(interval):
 
 
 class dotdict(dict):
-    """dot.notation access to dictionary attributes"""
+    """Access dictionary attributes with dot.notation."""
 
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
     def __deepcopy__(self, memo=None):
+        """Make a deep copy."""
         return dotdict(copy.deepcopy(dict(self), memo=memo))
 
 
 def getKeyByValue(d, value):
+    """Return key by value."""
     for k, v in d.items():
         if value == v:
             return k
@@ -65,18 +71,24 @@ def getKeyByValue(d, value):
 
 
 class ReferenceStore:
+    """Represent a reference store."""
+
     def __init__(self):
+        """Set up store."""
         self._store = {}
 
     def _genId(self):
+        """Generate an id."""
         return str(uuid.uuid4())
 
     def put(self, obj):
+        """Put an object into the store."""
         id = self._genId()
         self._store[id] = obj
         return id
 
     def fetch(self, id):
+        """Fetch an object from the store by id."""
         if id not in self._store:
             return None
         obj = self._store[id]
@@ -89,6 +101,7 @@ class ReferenceStore:
 
 
 def task_worker(self, q, logger, abort):
+    """Implement a task worker."""
     while True:
         try:
             if abort is not None and abort.is_set():
@@ -152,7 +165,7 @@ def task_worker(self, q, logger, abort):
                             args = self._unwrap(d["args"], True)
                             # args.append({'id': self.id})
                             method(*args)
-                        except Exception as e:
+                        except Exception:
                             logger.error(
                                 "error in method %s: %s",
                                 d["name"],
@@ -192,7 +205,7 @@ def task_worker(self, q, logger, abort):
                             )
                         args = self._unwrap(d["args"], True)
                         method(*args)
-                    except Exception as e:
+                    except Exception:
                         logger.error(
                             "error in method %s: %s", d["num"], traceback.format_exc()
                         )
@@ -202,7 +215,24 @@ def task_worker(self, q, logger, abort):
 
 
 class Promise(object):
+    """Represent a promise."""
+
+    def __init__(self, pfunc):
+        """Set up promise."""
+        self._resolve_handler = None
+        self._finally_handler = None
+        self._catch_handler = None
+
+        def resolve(*args, **kwargs):
+            self.resolve(*args, **kwargs)
+
+        def reject(*args, **kwargs):
+            self.reject(*args, **kwargs)
+
+        pfunc(resolve, reject)
+
     def resolve(self, result):
+        """Resolve promise."""
         try:
             if self._resolve_handler:
                 self._resolve_handler(result)
@@ -216,6 +246,7 @@ class Promise(object):
                 self._finally_handler()
 
     def reject(self, error):
+        """Reject promise."""
         try:
             if self._catch_handler:
                 self._catch_handler(error)
@@ -226,26 +257,25 @@ class Promise(object):
                 self._finally_handler()
 
     def then(self, handler):
+        """Implement then callback.
+
+        Set handler and return the promise.
+        """
         self._resolve_handler = handler
         return self
 
     def finally_(self, handler):
+        """Implement finally callback.
+
+        Set handler and return the promise.
+        """
         self._finally_handler = handler
         return self
 
     def catch(self, handler):
+        """Implement catch callback.
+
+        Set handler and return the promise.
+        """
         self._catch_handler = handler
         return self
-
-    def __init__(self, pfunc):
-        self._resolve_handler = None
-        self._finally_handler = None
-        self._catch_handler = None
-
-        def resolve(*args, **kwargs):
-            self.resolve(*args, **kwargs)
-
-        def reject(*args, **kwargs):
-            self.reject(*args, **kwargs)
-
-        pfunc(resolve, reject)

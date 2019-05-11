@@ -1,3 +1,4 @@
+"""Provide main entrypoint."""
 import sys
 import os
 import subprocess
@@ -5,6 +6,7 @@ import json
 
 
 def main():
+    """Run main."""
     # add executable path to PATH
     os.environ["PATH"] = (
         os.path.split(sys.executable)[0] + os.pathsep + os.environ.get("PATH", "")
@@ -26,7 +28,7 @@ def main():
                 + os.pathsep
                 + os.environ["PATH"]
             )
-    except OSError as e:
+    except OSError:
         if sys.version_info > (3, 0):
             print(
                 "WARNING: you are running ImJoy without conda, "
@@ -106,7 +108,7 @@ def main():
             if distutils.spawn.find_executable("pip") is None:
                 git_cmd += " pip"
             if git_cmd != "":
-                logger.info("pip command failed, trying to install git and pip...")
+                print("pip command failed, trying to install git and pip...")
                 # try to install git and pip
                 git_cmd = "conda install -y" + git_cmd
                 ret = subprocess.Popen(git_cmd.split(), shell=False).wait()

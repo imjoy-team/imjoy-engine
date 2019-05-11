@@ -1,20 +1,16 @@
+"""Provide a worker template."""
 import argparse
+import inspect
 import logging
-import time
+import math
 import os
 import sys
-import random
-import math
-import traceback
-import uuid
-from functools import reduce
-import inspect
 import threading
-import copy
+from functools import reduce
 from types import ModuleType
 
-from imjoySocketIO_client import SocketIO, LoggingNamespace, find_callback
-from imjoyUtils import debounce, setInterval, dotdict, ReferenceStore
+from imjoySocketIO_client import LoggingNamespace, SocketIO, find_callback
+from imjoyUtils import ReferenceStore, debounce, dotdict, setInterval
 
 if sys.version_info >= (3, 0):
     import asyncio
@@ -48,6 +44,7 @@ if imjoy_path not in sys.path:
 
 
 def kill(proc_pid):
+    """Kill process id."""
     import psutil
 
     process = psutil.Process(proc_pid)
@@ -57,6 +54,7 @@ def kill(proc_pid):
 
 
 def ndarray(typedArray, shape, dtype):
+    """Return a ndarray."""
     _dtype = type(typedArray)
     if dtype and dtype != _dtype:
         raise Exception(
@@ -77,6 +75,8 @@ api_utils = dotdict(
 
 
 class PluginConnection:
+    """Represent a plugin connection."""
+
     def __init__(
         self,
         pid,
@@ -90,6 +90,7 @@ class PluginConnection:
         daemon=False,
         api=None,
     ):
+        """Set up connection."""
         if work_dir is None or work_dir == "" or work_dir == ".":
             self.work_dir = os.getcwd()
         else:
@@ -135,6 +136,7 @@ class PluginConnection:
         self.worker = worker
 
     def wait_forever(self):
+        """Wait forever."""
         if PYTHON3:
             self.sync_q = self.queue.sync_q
             fut = self.loop.run_in_executor(None, self.socketIO.wait)
@@ -152,11 +154,13 @@ class PluginConnection:
             self.worker(self, self.sync_q, logger, self.abort)
 
     def default_exit(self):
+        """Exit default."""
         logger.info("terminating plugin: " + self.id)
         self.abort.set()
         os._exit(0)
 
     def exit(self, code):
+        """Exit."""
         if "exit" in self._interface:
             try:
                 self._interface["exit"]()
@@ -208,7 +212,6 @@ class PluginConnection:
         keys = range(len(aObject)) if isarray else aObject.keys()
         for k in keys:
             v = aObject[k]
-            value = None
             try:
                 basestring
             except NameError:
@@ -349,7 +352,6 @@ class PluginConnection:
         return result
 
     def _unwrap(self, args, withPromise):
-        called = False
         if "callbackId" not in args:
             args["callbackId"] = None
         # wraps each callback so that the only one could be called
@@ -357,6 +359,7 @@ class PluginConnection:
         return result
 
     def setInterface(self, api):
+        """Set interface."""
         if isinstance(api, dict):
             api = {a: api[a] for a in api.keys() if not a.startswith("_")}
         elif inspect.isclass(type(api)):
@@ -507,6 +510,7 @@ class PluginConnection:
         m.api = _remote
 
     def sio_plugin_message(self, *args):
+        """Handle plugin message."""
         data = args[0]
         if data["type"] == "import":
             self.emit({"type": "importSuccess", "url": data["url"]})
