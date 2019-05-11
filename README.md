@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/oeway/ImJoy-Engine.svg?branch=master)](https://travis-ci.com/oeway/ImJoy-Engine) ![PyPI](https://img.shields.io/pypi/v/imjoy.svg?style=popout) ![GitHub](https://img.shields.io/github/license/oeway/ImJoy-Engine.svg)
+ <img alt="ImJoy-Engine" src="https://img.shields.io/badge/dynamic/json.svg?color=success&label=ImJoy%20Engine&prefix=v&query=version&url=https%3A%2F%2Fraw.githubusercontent.com%2Foeway%2FImJoy-Engine%2Fmaster%2FVERSION"></img> [![Build Status](https://travis-ci.com/oeway/ImJoy-Engine.svg?branch=master)](https://travis-ci.com/oeway/ImJoy-Engine) ![PyPI](https://img.shields.io/pypi/v/imjoy.svg?style=popout) ![GitHub](https://img.shields.io/github/license/oeway/ImJoy-Engine.svg)
 # ImJoy Plugin Engine
 The plugin engine used for running python plugins in ImJoy (https://imjoy.io).
 
