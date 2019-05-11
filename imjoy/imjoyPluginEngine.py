@@ -45,7 +45,8 @@ try:
     import pkg_resources  # part of setuptools
 
     engine_version = pkg_resources.require("imjoy")[0].version
-except:
+except Exception as e:
+    print("Engine version cannot be determined:" + str(e))
     engine_version = None
 
 try:
