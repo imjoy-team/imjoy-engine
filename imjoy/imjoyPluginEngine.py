@@ -158,13 +158,13 @@ WORKSPACE_DIR = os.path.expanduser(opt.workspace)
 if not os.path.exists(WORKSPACE_DIR):
     os.makedirs(WORKSPACE_DIR)
 
-# generate a new token if not exist
+# read token from file if exists
 try:
     if opt.token is None or opt.token == "":
         with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as f:
             opt.token = f.read()
 except Exception:
-    logger.debug("Failed to generate token")
+    logger.debug("Failed to read token from file")
 
 try:
     if opt.token is None or opt.token == "":
@@ -172,7 +172,7 @@ try:
         with open(os.path.join(WORKSPACE_DIR, ".token"), "w") as f:
             f.write(opt.token)
 except Exception as e:
-    logger.error("Falied to save .token file: %s", str(e))
+    logger.error("Failed to save .token file: %s", str(e))
 
 
 def killProcess(pid):
