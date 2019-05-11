@@ -68,7 +68,7 @@ HERE = pathlib.Path(__file__).parent
 version_info = json.loads((HERE / ".." / "VERSION").read_text())
 
 __version__ = version_info["version"]
-__api_version__ = version_info["api_version"]
+API_VERSION = version_info["api_version"]
 
 CONDA_AVAILABLE = False
 MAX_ATTEMPTS = 1000
@@ -1026,9 +1026,7 @@ async def on_register_client(sid, kwargs):
 
         logger.info("register client: %s", kwargs)
 
-        engine_info = {"api_version": __api_version__}
-        if __version__ is not None:
-            engine_info["version"] = __version__
+        engine_info = {"api_version": API_VERSION, "version": __version__}
         engine_info["platform"] = {
             "uname": ", ".join(platform.uname()),
             "machine": platform.machine(),
