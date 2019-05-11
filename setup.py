@@ -60,11 +60,10 @@ if sys.version_info > (3, 0):
 
 HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
-VERSION = json.loads((HERE / "VERSION").read_text())["version"]
 
 setup(
     name="imjoy",
-    version=VERSION,
+    version="0.7.62",
     description="ImJoy Plugin Engine for running Python plugins locally or remotely from ImJoy.io",
     long_description=README,
     long_description_content_type="text/markdown",
