@@ -60,7 +60,7 @@ if sys.version_info > (3, 0):
 
 HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
-VERSION = json.loads((HERE / "VERSION").read_text())["version"]
+VERSION = json.loads((HERE / "imjoy" / "VERSION").read_text())["version"]
 
 setup(
     name="imjoy",
