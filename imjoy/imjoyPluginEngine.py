@@ -42,6 +42,14 @@ if sys.platform == "win32":
 
 
 try:
+    import pkg_resources  # part of setuptools
+
+    engine_version = pkg_resources.require("imjoy")[0].version
+except Exception as e:
+    print("Engine version cannot be determined:" + str(e))
+    engine_version = None
+
+try:
     import psutil
 except Exception as e:
     print(
@@ -737,9 +745,17 @@ async def on_init_plugin(sid, kwargs):
             workspace,
         )
 
-        plugin_signature = "{}/{}/{}/{}".format(client_id, workspace, pname, tag)
-
         if "single-instance" in flags:
+            plugin_signature = "{}/{}".format(pname, tag)
+            resume = True
+        elif "allow-detach" in flags:
+            plugin_signature = "{}/{}/{}/{}".format(client_id, workspace, pname, tag)
+            resume = True
+        else:
+            plugin_signature = None
+            resume = False
+
+        if resume:
             plugin_info = resumePluginSession(pid, session_id, plugin_signature)
             if plugin_info is not None:
                 if "aborting" in plugin_info:
@@ -1004,6 +1020,8 @@ async def on_register_client(sid, kwargs):
         logger.info("register client: %s", kwargs)
 
         engine_info = {"api_version": API_VERSION}
+        if engine_version is not None:
+            engine_info["version"] = engine_version
         engine_info["platform"] = {
             "uname": ", ".join(platform.uname()),
             "machine": platform.machine(),
@@ -1728,14 +1746,11 @@ def launch_plugin(
 
 
 async def on_startup(app):
-    try:
-        import pkg_resources  # part of setuptools
-
-        version = pkg_resources.require("imjoy")[0].version
-        print("ImJoy Python Plugin Engine (version {})".format(version))
-    except:
+    if engine_version:
+        print("ImJoy Python Plugin Engine (version {})".format(engine_version))
+    else:
         print("ImJoy Plugin Engine is ready.")
-        pass
+
     if opt.serve:
         print(
             "You can access your local ImJoy web app through "
