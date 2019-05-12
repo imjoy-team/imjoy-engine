@@ -4,7 +4,7 @@ import sys
 import traceback
 import inspect
 
-from imjoyUtils import Promise
+from imjoyUtils import Promise, formatTraceback
 
 
 async def task_worker(self, async_q, logger, abort=None):
@@ -41,10 +41,10 @@ async def task_worker(self, async_q, logger, abort=None):
                             raise Exception("unsupported type")
                         self.emit({"type": "executeSuccess"})
                     except Exception as e:
-                        logger.info(
-                            "error during execution: %s", traceback.format_exc()
-                        )
-                        self.emit({"type": "executeFailure", "error": repr(e)})
+                        traceback_error = traceback.format_exc()
+                        logger.error("error during execution: %s", traceback_error)
+                        self.emit({"type": "executeFailure", "error": traceback_error})
+
             elif d["type"] == "method":
                 if d["name"] in self._interface:
                     if "promise" in d:
@@ -58,12 +58,11 @@ async def task_worker(self, async_q, logger, abort=None):
                                 result = await result
                             resolve(result)
                         except Exception as e:
+                            traceback_error = traceback.format_exc()
                             logger.error(
-                                "error in method %s: %s",
-                                d["name"],
-                                traceback.format_exc(),
+                                "error in method %s: %s", d["name"], traceback_error
                             )
-                            reject(e)
+                            reject(Exception(formatTraceback(traceback_error)))
                     else:
                         try:
                             method = self._interface[d["name"]]
@@ -98,10 +97,11 @@ async def task_worker(self, async_q, logger, abort=None):
                             result = await result
                         resolve(result)
                     except Exception as e:
+                        traceback_error = traceback.format_exc()
                         logger.error(
-                            "error in method %s: %s", d["num"], traceback.format_exc()
+                            "error in method %s: %s", d["num"], traceback_error
                         )
-                        reject(e)
+                        reject(Exception(formatTraceback(traceback_error)))
                 else:
                     try:
                         method = self._store.fetch(d["num"])

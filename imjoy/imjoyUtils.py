@@ -70,6 +70,18 @@ def getKeyByValue(d, value):
     return None
 
 
+def formatTraceback(traceback_string):
+    formatted_lines = traceback_string.splitlines()
+    # remove the second and third line
+    formatted_lines.pop(1)
+    formatted_lines.pop(1)
+    formatted_error_string = "\n".join(formatted_lines)
+    formatted_error_string = formatted_error_string.replace(
+        'File "<string>"', "Plugin script"
+    )
+    return formatted_error_string
+
+
 class ReferenceStore:
     """Represent a reference store."""
 
@@ -135,10 +147,9 @@ def task_worker(self, q, logger, abort):
                             raise Exception("unsupported type")
                         self.emit({"type": "executeSuccess"})
                     except Exception as e:
-                        logger.info(
-                            "error during execution: %s", traceback.format_exc()
-                        )
-                        self.emit({"type": "executeFailure", "error": repr(e)})
+                        traceback_error = traceback.format_exc()
+                        logger.error("error during execution: %s", traceback_error)
+                        self.emit({"type": "executeFailure", "error": traceback_error})
             elif d["type"] == "method":
                 interface = self._interface
                 if "pid" in d and d["pid"] is not None:
@@ -153,12 +164,11 @@ def task_worker(self, q, logger, abort):
                             result = method(*args)
                             resolve(result)
                         except Exception as e:
+                            traceback_error = traceback.format_exc()
                             logger.error(
-                                "error in method %s: %s",
-                                d["name"],
-                                traceback.format_exc(),
+                                "error in method %s: %s", d["name"], traceback_error
                             )
-                            reject(e)
+                            reject(Exception(formatTraceback(traceback_error)))
                     else:
                         try:
                             method = interface[d["name"]]
@@ -189,10 +199,11 @@ def task_worker(self, q, logger, abort):
                         result = method(*args)
                         resolve(result)
                     except Exception as e:
+                        traceback_error = traceback.format_exc()
                         logger.error(
-                            "error in method %s: %s", d["num"], traceback.format_exc()
+                            "error in method %s: %s", d["num"], traceback_error
                         )
-                        reject(e)
+                        reject(Exception(formatTraceback(traceback_error)))
                 else:
                     try:
                         method = self._store.fetch(d["num"])
