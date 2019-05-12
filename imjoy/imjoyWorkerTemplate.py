@@ -15,13 +15,13 @@ from imjoyUtils import ReferenceStore, debounce, dotdict, setInterval
 if sys.version_info >= (3, 0):
     import asyncio
     import janus
-    from imjoyUtils3 import FuturePromise
-    from .worker3 import task_worker
+    from imjoy.imjoyUtils3 import FuturePromise
+    from imjoy.worker3 import task_worker
 
     PYTHON3 = True
 else:
-    from imjoyUtils import Promise
-    from .worker import task_worker
+    from imjoy.imjoyUtils import Promise
+    from imjoy.worker import task_worker
 
     PYTHON3 = False
 
