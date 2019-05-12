@@ -74,7 +74,7 @@ def handle_execute(conn, job, logger):
             else:
                 raise Exception("unsupported type")
             conn.emit({"type": "executeSuccess"})
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             traceback_error = traceback.format_exc()
             logger.error("error during execution: %s", traceback_error)
             conn.emit({"type": "executeFailure", "error": traceback_error})
@@ -95,11 +95,9 @@ def handle_method(conn, job, logger):
                 # args.append({'id': conn.id})
                 result = method(*args)
                 resolve(result)
-            except Exception as exc:  # pylint: disable=broad-except
+            except Exception:  # pylint: disable=broad-except
                 traceback_error = traceback.format_exc()
-                logger.error(
-                    "error in method %s: %s", job["name"], traceback_error
-                )
+                logger.error("error in method %s: %s", job["name"], traceback_error)
                 reject(Exception(formatTraceback(traceback_error)))
         else:
             try:
@@ -132,11 +130,9 @@ def handle_callback(conn, job, logger):
             args = conn.unwrap(job["args"], True)
             result = method(*args)
             resolve(result)
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             traceback_error = traceback.format_exc()
-            logger.error(
-                "error in method %s: %s", job["num"], traceback_error
-            )
+            logger.error("error in method %s: %s", job["num"], traceback_error)
             reject(Exception(formatTraceback(traceback_error)))
     else:
         try:

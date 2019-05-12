@@ -47,11 +47,9 @@ async def handle_method_py3(conn, job, logger):
                 if result is not None and inspect.isawaitable(result):
                     result = await result
                 resolve(result)
-            except Exception as exc:  # pylint: disable=broad-except
+            except Exception:  # pylint: disable=broad-except
                 traceback_error = traceback.format_exc()
-                logger.error(
-                    "error in method %s: %s", job["name"], traceback_error
-                )
+                logger.error("error in method %s: %s", job["name"], traceback_error)
                 reject(Exception(formatTraceback(traceback_error)))
         else:
             try:
@@ -88,11 +86,9 @@ async def handle_callback_py3(conn, job, logger):
             if result is not None and inspect.isawaitable(result):
                 result = await result
             resolve(result)
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             traceback_error = traceback.format_exc()
-            logger.error(
-                "error in method %s: %s", job["num"], traceback_error
-            )
+            logger.error("error in method %s: %s", job["num"], traceback_error)
             reject(Exception(formatTraceback(traceback_error)))
     else:
         try:
