@@ -137,7 +137,7 @@ def task_worker(self, q, logger, abort):
                     except Exception as e:
                         traceback_error = traceback.format_exc()
                         logger.error("error during execution: %s", traceback_error)
-                        self.emit({"type": "executeFailure", "error": traceback_error})
+                        self.emit({"type": "executeFailure", "error": Exception(traceback_error)})
             elif d["type"] == "method":
                 interface = self._interface
                 if "pid" in d and d["pid"] is not None:
@@ -156,7 +156,7 @@ def task_worker(self, q, logger, abort):
                             logger.error(
                                 "error in method %s: %s", d["name"], traceback_error
                             )
-                            reject(traceback_error)
+                            reject(Exception(traceback_error))
                     else:
                         try:
                             method = interface[d["name"]]
@@ -191,7 +191,7 @@ def task_worker(self, q, logger, abort):
                         logger.error(
                             "error in method %s: %s", d["num"], traceback_error
                         )
-                        reject(e)
+                        reject(Exception(traceback_error))
                 else:
                     try:
                         method = self._store.fetch(d["num"])
