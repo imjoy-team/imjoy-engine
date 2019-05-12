@@ -1,5 +1,6 @@
 """Provide worker functions for Python 3."""
 import inspect
+import sys
 import traceback
 
 from .imjoyUtils import formatTraceback
@@ -10,6 +11,26 @@ from .worker import JOB_HANDLERS
 
 JOB_HANDLERS_PY3 = Registry()
 JOB_HANDLERS_PY3.update({name: make_coro(func) for name, func in JOB_HANDLERS.items()})
+
+
+async def task_worker(conn, async_q, logger, abort=None):
+    """Implement a task worker."""
+    while True:
+        if abort is not None and abort.is_set():
+            break
+        job = await async_q.get()
+        if job is None:
+            continue
+        handler = JOB_HANDLERS_PY3.get(job["type"])
+        if handler is None:
+            continue
+        try:
+            await handler(conn, job, logger)
+        except Exception:
+            print("error occured in the loop.", traceback.format_exc())
+        finally:
+            sys.stdout.flush()
+            async_q.task_done()
 
 
 @JOB_HANDLERS_PY3.register("method")

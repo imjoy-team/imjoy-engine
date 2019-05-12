@@ -1,31 +1,7 @@
 """Provide utils for Python 3 plugins."""
 import asyncio
-import sys
-import traceback
 
 from imjoyUtils import Promise
-
-from .worker3 import JOB_HANDLERS_PY3
-
-
-async def task_worker(conn, async_q, logger, abort=None):
-    """Implement a task worker."""
-    while True:
-        if abort is not None and abort.is_set():
-            break
-        job = await async_q.get()
-        if job is None:
-            continue
-        handler = JOB_HANDLERS_PY3.get(job["type"])
-        if handler is None:
-            continue
-        try:
-            await handler(conn, job, logger)
-        except Exception:
-            print("error occured in the loop.", traceback.format_exc())
-        finally:
-            sys.stdout.flush()
-            async_q.task_done()
 
 
 class FuturePromise(Promise, asyncio.Future):

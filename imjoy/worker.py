@@ -1,12 +1,39 @@
 """Provide worker functions."""
 import traceback
+import sys
+import time
 
 from .imjoyUtils import formatTraceback
 from .util import Registry
 
+try:
+    import queue
+except ImportError:
+    import Queue as queue
+
 # pylint: disable=unused-argument
 
 JOB_HANDLERS = Registry()
+
+
+def task_worker(conn, sync_q, logger, abort):
+    """Implement a task worker."""
+    while True:
+        if abort is not None and abort.is_set():
+            break
+        try:
+            job = sync_q.get()
+        except queue.Empty:
+            time.sleep(0.1)
+            continue
+        sync_q.task_done()
+        if job is None:
+            continue
+        handler = JOB_HANDLERS.get(job["type"])
+        if handler is None:
+            continue
+        handler(conn, job, logger)
+        sys.stdout.flush()
 
 
 @JOB_HANDLERS.register("getInterface")

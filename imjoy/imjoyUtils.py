@@ -1,16 +1,8 @@
 """Provide utils for Python 2 plugins."""
 import copy
-import sys
 import threading
 import time
 import uuid
-
-try:
-    import queue
-except ImportError:
-    import Queue as queue
-
-from .worker import JOB_HANDLERS
 
 
 def debounce(s):
@@ -111,26 +103,6 @@ class ReferenceStore:
             _id = getKeyByValue(self._store, obj.__jailed_pairs__)
             self.fetch(_id)
         return obj
-
-
-def task_worker(conn, sync_q, logger, abort):
-    """Implement a task worker."""
-    while True:
-        if abort is not None and abort.is_set():
-            break
-        try:
-            job = sync_q.get()
-        except queue.Empty:
-            time.sleep(0.1)
-            continue
-        sync_q.task_done()
-        if job is None:
-            continue
-        handler = JOB_HANDLERS.get(job["type"])
-        if handler is None:
-            continue
-        handler(conn, job, logger)
-        sys.stdout.flush()
 
 
 class Promise(object):
