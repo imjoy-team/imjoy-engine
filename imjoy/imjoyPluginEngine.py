@@ -825,6 +825,9 @@ async def on_init_plugin(sid, kwargs):
                 logger.debug("message from %s", pid)
                 if kwargs["type"] == "initialized":
                     addPlugin(plugin_info, sid)
+                elif kwargs["type"] == "executeFailure":
+                    logger.info("Killing plugin %s due to exeuction failure.", pid)
+                    killPlugin(pid)
             else:
                 await sio.emit(
                     "message_from_plugin_" + secretKey,
