@@ -100,7 +100,7 @@ class PluginConnection:
             os.chdir(self.work_dir)
         socketIO = SocketIO(server, Namespace=LoggingNamespace)
         self.socketIO = socketIO
-        self._init = False
+        self.init = False
         self.secret = secret
         self.id = pid
         self.daemon = daemon
@@ -110,18 +110,18 @@ class PluginConnection:
 
         self.emit = emit
 
-        self._local = {}
+        self.local = {}
         _remote = dotdict()
         self._setLocalAPI(_remote)
-        self._interface = {}
-        self._plugin_interfaces = {}
-        self._remote_set = False
-        self._store = ReferenceStore()
-        self._executed = False
+        self.interface = {}
+        self.plugin_interfaces = {}
+        self.remote_set = False
+        self.store = ReferenceStore()
+        self.executed = False
         self.queue = queue
         self.loop = loop
 
-        self._init = False
+        self.init = False
         sys.stdout.flush()
         socketIO.on("to_plugin_" + secret, self.sio_plugin_message)
         self.emit({"type": "initialized", "dedicatedThread": True})
@@ -161,9 +161,9 @@ class PluginConnection:
 
     def exit(self, code):
         """Exit."""
-        if "exit" in self._interface:
+        if "exit" in self.interface:
             try:
-                self._interface["exit"]()
+                self.interface["exit"]()
             except Exception as e:
                 logger.error("Error when exiting: %s", e)
                 sys.exit(1)
@@ -174,6 +174,7 @@ class PluginConnection:
             sys.exit(0)
 
     def _encode(self, aObject):
+        """Encode object."""
         if aObject is None:
             return aObject
         if type(aObject) is tuple:
@@ -206,7 +207,7 @@ class PluginConnection:
                         "num": None,
                     }
                     encoded_interface[k] = v
-            self._plugin_interfaces[aObject["__id__"]] = encoded_interface
+            self.plugin_interfaces[aObject["__id__"]] = encoded_interface
             return bObject
 
         keys = range(len(aObject)) if isarray else aObject.keys()
@@ -218,12 +219,12 @@ class PluginConnection:
                 basestring = str
             if callable(v):
                 interfaceFuncName = None
-                for name in self._interface:
-                    if self._interface[name] == v:
+                for name in self.interface:
+                    if self.interface[name] == v:
                         interfaceFuncName = name
                         break
                 if interfaceFuncName is None:
-                    cid = self._store.put(v)
+                    cid = self.store.put(v)
                     vObj = {"__jailed_type__": "callback", "__value__": "f", "num": cid}
                 else:
                     vObj = {
@@ -247,8 +248,8 @@ class PluginConnection:
             #   v instanceof ImageData
             # ) {
             # }
-            elif "np" in self._local and isinstance(
-                v, (self._local["np"].ndarray, self._local["np"].generic)
+            elif "np" in self.local and isinstance(
+                v, (self.local["np"].ndarray, self.local["np"].generic)
             ):
                 vb = bytearray(v.tobytes())
                 if len(vb) > ARRAY_CHUNK:
@@ -281,6 +282,7 @@ class PluginConnection:
         return bObject
 
     def _decode(self, aObject, callbackId, withPromise):
+        """Decode object."""
         if aObject is None:
             return aObject
         if "__jailed_type__" in aObject and "__value__" in aObject:
@@ -301,7 +303,7 @@ class PluginConnection:
             elif aObject["__jailed_type__"] == "ndarray":
                 # create build array/tensor if used in the plugin
                 try:
-                    np = self._local["np"]
+                    np = self.local["np"]
                     if isinstance(aObject["__value__"], bytearray):
                         aObject["__value__"] = aObject["__value__"]
                     elif isinstance(aObject["__value__"], list) or isinstance(
@@ -347,11 +349,13 @@ class PluginConnection:
             return bObject
 
     def _wrap(self, args):
+        """Wrap arguments."""
         wrapped = self._encode(args)
         result = {"args": wrapped}
         return result
 
-    def _unwrap(self, args, withPromise):
+    def unwrap(self, args, withPromise):
+        """Unwrap arguments."""
         if "callbackId" not in args:
             args["callbackId"] = None
         # wraps each callback so that the only one could be called
@@ -378,16 +382,17 @@ class PluginConnection:
             api["exit"] = exit_wrapper
         else:
             api["exit"] = self.default_exit
-        self._interface = api
-        self._sendInterface()
+        self.interface = api
+        self.send_interface()
 
-    def _sendInterface(self):
+    def send_interface(self):
+        """Send interface."""
         names = []
-        for name in self._interface:
-            if callable(self._interface[name]):
+        for name in self.interface:
+            if callable(self.interface[name]):
                 names.append({"name": name, "data": None})
             else:
-                data = self._interface[name]
+                data = self.interface[name]
                 if data is not None and isinstance(data, dict):
                     data2 = {}
                     for k in data:
@@ -401,6 +406,8 @@ class PluginConnection:
         self.emit({"type": "setInterface", "api": names})
 
     def _genRemoteMethod(self, name, plugin_id=None):
+        """Return remote method."""
+
         def remoteMethod(*arguments, **kwargs):
             # wrap keywords to a dictionary and pass to the first argument
             if len(arguments) == 0 and len(kwargs) > 0:
@@ -427,6 +434,7 @@ class PluginConnection:
         return remoteMethod
 
     def _genRemoteCallback(self, id, argNum, withPromise):
+        """Return remote callback."""
         if withPromise:
 
             def remoteCallback(*arguments, **kwargs):
@@ -472,7 +480,8 @@ class PluginConnection:
 
         return remoteCallback
 
-    def _setRemote(self, api):
+    def set_remote(self, api):
+        """Set remote."""
         _remote = dotdict()
         for i in range(len(api)):
             if isinstance(api[i], dict) and "name" in api[i]:
@@ -497,11 +506,12 @@ class PluginConnection:
         return _remote
 
     def _setLocalAPI(self, _remote):
+        """Set local API."""
         _remote["export"] = self.setInterface
         _remote["utils"] = api_utils
         _remote["WORK_DIR"] = self.work_dir
 
-        self._local["api"] = _remote
+        self.local["api"] = _remote
 
         # make a fake module with api
         m = ModuleType("imjoy")
@@ -518,14 +528,14 @@ class PluginConnection:
             self.abort.set()
             callback, args = find_callback(args)
             try:
-                if "exit" in self._interface and callable(self._interface["exit"]):
-                    self._interface["exit"]()
+                if "exit" in self.interface and callable(self.interface["exit"]):
+                    self.interface["exit"]()
             except Exception as e:
                 logger.error("Error when exiting: %s", e)
             if callback:
                 callback(*args)
         elif data["type"] == "execute":
-            if not self._executed:
+            if not self.executed:
                 self.sync_q.put(data)
             else:
                 logger.debug("skip execution.")

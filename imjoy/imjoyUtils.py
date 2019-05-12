@@ -3,13 +3,14 @@ import copy
 import sys
 import threading
 import time
-import traceback
 import uuid
 
 try:
     import queue
 except ImportError:
     import Queue as queue
+
+from .worker import JOB_HANDLERS
 
 
 def debounce(s):
@@ -112,117 +113,24 @@ class ReferenceStore:
         return obj
 
 
-def task_worker(self, q, logger, abort):
+def task_worker(conn, sync_q, logger, abort):
     """Implement a task worker."""
     while True:
+        if abort is not None and abort.is_set():
+            break
         try:
-            if abort is not None and abort.is_set():
-                break
-            d = q.get()
-            q.task_done()
-            if d is None:
-                continue
-            if d["type"] == "getInterface":
-                self._sendInterface()
-            elif d["type"] == "setInterface":
-                self._setRemote(d["api"])
-                self.emit({"type": "interfaceSetAsRemote"})
-                if not self._init:
-                    self.emit({"type": "getInterface"})
-                    self._init = True
-            elif d["type"] == "interfaceSetAsRemote":
-                # self.emit({'type':'getInterface'})
-                self._remote_set = True
-            elif d["type"] == "execute":
-                if not self._executed:
-                    try:
-                        t = d["code"]["type"]
-                        if t == "script":
-                            content = d["code"]["content"]
-                            exec(content, self._local)
-                            self._executed = True
-                        elif t == "requirements":
-                            pass
-                        else:
-                            raise Exception("unsupported type")
-                        self.emit({"type": "executeSuccess"})
-                    except Exception as e:
-                        traceback_error = traceback.format_exc()
-                        logger.error("error during execution: %s", traceback_error)
-                        self.emit({"type": "executeFailure", "error": traceback_error})
-            elif d["type"] == "method":
-                interface = self._interface
-                if "pid" in d and d["pid"] is not None:
-                    interface = self._plugin_interfaces[d["pid"]]
-                if d["name"] in interface:
-                    if "promise" in d:
-                        try:
-                            resolve, reject = self._unwrap(d["promise"], False)
-                            method = interface[d["name"]]
-                            args = self._unwrap(d["args"], True)
-                            # args.append({'id': self.id})
-                            result = method(*args)
-                            resolve(result)
-                        except Exception as e:
-                            traceback_error = traceback.format_exc()
-                            logger.error(
-                                "error in method %s: %s", d["name"], traceback_error
-                            )
-                            reject(Exception(formatTraceback(traceback_error)))
-                    else:
-                        try:
-                            method = interface[d["name"]]
-                            args = self._unwrap(d["args"], True)
-                            # args.append({'id': self.id})
-                            method(*args)
-                        except Exception:
-                            logger.error(
-                                "error in method %s: %s",
-                                d["name"],
-                                traceback.format_exc(),
-                            )
-                else:
-                    raise Exception("method " + d["name"] + " is not found.")
-            elif d["type"] == "callback":
-                if "promise" in d:
-                    resolve, reject = self._unwrap(d["promise"], False)
-                    try:
-                        method = self._store.fetch(d["num"])
-                        if method is None:
-                            raise Exception(
-                                "Callback function can only called once, "
-                                "if you want to call a function for multiple times, "
-                                "please make it as a plugin api function. "
-                                "See https://imjoy.io/docs for more details."
-                            )
-                        args = self._unwrap(d["args"], True)
-                        result = method(*args)
-                        resolve(result)
-                    except Exception as e:
-                        traceback_error = traceback.format_exc()
-                        logger.error(
-                            "error in method %s: %s", d["num"], traceback_error
-                        )
-                        reject(Exception(formatTraceback(traceback_error)))
-                else:
-                    try:
-                        method = self._store.fetch(d["num"])
-                        if method is None:
-                            raise Exception(
-                                "Callback function can only called once, "
-                                "if you want to call a function for multiple times, "
-                                "please make it as a plugin api function. "
-                                "See https://imjoy.io/docs for more details."
-                            )
-                        args = self._unwrap(d["args"], True)
-                        method(*args)
-                    except Exception:
-                        logger.error(
-                            "error in method %s: %s", d["num"], traceback.format_exc()
-                        )
-            sys.stdout.flush()
+            job = sync_q.get()
         except queue.Empty:
             time.sleep(0.1)
+            continue
+        sync_q.task_done()
+        if job is None:
+            continue
+        handler = JOB_HANDLERS.get(job["type"])
+        if handler is None:
+            continue
+        handler(conn, job, logger)
+        sys.stdout.flush()
 
 
 class Promise(object):
