@@ -583,6 +583,8 @@ def parseRequirements(requirements, default_requirements, work_dir):
 
     elif type(requirements) is str and requirements.strip() != "":
         requirements_cmd += " && " + requirements
+    elif requirements is None or type(requirements) is str and requirements.strip() == "":
+        pass
     else:
         raise Exception("Unsupported requirements type.")
     return requirements_cmd
