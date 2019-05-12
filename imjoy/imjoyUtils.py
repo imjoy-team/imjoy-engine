@@ -137,7 +137,12 @@ def task_worker(self, q, logger, abort):
                     except Exception as e:
                         traceback_error = traceback.format_exc()
                         logger.error("error during execution: %s", traceback_error)
-                        self.emit({"type": "executeFailure", "error": Exception(traceback_error)})
+                        self.emit(
+                            {
+                                "type": "executeFailure",
+                                "error": Exception(traceback_error),
+                            }
+                        )
             elif d["type"] == "method":
                 interface = self._interface
                 if "pid" in d and d["pid"] is not None:
