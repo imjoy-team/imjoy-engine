@@ -1,6 +1,11 @@
 """Provide utilities that should not be aware of ImJoy engine."""
 
 
+async def def_a_coroutine():
+    """Make a comp test."""
+    pass
+
+
 class Registry(dict):
     """Registry of items."""
 
