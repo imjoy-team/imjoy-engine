@@ -744,7 +744,7 @@ async def on_init_plugin(sid, kwargs):
         pname = config.get("name")
         flags = config.get("flags", [])
         tag = config.get("tag", "")
-        requirements = config.get("requirements", [])
+        requirements = config.get("requirements", []) or []
         workspace = config.get("workspace", "default")
         work_dir = os.path.join(WORKSPACE_DIR, workspace)
         if not os.path.exists(work_dir):
