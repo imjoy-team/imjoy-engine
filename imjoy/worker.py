@@ -3,7 +3,7 @@ import inspect
 import traceback
 
 from .imjoyUtils import formatTraceback
-from .util import Registry
+from .util import Registry, make_coro
 
 # pylint: disable=unused-argument
 
@@ -126,16 +126,6 @@ def handle_callback(conn, job, logger):
             method(*args)
         except Exception:  # pylint: disable=broad-except
             logger.error("error in method %s: %s", job["num"], traceback.format_exc())
-
-
-def make_coro(func):
-    """Wrap a normal function with a coroutine."""
-
-    async def wrapper(*args, **kwargs):
-        """Run the normal function."""
-        return func(*args, **kwargs)
-
-    return wrapper
 
 
 JOB_HANDLERS_PY3 = Registry()

@@ -15,3 +15,13 @@ class Registry(dict):
             return func
 
         return decorator
+
+
+def make_coro(func):
+    """Wrap a normal function with a coroutine."""
+
+    async def wrapper(*args, **kwargs):
+        """Run the normal function."""
+        return func(*args, **kwargs)
+
+    return wrapper
