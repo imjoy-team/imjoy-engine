@@ -42,9 +42,7 @@ async def task_worker(self, async_q, logger, abort=None):
                         self.emit({"type": "executeSuccess"})
                     except Exception as e:
                         traceback_error = traceback.format_exc()
-                        logger.info(
-                            "error during execution: %s", traceback_error
-                        )
+                        logger.info("error during execution: %s", traceback_error)
                         self.emit({"type": "executeFailure", "error": traceback_error})
             elif d["type"] == "method":
                 if d["name"] in self._interface:
@@ -61,9 +59,7 @@ async def task_worker(self, async_q, logger, abort=None):
                         except Exception as e:
                             traceback_error = traceback.format_exc()
                             logger.error(
-                                "error in method %s: %s",
-                                d["name"],
-                                traceback_error,
+                                "error in method %s: %s", d["name"], traceback_error
                             )
                             reject(traceback_error)
                     else:
