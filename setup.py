@@ -1,3 +1,4 @@
+"""Set up the ImJoy-Engine imjoy package."""
 import os
 import sys
 import pathlib
@@ -5,10 +6,16 @@ import subprocess
 from setuptools import setup, find_packages
 import json
 
+DESCRIPTION = (
+    "ImJoy Plugin Engine for running Python plugins locally "
+    "or remotely from ImJoy.io"
+)
+
 try:
     subprocess.call(["conda", "-V"])
     if os.name == "nt":
-        # for fixing CondaHTTPError: https://github.com/conda/conda/issues/6064#issuecomment-458389796
+        # for fixing CondaHTTPError:
+        # https://github.com/conda/conda/issues/6064#issuecomment-458389796
         process = subprocess.Popen(
             ["conda", "info", "--json", "-s"], stdout=subprocess.PIPE
         )
@@ -20,14 +27,16 @@ try:
             + os.pathsep
             + os.environ["PATH"]
         )
-except OSError as e:
+except OSError:
     if sys.version_info > (3, 0):
         print(
-            "WARNING: you are running ImJoy without conda, you may have problem with some plugins."
+            "WARNING: you are running ImJoy without conda, "
+            "you may have problem with some plugins."
         )
     else:
         sys.exit(
-            "Sorry, ImJoy Python Plugin Engine can only run within a conda environment or at least in Python 3."
+            "Sorry, ImJoy Python Plugin Engine can only run within a conda environment "
+            "or at least in Python 3."
         )
 
 requirements = []
@@ -54,7 +63,8 @@ if sys.version_info > (3, 0):
         ).wait()
         if ret2 != 0:
             raise Exception(
-                "Failed to install psutil, please try to setup an environment with gcc support."
+                "Failed to install psutil, "
+                "please try to setup an environment with gcc support."
             )
 
 
@@ -65,7 +75,7 @@ VERSION = json.loads((HERE / "imjoy" / "VERSION").read_text())["version"]
 setup(
     name="imjoy",
     version=VERSION,
-    description="ImJoy Plugin Engine for running Python plugins locally or remotely from ImJoy.io",
+    description=DESCRIPTION,
     long_description=README,
     long_description_content_type="text/markdown",
     url="http://github.com/oeway/ImJoy-Engine",

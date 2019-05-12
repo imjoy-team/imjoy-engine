@@ -1,38 +1,36 @@
-import os
-import asyncio
-import socketio
-import logging
-import threading
-import sys
-import time
-import subprocess
-import signal
-import random
-import string
-import shlex
-import logging
+"""Implement the ImJoy plugin engine."""
 import argparse
-import uuid
-import shutil
-import yaml
+import asyncio
+import datetime
 import json
-import platform
-import traceback
+import logging
+import os
 import pathlib
+import platform
+import shlex
+import shutil
+import string
+import subprocess
+import sys
+import threading
+import time
+import traceback
+import uuid
+from mimetypes import MimeTypes
+from urllib.parse import urlparse
+
+import aiohttp_cors
+import socketio
+import yaml
 
 # import webbrowser
-from aiohttp import web, hdrs
-from aiohttp import WSCloseCode
-from aiohttp import streamer
-from urllib.parse import urlparse
-from mimetypes import MimeTypes
-import aiohttp_cors
+from aiohttp import streamer, web
 
 if sys.platform == "win32":
-    import string
     from ctypes import windll
 
     def get_drives():
+        """Return windows drives."""
         drives = []
         bitmask = windll.kernel32.GetLogicalDrives()
         for letter in string.ascii_uppercase:
@@ -44,16 +42,12 @@ if sys.platform == "win32":
 
 try:
     import psutil
-except Exception as e:
+except Exception:
     print(
         "WARNING: a library called 'psutil' can not be imported, "
         "this may cause problem when killing processes."
     )
 
-try:
-    from Queue import Queue, Empty
-except ImportError:
-    from queue import Queue, Empty  # python 3.x
 
 # read version information from file
 HERE = pathlib.Path(__file__).parent
@@ -91,7 +85,7 @@ try:
             + os.environ["PATH"]
         )
     CONDA_AVAILABLE = True
-except OSError as e:
+except OSError:
     conda_prefix = None
     if sys.version_info < (3, 0):
         sys.exit(
@@ -164,13 +158,13 @@ WORKSPACE_DIR = os.path.expanduser(opt.workspace)
 if not os.path.exists(WORKSPACE_DIR):
     os.makedirs(WORKSPACE_DIR)
 
-# generate a new token if not exist
+# read token from file if exists
 try:
     if opt.token is None or opt.token == "":
         with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as f:
             opt.token = f.read()
-except Exception as e:
-    pass
+except Exception:
+    logger.debug("Failed to read token from file")
 
 try:
     if opt.token is None or opt.token == "":
@@ -178,10 +172,11 @@ try:
         with open(os.path.join(WORKSPACE_DIR, ".token"), "w") as f:
             f.write(opt.token)
 except Exception as e:
-    logger.error("Falied to save .token file: %s", str(e))
+    logger.error("Failed to save .token file: %s", str(e))
 
 
 def killProcess(pid):
+    """Kill process."""
     try:
         cp = psutil.Process(pid)
         for proc in cp.children(recursive=True):
@@ -213,14 +208,14 @@ try:
     if os.path.exists(pid_file):
         with open(pid_file, "r") as f:
             killProcess(int(f.read()))
-except Exception as e:
-    pass
+except Exception:
+    logger.debug("Failed to kill last process")
 try:
     pid = str(os.getpid())
     with open(pid_file, "w") as f:
         f.write(pid)
 except Exception as e:
-    logger.error("Falied to save .pid file: %s", str(e))
+    logger.error("Failed to save .pid file: %s", str(e))
 
 WEB_APP_DIR = os.path.join(WORKSPACE_DIR, "__ImJoy__")
 if opt.serve:
@@ -285,7 +280,9 @@ if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, "index.html")):
 
     app.router.add_static("/static", path=str(os.path.join(WEB_APP_DIR, "static")))
     # app.router.add_static('/docs/', path=str(os.path.join(WEB_APP_DIR, 'docs')))
+
     async def docs_handler(request):
+        """Handle docs."""
         raise web.HTTPFound(location="https://imjoy.io/docs")
 
     app.router.add_get("/docs", docs_handler, name="docs")
@@ -293,6 +290,7 @@ if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, "index.html")):
 else:
 
     async def index(request):
+        """Return index."""
         return web.Response(
             body=(
                 '<H1><a href="https://imjoy.io">ImJoy.IO</a></H1><p>'
@@ -307,6 +305,7 @@ app.router.add_get("/", index)
 
 
 async def about(request):
+    """Return about text."""
     params = request.rel_url.query
     if "token" in params:
         body = (
@@ -401,6 +400,7 @@ else:
 
 
 def resumePluginSession(pid, session_id, plugin_signature):
+    """Resume plugin session."""
     if pid in plugins:
         if session_id in plugin_sessions:
             plugin_sessions[session_id].append(plugins[pid])
@@ -416,6 +416,7 @@ def resumePluginSession(pid, session_id, plugin_signature):
 
 
 def addClientSession(session_id, client_id, sid, base_url, workspace):
+    """Add client session."""
     if client_id in clients:
         clients[client_id].append(sid)
         client_connected = True
@@ -433,6 +434,7 @@ def addClientSession(session_id, client_id, sid, base_url, workspace):
 
 
 def disconnectClientSession(sid):
+    """Disconnect client session."""
     if sid in registered_sessions:
         logger.info("disconnecting client session %s", sid)
         obj = registered_sessions[sid]
@@ -450,6 +452,7 @@ def disconnectClientSession(sid):
 
 
 def addPlugin(plugin_info, sid=None):
+    """Add plugin."""
     pid = plugin_info["id"]
     session_id = plugin_info["session_id"]
     plugin_signatures[plugin_info["signature"]] = plugin_info
@@ -465,6 +468,7 @@ def addPlugin(plugin_info, sid=None):
 
 
 def disconnectPlugin(sid):
+    """Disconnect plugin."""
     if sid in plugin_sids:
         logger.info("disconnecting plugin session %s", sid)
         pid = plugin_sids[sid]["id"]
@@ -487,10 +491,12 @@ def disconnectPlugin(sid):
 
 
 def setPluginPID(plugin_id, pid):
+    """Set plugin pid."""
     plugins[plugin_id]["process_id"] = pid
 
 
 def killPlugin(pid):
+    """Kill plugin."""
     if pid in plugins:
         try:
             plugins[pid]["abort"].set()
@@ -514,6 +520,7 @@ def killPlugin(pid):
 
 
 async def killAllPlugins(ssid):
+    """Kill all plugins."""
     tasks = []
     for sid in list(plugin_sids.keys()):
         try:
@@ -525,6 +532,7 @@ async def killAllPlugins(ssid):
 
 
 def parseRepos(requirements, work_dir):
+    """Return a list of repositories from a list of requirements."""
     repos = []
     if type(requirements) is list:
         requirements = [str(r) for r in requirements]
@@ -547,6 +555,7 @@ def parseRepos(requirements, work_dir):
 
 
 def parseRequirements(requirements, default_requirements, work_dir):
+    """Parse requirements."""
     requirements_cmd = "pip install " + " ".join(default_requirements)
     if type(requirements) is list:
         requirements = [str(r) for r in requirements]
@@ -580,7 +589,7 @@ def parseRequirements(requirements, default_requirements, work_dir):
 
 
 def console_to_str(s):
-    """ From pypa/pip project, pip.backwardwardcompat. License MIT. """
+    """From pypa/pip project, pip.backwardwardcompat. License MIT."""
     try:
         return s.decode(sys.__stdout__.encoding)
     except UnicodeDecodeError:
@@ -598,7 +607,10 @@ def runCmd(
     callback=None,
     plugin_id=None,
 ):
-    """ From https://github.com/vcs-python/libvcs/ """
+    """Run command.
+
+    From https://github.com/vcs-python/libvcs/.
+    """
     proc = subprocess.Popen(
         cmd,
         shell=shell,
@@ -635,6 +647,7 @@ def runCmd(
 
 
 def parseEnv(env, work_dir, default_env_name):
+    """Parse environment."""
     env_name = ""
     is_py2 = False
     envs = None
@@ -710,11 +723,13 @@ def parseEnv(env, work_dir, default_env_name):
 
 @sio.on("connect", namespace=NAME_SPACE)
 def connect(sid, environ):
+    """Connect client."""
     logger.info("connect %s", sid)
 
 
 @sio.on("init_plugin", namespace=NAME_SPACE)
 async def on_init_plugin(sid, kwargs):
+    """Initialize plugin."""
     try:
         if sid in registered_sessions:
             obj = registered_sessions[sid]
@@ -883,12 +898,13 @@ async def on_init_plugin(sid, kwargs):
             "work_dir": os.path.abspath(work_dir),
         }
 
-    except Exception as e:
+    except Exception:
         logger.error(traceback.format_exc())
         return {"success": False, "reason": traceback.format_exc()}
 
 
 async def force_kill_timeout(t, obj):
+    """Force kill plugin after timeout."""
     pid = obj["pid"]
     for i in range(int(t * 10)):
         if obj["force_kill"]:
@@ -904,6 +920,7 @@ async def force_kill_timeout(t, obj):
 
 @sio.on("reset_engine", namespace=NAME_SPACE)
 async def on_reset_engine(sid, kwargs):
+    """Reset engine."""
     logger.info("kill plugin: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -945,13 +962,13 @@ async def on_reset_engine(sid, kwargs):
 
 @sio.on("kill_plugin", namespace=NAME_SPACE)
 async def on_kill_plugin(sid, kwargs):
+    """Kill plugin."""
     logger.info("kill plugin: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered"}
 
     pid = kwargs["id"]
-    timeout_kill = None
     if pid in plugins:
         if "killing" not in plugins[pid]:
             obj = {"force_kill": True, "pid": pid}
@@ -974,6 +991,7 @@ async def on_kill_plugin(sid, kwargs):
 
 @sio.on("register_client", namespace=NAME_SPACE)
 async def on_register_client(sid, kwargs):
+    """Register client."""
     global attempt_count
     client_id = kwargs.get("id", str(uuid.uuid4()))
     workspace = kwargs.get("workspace", "default")
@@ -1038,6 +1056,7 @@ async def on_register_client(sid, kwargs):
 
 
 def scandir(path, type=None, recursive=False):
+    """Scan a directory for a type of files return a list of files found."""
     file_list = []
     for f in os.scandir(path):
         if f.name.startswith("."):
@@ -1064,6 +1083,7 @@ def scandir(path, type=None, recursive=False):
 
 @sio.on("list_dir", namespace=NAME_SPACE)
 async def on_list_dir(sid, kwargs):
+    """List files in directory."""
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -1098,6 +1118,7 @@ async def on_list_dir(sid, kwargs):
 
 @sio.on("remove_files", namespace=NAME_SPACE)
 async def on_remove_files(sid, kwargs):
+    """Remove files."""
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -1136,9 +1157,9 @@ async def on_remove_files(sid, kwargs):
 
 @streamer
 async def file_sender(writer, file_path=None):
-    """
-    This function will read large file chunk by chunk and send it through HTTP
-    without reading them into memory
+    """Read a large file chunk by chunk and send it through HTTP.
+
+    Do not read the chunks into memory.
     """
     with open(file_path, "rb") as f:
         chunk = f.read(2 ** 16)
@@ -1149,6 +1170,7 @@ async def file_sender(writer, file_path=None):
 
 @sio.on("request_upload_url", namespace=NAME_SPACE)
 async def on_request_upload_url(sid, kwargs):
+    """Request upload url."""
     logger.info("requesting file upload url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -1187,6 +1209,7 @@ async def on_request_upload_url(sid, kwargs):
 
 
 async def upload_file(request):
+    """Upload file."""
     urlid = request.match_info["urlid"]  # Could be a HUGE file
     if urlid not in requestUploadFiles:
         raise web.HTTPForbidden(text="Invalid URL")
@@ -1255,6 +1278,7 @@ cors.add(app.router.add_route("POST", "/upload/{urlid}", upload_file))
 
 
 async def download_file(request):
+    """Download file."""
     # origin = request.headers.get(hdrs.ORIGIN)
     # if origin is None:
     #     # Terminate CORS according to CORS 6.2.1.
@@ -1363,6 +1387,7 @@ cors.add(app.router.add_get("/file/{urlid}@{password}/{name:.+}", download_file)
 
 @sio.on("get_file_url", namespace=NAME_SPACE)
 async def on_get_file_url(sid, kwargs):
+    """Return file url."""
     logger.info("generating file url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -1398,6 +1423,7 @@ async def on_get_file_url(sid, kwargs):
 
 @sio.on("get_file_path", namespace=NAME_SPACE)
 async def on_get_file_path(sid, kwargs):
+    """Return file path."""
     logger.info("generating file url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -1414,6 +1440,7 @@ async def on_get_file_path(sid, kwargs):
 
 @sio.on("get_engine_status", namespace=NAME_SPACE)
 async def on_get_engine_status(sid, kwargs):
+    """Return engine status."""
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -1440,6 +1467,7 @@ async def on_get_engine_status(sid, kwargs):
 
 @sio.on("kill_plugin_process", namespace=NAME_SPACE)
 async def on_kill_plugin_process(sid, kwargs):
+    """Kill plugin process."""
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -1457,7 +1485,7 @@ async def on_kill_plugin_process(sid, kwargs):
             print("Killing plugin process (pid=" + str(kwargs["pid"]) + ")...")
             killProcess(int(kwargs["pid"]))
             return {"success": True}
-        except:
+        except Exception:
             return {
                 "success": False,
                 "error": "Failed to kill plugin process: #" + str(kwargs["pid"]),
@@ -1466,11 +1494,13 @@ async def on_kill_plugin_process(sid, kwargs):
 
 @sio.on("message", namespace=NAME_SPACE)
 async def on_message(sid, kwargs):
+    """Receive message."""
     logger.info("message recieved: %s", kwargs)
 
 
 @sio.on("disconnect", namespace=NAME_SPACE)
 async def disconnect(sid):
+    """Disconnect client."""
     disconnectClientSession(sid)
     disconnectPlugin(sid)
     logger.info("disconnect %s", sid)
@@ -1490,6 +1520,7 @@ def launch_plugin(
     name,
     plugin_env,
 ):
+    """Launch plugin."""
     if abort.is_set():
         logger.info("plugin aborting...")
         logging_callback("plugin aborting...")
@@ -1662,7 +1693,7 @@ def launch_plugin(
         )
         abort.set()
 
-    if abort.is_set() or error:
+    if abort.is_set():
         logger.info("Plugin aborting...")
         logging_callback("Plugin aborting...")
         return False
@@ -1706,7 +1737,7 @@ def launch_plugin(
 
         while True:
             out = process.stdout.read(1)
-            if out == "" and process.poll() != None:
+            if out == "" and process.poll() is not None:
                 break
             os.write(stdfn, out)
             sys.stdout.flush()
@@ -1750,6 +1781,7 @@ def launch_plugin(
 
 
 async def on_startup(app):
+    """Start plugin engine."""
     print("ImJoy Python Plugin Engine (version {})".format(__version__))
 
     if opt.serve:
@@ -1768,6 +1800,7 @@ async def on_startup(app):
 
 
 async def on_shutdown(app):
+    """Shut down engine."""
     print("Shutting down...")
     logger.info("Shutting down the plugin engine...")
     stopped = threading.Event()
@@ -1792,7 +1825,7 @@ async def on_shutdown(app):
     logger.info("Plugin engine exited.")
     try:
         os.remove(pid_file)
-    except Exception as e:
+    except Exception:
         logger.info("Failed to remove the pid file.")
 
 
@@ -1801,6 +1834,7 @@ app.on_shutdown.append(on_shutdown)
 
 
 def main():
+    """Run app."""
     try:
         web.run_app(app, host=opt.host, port=int(opt.port))
     except OSError as e:

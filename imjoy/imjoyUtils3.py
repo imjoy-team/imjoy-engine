@@ -1,3 +1,4 @@
+"""Provide utils for Python 3 plugins."""
 import asyncio
 import sys
 import traceback
@@ -7,6 +8,7 @@ from imjoyUtils import Promise
 
 
 async def task_worker(self, async_q, logger, abort=None):
+    """Implement a task worker."""
     while True:
         if abort is not None and abort.is_set():
             break
@@ -70,7 +72,7 @@ async def task_worker(self, async_q, logger, abort=None):
                             result = method(*args)
                             if result is not None and inspect.isawaitable(result):
                                 await result
-                        except Exception as e:
+                        except Exception:
                             logger.error(
                                 "error in method %s: %s",
                                 d["name"],
@@ -113,12 +115,12 @@ async def task_worker(self, async_q, logger, abort=None):
                         args = self._unwrap(d["args"], True)
                         result = method(*args)
                         if result is not None and inspect.isawaitable(result):
-                            await reresultt
-                    except Exception as e:
+                            await result
+                    except Exception:
                         logger.error(
                             "error in method %s: %s", d["num"], traceback.format_exc()
                         )
-        except Exception as e:
+        except Exception:
             print("error occured in the loop.", traceback.format_exc())
         finally:
             sys.stdout.flush()
@@ -126,18 +128,23 @@ async def task_worker(self, async_q, logger, abort=None):
 
 
 class FuturePromise(Promise, asyncio.Future):
+    """Represent a promise as a future."""
+
     def __init__(self, pfunc, loop):
+        """Set up promise."""
         self.loop = loop
         Promise.__init__(self, pfunc)
         asyncio.Future.__init__(self)
 
     def resolve(self, result):
+        """Resolve promise."""
         if self._resolve_handler or self._finally_handler:
             Promise.resolve(self, result)
         else:
             self.loop.call_soon(self.set_result, result)
 
     def reject(self, error):
+        """Reject promise."""
         if self._catch_handler or self._finally_handler:
             Promise.reject(self, error)
         else:
