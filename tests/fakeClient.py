@@ -1,8 +1,9 @@
+import os
 import asyncio
 import uuid
 import socketio
 
-WORKSPACE_DIR = os.path.expanduser('default')
+WORKSPACE_DIR = os.path.expanduser('~/ImJoyWorkspace')
 # read token from file if exists
 with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as f:
     token = f.read()
@@ -11,9 +12,11 @@ client_id = str(uuid.uuid4())
 session_id = str(uuid.uuid4())
 url = 'http://localhost:9527'
 
+NAME_SPACE = "/"
+
 class FakeClient():
     def __init__(self, url, client_id, session_id, token):
-        self.engine_info = null
+        self.engine_info = None
         self.url = url
         self.client_id = client_id
         self.session_id = session_id
@@ -46,12 +49,15 @@ class FakeClient():
             'token': self.token,
             'base_url': self.url,
             'session_id': self.session_id
-          }, self.on_registered)
+        }, namespace=NAME_SPACE,callback=self.on_registered)
 
-    async on_registered(self, ret):
+    async def on_registered(self, ret):
         print('registered...')
         if 'success' in ret and ret['success']:
             self.engine_info = ret['engine_info']
+            print(self.engine_info)
+        else:
+            print('failed to register')
 
     def run(self):
         loop = asyncio.get_event_loop()
@@ -59,5 +65,4 @@ class FakeClient():
 
 if __name__ == '__main__':
     client = FakeClient(url, client_id, session_id, token)
-    client.init()
     client.run()
