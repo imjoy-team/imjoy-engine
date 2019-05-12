@@ -1,72 +1,30 @@
-"""Provide worker functions."""
+"""Provide worker functions for Python 3."""
+import inspect
 import traceback
 
 from .imjoyUtils import formatTraceback
-from .util import Registry
+from .util import Registry, make_coro
+from .worker import JOB_HANDLERS
 
 # pylint: disable=unused-argument
 
-JOB_HANDLERS = Registry()
+JOB_HANDLERS_PY3 = Registry()
+JOB_HANDLERS_PY3.update({name: make_coro(func) for name, func in JOB_HANDLERS.items()})
 
 
-@JOB_HANDLERS.register("getInterface")
-def handle_get_interface(conn, job, logger):
-    """Handle get interface."""
-    conn.send_interface()
-
-
-@JOB_HANDLERS.register("setInterface")
-def handle_set_interface(conn, job, logger):
-    """Handle set interface."""
-    conn.set_remote(job["api"])
-    conn.emit({"type": "interfaceSetAsRemote"})
-    if not conn.init:
-        conn.emit({"type": "getInterface"})
-        conn.init = True
-
-
-@JOB_HANDLERS.register("interfaceSetAsRemote")
-def handle_set_interface_as_remote(conn, job, logger):
-    """Handle set interface as remote."""
-    # conn.emit({'type':'getInterface'})
-    conn.remote_set = True
-
-
-@JOB_HANDLERS.register("execute")
-def handle_execute(conn, job, logger):
-    """Handle execute."""
-    if not conn.executed:
-        try:
-            type_ = job["code"]["type"]
-            if type_ == "script":
-                content = job["code"]["content"]
-                exec(content, conn.local)  # pylint: disable=exec-used
-                conn.executed = True
-            elif type_ == "requirements":
-                pass
-            else:
-                raise Exception("unsupported type")
-            conn.emit({"type": "executeSuccess"})
-        except Exception as exc:  # pylint: disable=broad-except
-            traceback_error = traceback.format_exc()
-            logger.error("error during execution: %s", traceback_error)
-            conn.emit({"type": "executeFailure", "error": traceback_error})
-
-
-@JOB_HANDLERS.register("method")
-def handle_method(conn, job, logger):
+@JOB_HANDLERS_PY3.register("method")
+async def handle_method_py3(conn, job, logger):
     """Handle method."""
-    interface = conn.interface
-    if "pid" in job and job["pid"] is not None:
-        interface = conn.plugin_interfaces[job["pid"]]
-    if job["name"] in interface:
+    if job["name"] in conn.interface:
         if "promise" in job:
             try:
                 resolve, reject = conn.unwrap(job["promise"], False)
-                method = interface[job["name"]]
+                method = conn.interface[job["name"]]
                 args = conn.unwrap(job["args"], True)
                 # args.append({'id': conn.id})
                 result = method(*args)
+                if result is not None and inspect.isawaitable(result):
+                    result = await result
                 resolve(result)
             except Exception as exc:  # pylint: disable=broad-except
                 traceback_error = traceback.format_exc()
@@ -76,10 +34,12 @@ def handle_method(conn, job, logger):
                 reject(Exception(formatTraceback(traceback_error)))
         else:
             try:
-                method = interface[job["name"]]
+                method = conn.interface[job["name"]]
                 args = conn.unwrap(job["args"], True)
                 # args.append({'id': conn.id})
-                method(*args)
+                result = method(*args)
+                if result is not None and inspect.isawaitable(result):
+                    await result
             except Exception:  # pylint: disable=broad-except
                 logger.error(
                     "error in method %s: %s", job["name"], traceback.format_exc()
@@ -88,8 +48,8 @@ def handle_method(conn, job, logger):
         raise Exception("method " + job["name"] + " is not found.")
 
 
-@JOB_HANDLERS.register("callback")
-def handle_callback(conn, job, logger):
+@JOB_HANDLERS_PY3.register("callback")
+async def handle_callback_py3(conn, job, logger):
     """Handle callback."""
     if "promise" in job:
         resolve, reject = conn.unwrap(job["promise"], False)
@@ -104,6 +64,8 @@ def handle_callback(conn, job, logger):
                 )
             args = conn.unwrap(job["args"], True)
             result = method(*args)
+            if result is not None and inspect.isawaitable(result):
+                result = await result
             resolve(result)
         except Exception as exc:  # pylint: disable=broad-except
             traceback_error = traceback.format_exc()
@@ -122,6 +84,8 @@ def handle_callback(conn, job, logger):
                     "See https://imjoy.io/docs for more details."
                 )
             args = conn.unwrap(job["args"], True)
-            method(*args)
+            result = method(*args)
+            if result is not None and inspect.isawaitable(result):
+                await result
         except Exception:  # pylint: disable=broad-except
             logger.error("error in method %s: %s", job["num"], traceback.format_exc())

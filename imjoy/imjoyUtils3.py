@@ -5,7 +5,7 @@ import traceback
 
 from imjoyUtils import Promise
 
-from .worker import JOB_HANDLERS_PY3
+from .worker3 import JOB_HANDLERS_PY3
 
 
 async def task_worker(conn, async_q, logger, abort=None):
