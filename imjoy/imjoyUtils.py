@@ -135,10 +135,9 @@ def task_worker(self, q, logger, abort):
                             raise Exception("unsupported type")
                         self.emit({"type": "executeSuccess"})
                     except Exception as e:
-                        logger.info(
-                            "error during execution: %s", traceback.format_exc()
-                        )
-                        self.emit({"type": "executeFailure", "error": repr(e)})
+                        traceback_error = traceback.format_exc()
+                        logger.info("error during execution: %s", traceback_error)
+                        self.emit({"type": "executeFailure", "error": traceback_error})
             elif d["type"] == "method":
                 interface = self._interface
                 if "pid" in d and d["pid"] is not None:
@@ -153,12 +152,11 @@ def task_worker(self, q, logger, abort):
                             result = method(*args)
                             resolve(result)
                         except Exception as e:
+                            traceback_error = traceback.format_exc()
                             logger.error(
-                                "error in method %s: %s",
-                                d["name"],
-                                traceback.format_exc(),
+                                "error in method %s: %s", d["name"], traceback_error
                             )
-                            reject(e)
+                            reject(traceback_error)
                     else:
                         try:
                             method = interface[d["name"]]
@@ -189,8 +187,9 @@ def task_worker(self, q, logger, abort):
                         result = method(*args)
                         resolve(result)
                     except Exception as e:
+                        traceback_error = traceback.format_exc()
                         logger.error(
-                            "error in method %s: %s", d["num"], traceback.format_exc()
+                            "error in method %s: %s", d["num"], traceback_error
                         )
                         reject(e)
                 else:
