@@ -1693,7 +1693,7 @@ def launch_plugin(
         )
         abort.set()
 
-    if abort.is_set() or error:
+    if abort.is_set():
         logger.info("Plugin aborting...")
         logging_callback("Plugin aborting...")
         return False
