@@ -634,7 +634,7 @@ def runCmd(
     return output
 
 
-def parseEnv(env, work_dir):
+def parseEnv(env, work_dir, default_env_name):
     env_name = ""
     is_py2 = False
     envs = None
@@ -659,8 +659,8 @@ def parseEnv(env, work_dir):
                         env_name = parms[parms.index("-n") + 1]
                     elif "--name" in parms:
                         env_name = parms[parms.index("--name") + 1]
-                    elif pname is not None:
-                        env_name = pname.replace(" ", "_")
+                    else:
+                        env_name = default_env_name
                         envs[i] = env.replace(
                             "conda create", "conda create -n " + env_name
                         )
@@ -863,6 +863,8 @@ async def on_init_plugin(sid, kwargs):
                 stop_callback,
                 logging_callback,
                 pid,
+                pname,
+                tag,
                 env,
                 requirements,
                 args,
@@ -1478,6 +1480,8 @@ def launch_plugin(
     stop_callback,
     logging_callback,
     pid,
+    pname,
+    tag,
     env,
     requirements,
     args,
@@ -1516,7 +1520,9 @@ def launch_plugin(
                     "Failed to obtain the git repo: " + str(ex), type="error"
                 )
 
-        env_name, envs, is_py2 = parseEnv(env, work_dir)
+        default_env_name = "{}-{}".format(pname, tag) if tag != "" else pname
+        default_env_name = default_env_name.replace(" ", "_")
+        env_name, envs, is_py2 = parseEnv(env, work_dir, default_env_name)
         default_requirements = (
             default_requirements_py2 if is_py2 else default_requirements_py3
         )
@@ -1654,8 +1660,9 @@ def launch_plugin(
             "Failed to setup plugin virual environment or its requirements: " + str(e),
             type="error",
         )
+        abort.set()
 
-    if abort.is_set():
+    if abort.is_set() or error:
         logger.info("Plugin aborting...")
         logging_callback("Plugin aborting...")
         return False
