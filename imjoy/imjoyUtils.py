@@ -136,7 +136,7 @@ def task_worker(self, q, logger, abort):
                         self.emit({"type": "executeSuccess"})
                     except Exception as e:
                         traceback_error = traceback.format_exc()
-                        logger.info("error during execution: %s", traceback_error)
+                        logger.error("error during execution: %s", traceback_error)
                         self.emit({"type": "executeFailure", "error": traceback_error})
             elif d["type"] == "method":
                 interface = self._interface
