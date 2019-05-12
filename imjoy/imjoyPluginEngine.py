@@ -744,7 +744,7 @@ async def on_init_plugin(sid, kwargs):
         pname = config.get("name")
         flags = config.get("flags", [])
         tag = config.get("tag", "")
-        requirements = config.get("requirements", []) or []
+        requirements = config.get("requirements", [])
         workspace = config.get("workspace", "default")
         work_dir = os.path.join(WORKSPACE_DIR, workspace)
         if not os.path.exists(work_dir):
@@ -899,8 +899,10 @@ async def on_init_plugin(sid, kwargs):
         }
 
     except Exception:
-        logger.error(traceback.format_exc())
-        return {"success": False, "reason": traceback.format_exc()}
+        traceback_error = traceback.format_exc()
+        print(traceback_error)
+        logger.error(traceback_error)
+        return {"success": False, "reason": traceback_error}
 
 
 async def force_kill_timeout(t, obj):
@@ -1112,6 +1114,7 @@ async def on_list_dir(sid, kwargs):
 
         return files_list
     except Exception as e:
+        print(traceback.format_exc())
         logger.error("list dir error: %s", str(e))
         return {"success": False, "error": str(e)}
 
@@ -1258,6 +1261,7 @@ async def upload_file(request):
         return web.json_response(fileInfo)
 
     except Exception as e:
+        print(traceback.format_exc())
         logger.error("failed to upload file error: %s", str(e))
         return web.Response(
             body="Failed to upload, error: {}".format(str(e)), status=404
@@ -1279,12 +1283,6 @@ cors.add(app.router.add_route("POST", "/upload/{urlid}", upload_file))
 
 async def download_file(request):
     """Download file."""
-    # origin = request.headers.get(hdrs.ORIGIN)
-    # if origin is None:
-    #     # Terminate CORS according to CORS 6.2.1.
-    #     raise web.HTTPForbidden(
-    #         text="CORS preflight request failed: "
-    #              "origin header is not specified in the request")
     urlid = request.match_info["urlid"]  # Could be a HUGE file
     name = request.match_info["name"]
     if urlid not in generatedUrls:
@@ -1610,7 +1608,7 @@ def launch_plugin(
                 )
 
         logger.info("Running requirements command: %s", requirements_cmd)
-        print("Running requirements command: " + requirements_cmd)
+        print("Running requirements command: ", requirements_cmd)
         if requirements_cmd is not None and requirements_cmd not in cmd_history:
             process = subprocess.Popen(
                 requirements_cmd,
@@ -1681,14 +1679,16 @@ def launch_plugin(
         else:
             logger.debug("skip command: %s", requirements_cmd)
     except Exception as e:
+        error_traceback = traceback.format_exc()
+        print(error_traceback)
         # await sio.emit(
         #     'message_from_plugin_'+pid,
         #     {"type": "executeFailure", "error": "failed to install requirements."})
         logger.error(
-            "Failed to setup plugin virtual environment or its requirements: %s", str(e)
+            "Failed to setup plugin virtual environment or its requirements: %s", error_traceback
         )
         logging_callback(
-            "Failed to setup plugin virual environment or its requirements: " + str(e),
+            "Failed to setup plugin virual environment or its requirements: " + error_traceback
             type="error",
         )
         abort.set()
@@ -1755,6 +1755,7 @@ def launch_plugin(
             errors = str(errors, "utf-8")
         exitCode = process.returncode
     except Exception as e:
+        print(traceback.format_exc())
         outputs, errors = "", str(e)
         exitCode = 100
     finally:
