@@ -1681,14 +1681,13 @@ def launch_plugin(
     except Exception as e:
         error_traceback = traceback.format_exc()
         print(error_traceback)
-        # await sio.emit(
-        #     'message_from_plugin_'+pid,
-        #     {"type": "executeFailure", "error": "failed to install requirements."})
         logger.error(
-            "Failed to setup plugin virtual environment or its requirements: %s", error_traceback
+            "Failed to setup plugin virtual environment or its requirements: %s",
+            error_traceback,
         )
         logging_callback(
-            "Failed to setup plugin virual environment or its requirements: " + error_traceback
+            "Failed to setup plugin virual environment or its requirements: "
+            + error_traceback,
             type="error",
         )
         abort.set()
