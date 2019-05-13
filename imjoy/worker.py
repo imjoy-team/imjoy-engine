@@ -3,8 +3,8 @@ import traceback
 import sys
 import time
 
-from .imjoyUtils import formatTraceback
-from .util import Registry
+from imjoyUtils import formatTraceback
+from util import Registry
 
 try:
     import queue
