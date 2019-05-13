@@ -32,7 +32,10 @@ def task_worker(conn, sync_q, logger, abort):
         handler = JOB_HANDLERS.get(job["type"])
         if handler is None:
             continue
-        handler(conn, job, logger)
+        try:
+            handler(conn, job, logger)
+        except Exception:
+            print("error occured in the loop.", traceback.format_exc())
         sys.stdout.flush()
 
 
