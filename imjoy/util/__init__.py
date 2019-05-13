@@ -1,11 +1,6 @@
 """Provide utilities that should not be aware of ImJoy engine."""
 
 
-async def def_a_coroutine():
-    """Make a comp test."""
-    pass
-
-
 class Registry(dict):
     """Registry of items."""
 
@@ -20,13 +15,3 @@ class Registry(dict):
             return func
 
         return decorator
-
-
-def make_coro(func):
-    """Wrap a normal function with a coroutine."""
-
-    async def wrapper(*args, **kwargs):
-        """Run the normal function."""
-        return func(*args, **kwargs)
-
-    return wrapper

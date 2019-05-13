@@ -4,6 +4,17 @@ import asyncio
 from imjoyUtils import Promise
 
 
+def make_coro(func):
+    """Wrap a normal function with a coroutine."""
+
+    async def wrapper(*args, **kwargs):
+        """Run the normal function."""
+        print("RUNNING WRAPT FUNCTION IN CORO")
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 class FuturePromise(Promise, asyncio.Future):
     """Represent a promise as a future."""
 
