@@ -36,6 +36,6 @@ class FuturePromise(Promise, asyncio.Future):
             super().reject(error)
         else:
             if error:
-                self.loop.call_soon(self.set_exception, Exception())
-            else:
                 self.loop.call_soon(self.set_exception, Exception(str(error)))
+            else:
+                self.loop.call_soon(self.set_exception, Exception())
