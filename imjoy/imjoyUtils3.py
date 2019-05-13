@@ -26,14 +26,14 @@ class FuturePromise(Promise, asyncio.Future):
     def resolve(self, result):
         """Resolve promise."""
         if self._resolve_handler or self._finally_handler:
-            super().resolve(self, result)
+            super().resolve(result)
         else:
             self.loop.call_soon(self.set_result, result)
 
     def reject(self, error):
         """Reject promise."""
         if self._catch_handler or self._finally_handler:
-            super().reject(self, error)
+            super().reject(error)
         else:
             if error:
                 self.loop.call_soon(self.set_exception, Exception())
