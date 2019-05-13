@@ -9,7 +9,6 @@ def make_coro(func):
 
     async def wrapper(*args, **kwargs):
         """Run the normal function."""
-        print("RUNNING WRAPT FUNCTION IN CORO")
         return func(*args, **kwargs)
 
     return wrapper
