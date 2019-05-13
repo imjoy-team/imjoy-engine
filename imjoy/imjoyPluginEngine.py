@@ -847,7 +847,6 @@ async def on_init_plugin(sid, kwargs):
             if "aborting" in plugin_info:
                 plugin_info["aborting"].set_result(success)
             message = str(message or "")
-            message = message[:100] + (message[100:] and "..")
             logger.info(
                 "disconnecting from plugin (success:%s, message: %s)",
                 str(success),

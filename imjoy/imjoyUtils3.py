@@ -1,130 +1,17 @@
 """Provide utils for Python 3 plugins."""
 import asyncio
-import sys
-import traceback
-import inspect
 
-from imjoyUtils import Promise, formatTraceback
+from imjoyUtils import Promise
 
 
-async def task_worker(self, async_q, logger, abort=None):
-    """Implement a task worker."""
-    while True:
-        if abort is not None and abort.is_set():
-            break
-        d = await async_q.get()
-        try:
-            if d is None:
-                continue
-            if d["type"] == "getInterface":
-                self._sendInterface()
-            elif d["type"] == "setInterface":
-                self._setRemote(d["api"])
-                self.emit({"type": "interfaceSetAsRemote"})
-                if not self._init:
-                    self.emit({"type": "getInterface"})
-                    self._init = True
-            elif d["type"] == "interfaceSetAsRemote":
-                # self.emit({'type':'getInterface'})
-                self._remote_set = True
-            elif d["type"] == "execute":
-                if not self._executed:
-                    try:
-                        t = d["code"]["type"]
-                        if t == "script":
-                            content = d["code"]["content"]
-                            exec(content, self._local)
-                            self._executed = True
-                        elif t == "requirements":
-                            pass
-                        else:
-                            raise Exception("unsupported type")
-                        self.emit({"type": "executeSuccess"})
-                    except Exception as e:
-                        traceback_error = traceback.format_exc()
-                        logger.error("error during execution: %s", traceback_error)
-                        self.emit({"type": "executeFailure", "error": traceback_error})
+def make_coro(func):
+    """Wrap a normal function with a coroutine."""
 
-            elif d["type"] == "method":
-                if d["name"] in self._interface:
-                    if "promise" in d:
-                        try:
-                            resolve, reject = self._unwrap(d["promise"], False)
-                            method = self._interface[d["name"]]
-                            args = self._unwrap(d["args"], True)
-                            # args.append({'id': self.id})
-                            result = method(*args)
-                            if result is not None and inspect.isawaitable(result):
-                                result = await result
-                            resolve(result)
-                        except Exception as e:
-                            traceback_error = traceback.format_exc()
-                            logger.error(
-                                "error in method %s: %s", d["name"], traceback_error
-                            )
-                            reject(Exception(formatTraceback(traceback_error)))
-                    else:
-                        try:
-                            method = self._interface[d["name"]]
-                            args = self._unwrap(d["args"], True)
-                            # args.append({'id': self.id})
-                            result = method(*args)
-                            if result is not None and inspect.isawaitable(result):
-                                await result
-                        except Exception:
-                            logger.error(
-                                "error in method %s: %s",
-                                d["name"],
-                                traceback.format_exc(),
-                            )
-                else:
-                    raise Exception("method " + d["name"] + " is not found.")
-            elif d["type"] == "callback":
-                if "promise" in d:
-                    resolve, reject = self._unwrap(d["promise"], False)
-                    try:
-                        method = self._store.fetch(d["num"])
-                        if method is None:
-                            raise Exception(
-                                "Callback function can only called once, "
-                                "if you want to call a function for multiple times, "
-                                "please make it as a plugin api function. "
-                                "See https://imjoy.io/docs for more details."
-                            )
-                        args = self._unwrap(d["args"], True)
-                        result = method(*args)
-                        if result is not None and inspect.isawaitable(result):
-                            result = await result
-                        resolve(result)
-                    except Exception as e:
-                        traceback_error = traceback.format_exc()
-                        logger.error(
-                            "error in method %s: %s", d["num"], traceback_error
-                        )
-                        reject(Exception(formatTraceback(traceback_error)))
-                else:
-                    try:
-                        method = self._store.fetch(d["num"])
-                        if method is None:
-                            raise Exception(
-                                "Callback function can only called once, "
-                                "if you want to call a function for multiple times, "
-                                "please make it as a plugin api function. "
-                                "See https://imjoy.io/docs for more details."
-                            )
-                        args = self._unwrap(d["args"], True)
-                        result = method(*args)
-                        if result is not None and inspect.isawaitable(result):
-                            await result
-                    except Exception:
-                        logger.error(
-                            "error in method %s: %s", d["num"], traceback.format_exc()
-                        )
-        except Exception:
-            print("error occured in the loop.", traceback.format_exc())
-        finally:
-            sys.stdout.flush()
-            async_q.task_done()
+    async def wrapper(*args, **kwargs):
+        """Run the normal function."""
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 class FuturePromise(Promise, asyncio.Future):
@@ -139,14 +26,14 @@ class FuturePromise(Promise, asyncio.Future):
     def resolve(self, result):
         """Resolve promise."""
         if self._resolve_handler or self._finally_handler:
-            Promise.resolve(self, result)
+            super().resolve(self, result)
         else:
             self.loop.call_soon(self.set_result, result)
 
     def reject(self, error):
         """Reject promise."""
         if self._catch_handler or self._finally_handler:
-            Promise.reject(self, error)
+            super().reject(self, error)
         else:
             if error:
                 self.loop.call_soon(self.set_exception, Exception())
