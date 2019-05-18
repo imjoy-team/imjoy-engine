@@ -3,25 +3,26 @@
 import argparse
 import asyncio
 import datetime
+import fcntl
 import json
 import logging
 import os
 import pathlib
 import platform
+import pty
+import select
 import shlex
 import shutil
 import string
+import struct
 import subprocess
 import sys
+import termios
 import threading
 import time
 import traceback
 import uuid
-import pty
-import select
-import termios
-import struct
-import fcntl
+from importlib import import_module
 from mimetypes import MimeTypes
 from urllib.parse import urlparse
 
@@ -31,8 +32,6 @@ import yaml
 
 # import webbrowser
 from aiohttp import streamer, web
-
-from imjoyUtils import get_psutil
 
 if sys.platform == "win32":
     from ctypes import windll
@@ -172,6 +171,18 @@ try:
             f.write(opt.token)
 except Exception as e:
     logger.error("Failed to save .token file: %s", str(e))
+
+
+def get_psutil():
+    """Try to import and return psutil."""
+    try:
+        return import_module("psutil")
+    except ImportError:
+        print(
+            "WARNING: a library called 'psutil' can not be imported, "
+            "this may cause problem when killing processes."
+        )
+        return None
 
 
 def killProcess(pid):
@@ -793,7 +804,7 @@ async def on_start_terminal(sid, kwargs):
                 f"starting background task with command `{cmd}` to continously read "
                 "and forward pty output to client"
             )
-            logger.debug("xterm task started", terminal_session)
+            logger.debug("xterm task %s started", terminal_session)
             # os.write(terminal_session["fd"], "\r".encode())
             asyncio.ensure_future(
                 read_and_forward_terminal_output(), loop=asyncio.get_event_loop()
