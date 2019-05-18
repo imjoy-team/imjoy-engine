@@ -803,7 +803,7 @@ async def on_start_terminal(sid, kwargs):
             default_terminal_command = ["bash"]
         elif sys.platform == "win32":
             # Windows...
-            default_terminal_command = ["start", "cmd"]
+            default_terminal_command = ["cmd.exe"]
         else:
             default_terminal_command = ["bash"]
         cmd = kwargs.get("cmd", default_terminal_command)
@@ -814,7 +814,9 @@ async def on_start_terminal(sid, kwargs):
             # this is the child process fork.
             # anything printed here will show up in the pty, including the output
             # of this subprocess
-            subprocess.run(cmd)
+            term_env = os.environ.copy()
+            term_env["TERM"] = "xterm-256color"
+            subprocess.run(cmd, env=term_env)
         else:
             # this is the parent process fork.
             # store child fd and pid
