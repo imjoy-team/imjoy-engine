@@ -1,4 +1,5 @@
 """Implement the ImJoy plugin engine."""
+
 import argparse
 import asyncio
 import datetime
@@ -25,6 +26,15 @@ import yaml
 
 # import webbrowser
 from aiohttp import streamer, web
+
+import pty
+import os
+import subprocess
+import select
+import termios
+import struct
+import fcntl
+import shlex
 
 if sys.platform == "win32":
     from ctypes import windll
@@ -271,6 +281,12 @@ else:
     logger.setLevel(logging.ERROR)
 
 
+async def xterm_handler(request):
+    return web.FileResponse("./xterm.html")
+
+
+app.router.add_get("/xterm", xterm_handler, name="xterm")
+
 if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, "index.html")):
 
     async def index(request):
@@ -369,6 +385,7 @@ generatedUrls = {}
 generatedUrlFiles = {}
 requestUploadFiles = {}
 requestUrls = {}
+termninal_session = {}
 
 default_requirements_py2 = ["requests", "six", "websocket-client", "numpy", "psutil"]
 default_requirements_py3 = [
@@ -731,6 +748,90 @@ def connect(sid, environ):
     logger.info("connect %s", sid)
 
 
+async def read_and_forward_terminal_output():
+    """ read from ternial and forward to the client
+    """
+    max_read_bytes = 1024 * 20
+    while True:
+        await asyncio.sleep(0.01)
+        if termninal_session["fd"]:
+            timeout_sec = 0
+            (data_ready, _, _) = select.select(
+                [termninal_session["fd"]], [], [], timeout_sec
+            )
+            if data_ready:
+                output = os.read(termninal_session["fd"], max_read_bytes).decode()
+                if len(output) > 0:
+                    await sio.emit("terminal_output", {"output": output})
+
+
+@sio.on("terminal_input", namespace=NAME_SPACE)
+async def on_terminal_input(sid, data):
+    """write to the terminal as if you are typing in a real
+    terminal.
+    """
+    if sid not in registered_sessions:
+        return
+
+    if termninal_session["fd"]:
+        os.write(termninal_session["fd"], data["input"].encode())
+
+
+def set_winsize(fd, row, col, xpix=0, ypix=0):
+    winsize = struct.pack("HHHH", row, col, xpix, ypix)
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
+
+
+@sio.on("terminal_window_resize", namespace=NAME_SPACE)
+async def on_terminal_window_resize(sid, data):
+    """resize terminal window"""
+    if sid not in registered_sessions:
+        return
+    if termninal_session["fd"]:
+        set_winsize(termninal_session["fd"], data["rows"], data["cols"])
+
+
+@sio.on("start_terminal", namespace=NAME_SPACE)
+async def on_start_terminal(sid, kwargs):
+    """new terminal client connected"""
+    try:
+        if sid not in registered_sessions:
+            logger.debug("client %s is not registered.", sid)
+            return {"success": False, "error": "client not registered."}
+
+        if "child_pid" in termninal_session:
+            # already started child process, don't start another
+            return {"success": True, "exists": True}
+        cmd = kwargs.get("cmd", ["bash"])
+        # create child process attached to a pty we can read from and write to
+        (child_pid, fd) = pty.fork()
+        if child_pid == 0:
+            # this is the child process fork.
+            # anything printed here will show up in the pty, including the output
+            # of this subprocess
+            subprocess.run(cmd)
+        else:
+            # this is the parent process fork.
+            # store child fd and pid
+            termninal_session["fd"] = fd
+            termninal_session["child_pid"] = child_pid
+            set_winsize(fd, 50, 50)
+            cmd = " ".join(shlex.quote(c) for c in cmd)
+            print("child pid is", child_pid)
+            print(
+                f"starting background task with command `{cmd}` to continously read "
+                "and forward pty output to client"
+            )
+            logger.debug("xterm task started", termninal_session)
+            os.write(termninal_session["fd"], "\r".encode())
+            asyncio.ensure_future(
+                read_and_forward_terminal_output(), loop=asyncio.get_event_loop()
+            )
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 @sio.on("init_plugin", namespace=NAME_SPACE)
 async def on_init_plugin(sid, kwargs):
     """Initialize plugin."""
@@ -944,6 +1045,7 @@ async def on_reset_engine(sid, kwargs):
     # global clients
     # global client_sessions
     # global registered_sessions
+    global termninal_session
     global generatedUrls
     global generatedUrlFiles
     global requestUploadFiles
@@ -960,6 +1062,7 @@ async def on_reset_engine(sid, kwargs):
     # clients = {}
     # client_sessions = {}
     # registered_sessions = {}
+    termninal_session = {}
     generatedUrls = {}
     generatedUrlFiles = {}
     requestUploadFiles = {}
@@ -1731,7 +1834,7 @@ def launch_plugin(
             shell=True,
             env=plugin_env,
             cwd=work_dir,
-            **kwargs
+            **kwargs,
         )
         logging_callback("running subprocess(pid={}) with {}".format(process.pid, args))
         setPluginPID(pid, process.pid)
