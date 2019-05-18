@@ -457,7 +457,7 @@ def disconnectClientSession(sid):
             for plugin in plugin_sessions[session_id]:
                 if "allow-detach" not in plugin["flags"]:
                     killPlugin(plugin["id"])
-            del plugin_sessions[session_id]
+                    del plugin_sessions[session_id]
 
 
 def addPlugin(plugin_info, sid=None):
