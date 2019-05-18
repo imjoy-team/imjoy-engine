@@ -765,7 +765,19 @@ async def on_start_terminal(sid, kwargs):
         if "child_pid" in termninal_session:
             # already started child process, don't start another
             return {"success": True, "exists": True}
-        cmd = kwargs.get("cmd", ["bash"])
+        if sys.platform == "linux" or sys.platform == "linux2":
+            # linux
+            default_terminal_command = ["bash"]
+        elif sys.platform == "darwin":
+            # OS X
+            default_terminal_command = ["bash"]
+        elif sys.platform == "win32":
+            # Windows...
+            default_terminal_command = ["start", "cmd"]
+        else:
+            default_terminal_command = ["bash"]
+        cmd = kwargs.get("cmd", default_terminal_command)
+
         # create child process attached to a pty we can read from and write to
         (child_pid, fd) = pty.fork()
         if child_pid == 0:
