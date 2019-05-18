@@ -250,8 +250,12 @@ def launch_plugin(
         default_requirements = (
             DEFAULT_REQUIREMENTS_PY2 if is_py2 else DEFAULT_REQUIREMENTS_PY3
         )
-        default_requirements_cmd = parseRequirements(default_requirements)
-        requirements_cmd = parseRequirements(requirements, default_requirements_cmd)
+        default_requirements_cmd = parseRequirements(
+            default_requirements, conda=opt.CONDA_AVAILABLE
+        )
+        requirements_cmd = parseRequirements(
+            requirements, default_requirements_cmd, opt.CONDA_AVAILABLE
+        )
 
         cmd_history = eng.ws_conn.data.cmd_history
 
@@ -379,7 +383,7 @@ def launch_plugin(
                 cwd=work_dir,
             )
         if not opt.freeze and code and opt.CONDA_AVAILABLE and env_name is not None:
-            psutil_cmd = parseRequirements(REQ_PSUTIL_CONDA)
+            psutil_cmd = parseRequirements(REQ_PSUTIL_CONDA, conda=opt.CONDA_AVAILABLE)
             psutil_cmd = opt.conda_activate.format(
                 "{} && {}".format(env_name, psutil_cmd)
             )
