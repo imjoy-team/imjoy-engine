@@ -280,13 +280,6 @@ if opt.debug:
 else:
     logger.setLevel(logging.ERROR)
 
-
-async def xterm_handler(request):
-    return web.FileResponse("./xterm.html")
-
-
-app.router.add_get("/xterm", xterm_handler, name="xterm")
-
 if opt.serve and os.path.exists(os.path.join(WEB_APP_DIR, "index.html")):
 
     async def index(request):
