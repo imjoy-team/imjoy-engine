@@ -1632,7 +1632,8 @@ def launch_plugin(
                     # try to install git and pip
                     git_cmd = "conda install -y" + git_cmd
                     code, _ = run_process(
-                        pid, git_cmd.split(), stderr=None, env=plugin_env, cwd=work_dir)
+                        pid, git_cmd.split(), stderr=None, env=plugin_env, cwd=work_dir
+                    )
                     if code != 0:
                         logging_callback(
                             "Failed to install git/pip and dependencies "
@@ -1668,11 +1669,12 @@ def launch_plugin(
             logging_callback(70, type="progress")
         else:
             logger.debug("skip command: %s", requirements_cmd)
-        psutil_cmd = parseRequirements(REQ_PSUTIL)
-        code, _ = run_process(
-            pid, psutil_cmd, shell=True, stderr=None, env=plugin_env, cwd=work_dir
-        )
-        if not code and not opt.freeze and CONDA_AVAILABLE and env_name is not None:
+        if not opt.freeze:
+            psutil_cmd = parseRequirements(REQ_PSUTIL)
+            code, _ = run_process(
+                pid, psutil_cmd, shell=True, stderr=None, env=plugin_env, cwd=work_dir
+            )
+        if not opt.freeze and code and CONDA_AVAILABLE and env_name is not None:
             psutil_cmd = parseRequirements(REQ_PSUTIL_CONDA)
             psutil_cmd = conda_activate.format("{} && {}".format(env_name, psutil_cmd))
             code, _ = run_process(
