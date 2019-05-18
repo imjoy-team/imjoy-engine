@@ -804,7 +804,7 @@ async def on_start_terminal(sid, kwargs):
                 f"starting background task with command `{cmd}` to continously read "
                 "and forward pty output to client"
             )
-            logger.debug("xterm task started", terminal_session)
+            logger.debug("xterm task %s started", terminal_session)
             # os.write(terminal_session["fd"], "\r".encode())
             asyncio.ensure_future(
                 read_and_forward_terminal_output(), loop=asyncio.get_event_loop()
