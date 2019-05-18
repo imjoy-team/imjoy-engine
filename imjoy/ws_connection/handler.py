@@ -80,7 +80,8 @@ async def read_and_forward_terminal_output(eng):
                     output = os.read(terminal_session["fd"], max_read_bytes).decode()
                     if output:
                         await eng.ws_conn.sio.emit(
-                            "terminal_output", {"output": output})
+                            "terminal_output", {"output": output}
+                        )
     finally:
         terminal_session["output_monitor_running"] = False
 
