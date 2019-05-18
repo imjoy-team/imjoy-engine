@@ -26,6 +26,8 @@ import yaml
 # import webbrowser
 from aiohttp import streamer, web
 
+from imjoyUtils import get_psutil
+
 if sys.platform == "win32":
     from ctypes import windll
 
@@ -38,15 +40,6 @@ if sys.platform == "win32":
                 drives.append(os.path.abspath(letter + ":/"))
             bitmask >>= 1
         return drives
-
-
-try:
-    import psutil
-except Exception:
-    print(
-        "WARNING: a library called 'psutil' can not be imported, "
-        "this may cause problem when killing processes."
-    )
 
 
 # read version information from file
@@ -177,6 +170,9 @@ except Exception as e:
 
 def killProcess(pid):
     """Kill process."""
+    psutil = get_psutil()
+    if psutil is None:
+        return
     try:
         cp = psutil.Process(pid)
         for proc in cp.children(recursive=True):
@@ -211,9 +207,9 @@ try:
 except Exception:
     logger.debug("Failed to kill last process")
 try:
-    pid = str(os.getpid())
+    engine_pid = str(os.getpid())
     with open(pid_file, "w") as f:
-        f.write(pid)
+        f.write(engine_pid)
 except Exception as e:
     logger.error("Failed to save .pid file: %s", str(e))
 
@@ -370,15 +366,11 @@ generatedUrlFiles = {}
 requestUploadFiles = {}
 requestUrls = {}
 
-default_requirements_py2 = ["requests", "six", "websocket-client", "numpy", "psutil"]
-default_requirements_py3 = [
-    "requests",
-    "six",
-    "websocket-client",
-    "janus",
-    "numpy",
-    "psutil",
-]
+DEFAULT_REQUIREMENTS_PY2 = ["requests", "six", "websocket-client", "numpy"]
+DEFAULT_REQUIREMENTS_PY3 = [*DEFAULT_REQUIREMENTS_PY2, "janus"]
+
+REQ_PSUTIL = ["psutil"]
+REQ_PSUTIL_CONDA = ["conda:psutil"]
 
 script_dir = os.path.dirname(os.path.normpath(__file__))
 template_script = os.path.abspath(os.path.join(script_dir, "imjoyWorkerTemplate.py"))
@@ -554,7 +546,7 @@ def parseRepos(requirements, work_dir):
     return repos
 
 
-def parseRequirements(requirements, default_requirements, work_dir):
+def parseRequirements(requirements, default_requirements):
     """Parse requirements."""
     requirements_cmd = "pip install " + " ".join(default_requirements)
     if type(requirements) is list:
@@ -566,7 +558,7 @@ def parseRequirements(requirements, default_requirements, work_dir):
                 tp, libs = rs[0], ":".join(rs[1:])
                 tp, libs = tp.strip(), libs.strip()
                 libs = [l.strip() for l in libs.split(" ") if l.strip() != ""]
-                if tp == "conda" and len(libs) > 0:
+                if tp == "conda" and len(libs) > 0 and CONDA_AVAILABLE:
                     requirements_cmd += " && conda install -y " + " ".join(libs)
                 elif tp == "pip" and len(libs) > 0:
                     requirements_cmd += " && pip install " + " ".join(libs)
@@ -714,7 +706,7 @@ def parseEnv(env, work_dir, default_env_name):
                 "You may want to run it yourself.".format(env)
             )
             logger.warning(
-                "env command is blocked because conda is not avaialbe "
+                "env command is blocked because conda is not available "
                 "or in `--freeze` mode: %s",
                 env,
             )
@@ -1448,6 +1440,9 @@ async def on_get_engine_status(sid, kwargs):
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
+    psutil = get_psutil()
+    if psutil is None:
+        return {"success": False, "error": "psutil is not available."}
     current_process = psutil.Process()
     children = current_process.children(recursive=True)
     pid_dict = {}
@@ -1559,11 +1554,9 @@ def launch_plugin(
         default_env_name = default_env_name.replace(" ", "_")
         env_name, envs, is_py2 = parseEnv(env, work_dir, default_env_name)
         default_requirements = (
-            default_requirements_py2 if is_py2 else default_requirements_py3
+            DEFAULT_REQUIREMENTS_PY2 if is_py2 else DEFAULT_REQUIREMENTS_PY3
         )
-        requirements_cmd = parseRequirements(
-            requirements, default_requirements, work_dir
-        )
+        requirements_cmd = parseRequirements(requirements, default_requirements)
 
         if envs is not None and len(envs) > 0:
             for env in envs:
@@ -1571,20 +1564,14 @@ def launch_plugin(
                 logger.info("running env command: %s", env)
                 if env not in cmd_history:
                     logging_callback("running env command: {}".format(env))
-                    process = subprocess.Popen(
-                        env.split(),
-                        shell=False,
-                        env=plugin_env,
-                        cwd=work_dir,
-                        stderr=subprocess.PIPE,
+                    code, errors = run_process(
+                        pid, env.split(), env=plugin_env, cwd=work_dir
                     )
-                    setPluginPID(pid, process.pid)
-                    ret = process.wait()
-                    if ret == 0:
+
+                    if code == 0:
                         cmd_history.append(env)
                         logging_callback("env command executed successfully.")
 
-                    _, errors = process.communicate()
                     if errors is not None:
                         logging_callback(str(errors, "utf-8"), type="error")
 
@@ -1607,31 +1594,23 @@ def launch_plugin(
             )
             requirements_cmd = None
 
-        if not opt.freeze and CONDA_AVAILABLE:
-            if env_name is not None:
-                requirements_cmd = conda_activate.format(
-                    env_name + " && " + requirements_cmd
-                )
+        if not opt.freeze and CONDA_AVAILABLE and env_name is not None:
+            requirements_cmd = conda_activate.format(
+                env_name + " && " + requirements_cmd
+            )
 
         logger.info("Running requirements command: %s", requirements_cmd)
         print("Running requirements command: ", requirements_cmd)
         if requirements_cmd is not None and requirements_cmd not in cmd_history:
-            process = subprocess.Popen(
-                requirements_cmd,
-                shell=True,
-                env=plugin_env,
-                cwd=work_dir,
-                stderr=subprocess.PIPE,
+            code, errors = run_process(
+                pid, requirements_cmd, shell=True, env=plugin_env, cwd=work_dir
             )
             logging_callback(
                 "Running requirements subprocess(pid={}): {}".format(
-                    process.pid, requirements_cmd
+                    plugins[pid]["process_id"], requirements_cmd
                 )
             )
-            setPluginPID(pid, process.pid)
-            ret = process.wait()
-            _, errors = process.communicate()
-            if ret != 0:
+            if code != 0:
                 logging_callback(
                     "Failed to run requirements command: {}".format(requirements_cmd),
                     type="error",
@@ -1647,36 +1626,36 @@ def launch_plugin(
                     logger.info("pip command failed, trying to install git and pip...")
                     # try to install git and pip
                     git_cmd = "conda install -y" + git_cmd
-                    process = subprocess.Popen(
-                        git_cmd.split(), shell=False, env=plugin_env, cwd=work_dir
-                    )
-                    setPluginPID(pid, process.pid)
-                    ret = process.wait()
-                    if ret != 0:
+                    code, _ = run_process(
+                        pid, git_cmd.split(), stderr=None, env=plugin_env, cwd=work_dir)
+                    if code != 0:
                         logging_callback(
                             "Failed to install git/pip and dependencies "
-                            "with exit code: " + str(ret),
+                            "with exit code: " + str(code),
                             type="error",
                         )
                         raise Exception(
                             "Failed to install git/pip and dependencies "
-                            "with exit code: " + str(ret)
+                            "with exit code: " + str(code)
                         )
                     else:
-                        process = subprocess.Popen(
-                            requirements_cmd, shell=True, env=plugin_env, cwd=work_dir
+                        code, errors = run_process(
+                            pid,
+                            requirements_cmd,
+                            shell=True,
+                            stderr=None,
+                            env=plugin_env,
+                            cwd=work_dir,
                         )
-                        setPluginPID(pid, process.pid)
-                        ret = process.wait()
-                        if ret != 0:
+                        if code != 0:
                             logging_callback(
                                 "Failed to install dependencies with exit code: "
-                                + str(ret),
+                                + str(code),
                                 type="error",
                             )
                             raise Exception(
                                 "Failed to install dependencies with exit code: "
-                                + str(ret)
+                                + str(code)
                             )
             else:
                 cmd_history.append(requirements_cmd)
@@ -1684,6 +1663,17 @@ def launch_plugin(
             logging_callback(70, type="progress")
         else:
             logger.debug("skip command: %s", requirements_cmd)
+        psutil_cmd = parseRequirements(REQ_PSUTIL, [])
+        code, _ = run_process(
+            pid, psutil_cmd, shell=True, stderr=None, env=plugin_env, cwd=work_dir
+        )
+        if not code and not opt.freeze and CONDA_AVAILABLE and env_name is not None:
+            psutil_cmd = parseRequirements(REQ_PSUTIL_CONDA, [])
+            psutil_cmd = conda_activate.format("{} && {}".format(env_name, psutil_cmd))
+            code, _ = run_process(
+                pid, psutil_cmd, shell=True, stderr=None, env=plugin_env, cwd=work_dir
+            )
+
     except Exception as e:
         error_traceback = traceback.format_exc()
         print(error_traceback)
@@ -1703,7 +1693,7 @@ def launch_plugin(
         logging_callback("Plugin aborting...")
         return False
     # env = os.environ.copy()
-    if env_name is not None:
+    if CONDA_AVAILABLE and env_name is not None:
         args = conda_activate.format(env_name + " && " + args)
     if type(args) is str:
         args = args.split()
@@ -1784,6 +1774,21 @@ def launch_plugin(
                 + "\nplugin process exited with code {}".format(exitCode),
             )
             return False
+
+
+def run_process(plugin_id, cmd, **kwargs):
+    """Run subprocess command."""
+    shell = kwargs.pop("shell", False)
+    stderr = kwargs.pop("stderr", subprocess.PIPE)
+    process_ = subprocess.Popen(cmd, shell=shell, stderr=stderr, **kwargs)
+    setPluginPID(plugin_id, process_.pid)
+    return_code = process_.wait()
+    if stderr is not None:
+        _, errors = process_.communicate()
+    else:
+        errors = None
+
+    return return_code, errors
 
 
 async def on_startup(app):

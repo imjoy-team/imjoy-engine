@@ -3,6 +3,19 @@ import copy
 import threading
 import time
 import uuid
+from importlib import import_module
+
+
+def get_psutil():
+    """Try to import and return psutil."""
+    try:
+        return import_module("psutil")
+    except ImportError:
+        print(
+            "WARNING: a library called 'psutil' can not be imported, "
+            "this may cause problem when killing processes."
+        )
+        return None
 
 
 def debounce(s):
