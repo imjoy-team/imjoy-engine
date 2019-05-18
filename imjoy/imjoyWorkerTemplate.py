@@ -10,7 +10,7 @@ from functools import reduce
 from types import ModuleType
 
 from imjoySocketIO_client import LoggingNamespace, SocketIO, find_callback
-from imjoyUtils import ReferenceStore, debounce, dotdict, setInterval
+from imjoyUtils import ReferenceStore, debounce, dotdict, get_psutil, setInterval
 
 if sys.version_info >= (3, 0):
     import asyncio
@@ -47,7 +47,9 @@ if imjoy_path not in sys.path:
 
 def kill(proc_pid):
     """Kill process id."""
-    import psutil
+    psutil = get_psutil()
+    if psutil is None:
+        return
 
     process = psutil.Process(proc_pid)
     for proc in process.children(recursive=True):
