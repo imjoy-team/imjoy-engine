@@ -1,4 +1,5 @@
 """Provide websocket event handlers."""
+import asyncio
 import fcntl
 import os
 import platform
@@ -13,7 +14,6 @@ import termios
 import threading
 import traceback
 import uuid
-import asyncio
 from urllib.parse import urlparse
 
 from imjoy.const import API_VERSION, NAME_SPACE, TEMPLATE_SCRIPT, __version__
