@@ -792,7 +792,7 @@ async def on_start_terminal(sid, kwargs):
                 return {
                     "success": True,
                     "exists": True,
-                    "message": "Welcome to ImJoy plugin engine terminal!",
+                    "message": f"Welcome to ImJoy Plugin Engine Terminal (v{__version__}).",
                 }
 
         if sys.platform == "linux" or sys.platform == "linux2":
