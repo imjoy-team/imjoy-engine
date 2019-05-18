@@ -748,17 +748,21 @@ async def read_and_forward_terminal_output():
     """ read from ternial and forward to the client
     """
     max_read_bytes = 1024 * 20
-    while True:
-        await asyncio.sleep(0.01)
-        if "fd" in terminal_session:
-            timeout_sec = 0
-            (data_ready, _, _) = select.select(
-                [terminal_session["fd"]], [], [], timeout_sec
-            )
-            if data_ready:
-                output = os.read(terminal_session["fd"], max_read_bytes).decode()
-                if len(output) > 0:
-                    await sio.emit("terminal_output", {"output": output})
+    try:
+        terminal_session["output_monitor_running"] = True
+        while True:
+            await asyncio.sleep(0.01)
+            if "fd" in terminal_session:
+                timeout_sec = 0
+                (data_ready, _, _) = select.select(
+                    [terminal_session["fd"]], [], [], timeout_sec
+                )
+                if data_ready:
+                    output = os.read(terminal_session["fd"], max_read_bytes).decode()
+                    if len(output) > 0:
+                        await sio.emit("terminal_output", {"output": output})
+    finally:
+        terminal_session["output_monitor_running"] = False
 
 
 @sio.on("start_terminal", namespace=NAME_SPACE)
@@ -769,9 +773,28 @@ async def on_start_terminal(sid, kwargs):
             logger.debug("client %s is not registered.", sid)
             return {"success": False, "error": "client not registered."}
 
-        if "child_pid" in terminal_session:
-            # already started child process, don't start another
-            return {"success": True, "exists": True}
+        if "child_pid" in terminal_session and "fd" in terminal_session:
+
+            process_exists = True
+            psutil = get_psutil()
+            if psutil is not None:
+                process_exists = False
+                current_process = psutil.Process()
+                children = current_process.children(recursive=True)
+                procs = []
+                for proc in children:
+                    if proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE:
+                        if proc.pid == terminal_session["child_pid"]:
+                            process_exists = True
+                            break
+            if process_exists:
+                # already started child process, don't start another
+                return {
+                    "success": True,
+                    "exists": True,
+                    "message": "Welcome to ImJoy plugin engine terminal!",
+                }
+
         if sys.platform == "linux" or sys.platform == "linux2":
             # linux
             default_terminal_command = ["bash"]
@@ -799,17 +822,22 @@ async def on_start_terminal(sid, kwargs):
             terminal_session["child_pid"] = child_pid
             set_winsize(fd, 50, 50)
             cmd = " ".join(shlex.quote(c) for c in cmd)
-            print("child pid is", child_pid)
-            print(
-                f"starting background task with command `{cmd}` to continously read "
-                "and forward pty output to client"
+            logger.info(
+                "terminal subprocess started, command: %s, pid: %s", cmd, child_pid
             )
-            logger.debug("xterm task %s started", terminal_session)
-            # os.write(terminal_session["fd"], "\r".encode())
-            asyncio.ensure_future(
-                read_and_forward_terminal_output(), loop=asyncio.get_event_loop()
-            )
-        return {"success": True}
+            logger.debug("terminal subprocess %s started", terminal_session)
+            if (
+                "output_monitor_running" not in terminal_session
+                or not terminal_session["output_monitor_running"]
+            ):
+                asyncio.ensure_future(
+                    read_and_forward_terminal_output(), loop=asyncio.get_event_loop()
+                )
+
+        return {
+            "success": True,
+            "message": f"Welcome to ImJoy Plugin Engine Terminal (v{__version__}).",
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -821,9 +849,14 @@ async def on_terminal_input(sid, data):
     """
     if sid not in registered_sessions:
         return
-
-    if "fd" in terminal_session:
-        os.write(terminal_session["fd"], data["input"].encode())
+    try:
+        if "fd" in terminal_session:
+            os.write(terminal_session["fd"], data["input"].encode())
+        else:
+            return "Terminal session is closed"
+    except Exception as e:
+        logger.debug("Failed to write to terminal process: %s", e)
+        return str(e)
 
 
 def set_winsize(fd, row, col, xpix=0, ypix=0):
@@ -836,8 +869,12 @@ async def on_terminal_window_resize(sid, data):
     """resize terminal window"""
     if sid not in registered_sessions:
         return
-    if "fd" in terminal_session:
-        set_winsize(terminal_session["fd"], data["rows"], data["cols"])
+    try:
+        if "fd" in terminal_session:
+            set_winsize(terminal_session["fd"], data["rows"], data["cols"])
+    except Exception as e:
+        logger.debug("Failed to resize the terminal window: %s", e)
+        return str(e)
 
 
 @sio.on("init_plugin", namespace=NAME_SPACE)
