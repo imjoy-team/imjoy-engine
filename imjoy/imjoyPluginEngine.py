@@ -546,9 +546,11 @@ def parseRepos(requirements, work_dir):
     return repos
 
 
-def parseRequirements(requirements, default_requirements):
+def parseRequirements(requirements, default_command=None):
     """Parse requirements."""
-    requirements_cmd = "pip install " + " ".join(default_requirements)
+    if default_command is None:
+        default_command = ""
+    requirements_cmd = ""
     if type(requirements) is list:
         requirements = [str(r) for r in requirements]
 
@@ -581,6 +583,8 @@ def parseRequirements(requirements, default_requirements):
         pass
     else:
         raise Exception("Unsupported requirements type.")
+    requirements_cmd = "{} && {}".format(requirements_cmd, default_command)
+    requirements_cmd = requirements_cmd.strip(" &")
     return requirements_cmd
 
 
@@ -1556,7 +1560,8 @@ def launch_plugin(
         default_requirements = (
             DEFAULT_REQUIREMENTS_PY2 if is_py2 else DEFAULT_REQUIREMENTS_PY3
         )
-        requirements_cmd = parseRequirements(requirements, default_requirements)
+        default_requirements_cmd = parseRequirements(default_requirements)
+        requirements_cmd = parseRequirements(requirements, default_requirements_cmd)
 
         if envs is not None and len(envs) > 0:
             for env in envs:
@@ -1663,12 +1668,12 @@ def launch_plugin(
             logging_callback(70, type="progress")
         else:
             logger.debug("skip command: %s", requirements_cmd)
-        psutil_cmd = parseRequirements([], REQ_PSUTIL)
+        psutil_cmd = parseRequirements(REQ_PSUTIL)
         code, _ = run_process(
             pid, psutil_cmd, shell=True, stderr=None, env=plugin_env, cwd=work_dir
         )
         if not code and not opt.freeze and CONDA_AVAILABLE and env_name is not None:
-            psutil_cmd = parseRequirements([], REQ_PSUTIL_CONDA)
+            psutil_cmd = parseRequirements(REQ_PSUTIL_CONDA)
             psutil_cmd = conda_activate.format("{} && {}".format(env_name, psutil_cmd))
             code, _ = run_process(
                 pid, psutil_cmd, shell=True, stderr=None, env=plugin_env, cwd=work_dir
