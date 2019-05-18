@@ -17,6 +17,11 @@ import threading
 import time
 import traceback
 import uuid
+import pty
+import select
+import termios
+import struct
+import fcntl
 from mimetypes import MimeTypes
 from urllib.parse import urlparse
 
@@ -26,15 +31,6 @@ import yaml
 
 # import webbrowser
 from aiohttp import streamer, web
-
-import pty
-import os
-import subprocess
-import select
-import termios
-import struct
-import fcntl
-import shlex
 
 if sys.platform == "win32":
     from ctypes import windll
@@ -747,7 +743,7 @@ async def read_and_forward_terminal_output():
     max_read_bytes = 1024 * 20
     while True:
         await asyncio.sleep(0.01)
-        if termninal_session["fd"]:
+        if "fd" in termninal_session:
             timeout_sec = 0
             (data_ready, _, _) = select.select(
                 [termninal_session["fd"]], [], [], timeout_sec
@@ -756,32 +752,6 @@ async def read_and_forward_terminal_output():
                 output = os.read(termninal_session["fd"], max_read_bytes).decode()
                 if len(output) > 0:
                     await sio.emit("terminal_output", {"output": output})
-
-
-@sio.on("terminal_input", namespace=NAME_SPACE)
-async def on_terminal_input(sid, data):
-    """write to the terminal as if you are typing in a real
-    terminal.
-    """
-    if sid not in registered_sessions:
-        return
-
-    if termninal_session["fd"]:
-        os.write(termninal_session["fd"], data["input"].encode())
-
-
-def set_winsize(fd, row, col, xpix=0, ypix=0):
-    winsize = struct.pack("HHHH", row, col, xpix, ypix)
-    fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
-
-
-@sio.on("terminal_window_resize", namespace=NAME_SPACE)
-async def on_terminal_window_resize(sid, data):
-    """resize terminal window"""
-    if sid not in registered_sessions:
-        return
-    if termninal_session["fd"]:
-        set_winsize(termninal_session["fd"], data["rows"], data["cols"])
 
 
 @sio.on("start_terminal", namespace=NAME_SPACE)
@@ -816,13 +786,39 @@ async def on_start_terminal(sid, kwargs):
                 "and forward pty output to client"
             )
             logger.debug("xterm task started", termninal_session)
-            os.write(termninal_session["fd"], "\r".encode())
+            # os.write(termninal_session["fd"], "\r".encode())
             asyncio.ensure_future(
                 read_and_forward_terminal_output(), loop=asyncio.get_event_loop()
             )
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+@sio.on("terminal_input", namespace=NAME_SPACE)
+async def on_terminal_input(sid, data):
+    """write to the terminal as if you are typing in a real
+    terminal.
+    """
+    if sid not in registered_sessions:
+        return
+
+    if "fd" in termninal_session:
+        os.write(termninal_session["fd"], data["input"].encode())
+
+
+def set_winsize(fd, row, col, xpix=0, ypix=0):
+    winsize = struct.pack("HHHH", row, col, xpix, ypix)
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
+
+
+@sio.on("terminal_window_resize", namespace=NAME_SPACE)
+async def on_terminal_window_resize(sid, data):
+    """resize terminal window"""
+    if sid not in registered_sessions:
+        return
+    if "fd" in termninal_session:
+        set_winsize(termninal_session["fd"], data["rows"], data["cols"])
 
 
 @sio.on("init_plugin", namespace=NAME_SPACE)
