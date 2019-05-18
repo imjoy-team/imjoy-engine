@@ -374,7 +374,7 @@ generatedUrls = {}
 generatedUrlFiles = {}
 requestUploadFiles = {}
 requestUrls = {}
-termninal_session = {}
+terminal_session = {}
 
 default_requirements_py2 = ["requests", "six", "websocket-client", "numpy", "psutil"]
 default_requirements_py3 = [
@@ -743,13 +743,13 @@ async def read_and_forward_terminal_output():
     max_read_bytes = 1024 * 20
     while True:
         await asyncio.sleep(0.01)
-        if "fd" in termninal_session:
+        if "fd" in terminal_session:
             timeout_sec = 0
             (data_ready, _, _) = select.select(
-                [termninal_session["fd"]], [], [], timeout_sec
+                [terminal_session["fd"]], [], [], timeout_sec
             )
             if data_ready:
-                output = os.read(termninal_session["fd"], max_read_bytes).decode()
+                output = os.read(terminal_session["fd"], max_read_bytes).decode()
                 if len(output) > 0:
                     await sio.emit("terminal_output", {"output": output})
 
@@ -762,7 +762,7 @@ async def on_start_terminal(sid, kwargs):
             logger.debug("client %s is not registered.", sid)
             return {"success": False, "error": "client not registered."}
 
-        if "child_pid" in termninal_session:
+        if "child_pid" in terminal_session:
             # already started child process, don't start another
             return {"success": True, "exists": True}
         if sys.platform == "linux" or sys.platform == "linux2":
@@ -788,8 +788,8 @@ async def on_start_terminal(sid, kwargs):
         else:
             # this is the parent process fork.
             # store child fd and pid
-            termninal_session["fd"] = fd
-            termninal_session["child_pid"] = child_pid
+            terminal_session["fd"] = fd
+            terminal_session["child_pid"] = child_pid
             set_winsize(fd, 50, 50)
             cmd = " ".join(shlex.quote(c) for c in cmd)
             print("child pid is", child_pid)
@@ -797,8 +797,8 @@ async def on_start_terminal(sid, kwargs):
                 f"starting background task with command `{cmd}` to continously read "
                 "and forward pty output to client"
             )
-            logger.debug("xterm task started", termninal_session)
-            # os.write(termninal_session["fd"], "\r".encode())
+            logger.debug("xterm task started", terminal_session)
+            # os.write(terminal_session["fd"], "\r".encode())
             asyncio.ensure_future(
                 read_and_forward_terminal_output(), loop=asyncio.get_event_loop()
             )
@@ -815,8 +815,8 @@ async def on_terminal_input(sid, data):
     if sid not in registered_sessions:
         return
 
-    if "fd" in termninal_session:
-        os.write(termninal_session["fd"], data["input"].encode())
+    if "fd" in terminal_session:
+        os.write(terminal_session["fd"], data["input"].encode())
 
 
 def set_winsize(fd, row, col, xpix=0, ypix=0):
@@ -829,8 +829,8 @@ async def on_terminal_window_resize(sid, data):
     """resize terminal window"""
     if sid not in registered_sessions:
         return
-    if "fd" in termninal_session:
-        set_winsize(termninal_session["fd"], data["rows"], data["cols"])
+    if "fd" in terminal_session:
+        set_winsize(terminal_session["fd"], data["rows"], data["cols"])
 
 
 @sio.on("init_plugin", namespace=NAME_SPACE)
@@ -1046,7 +1046,7 @@ async def on_reset_engine(sid, kwargs):
     # global clients
     # global client_sessions
     # global registered_sessions
-    global termninal_session
+    global terminal_session
     global generatedUrls
     global generatedUrlFiles
     global requestUploadFiles
@@ -1063,7 +1063,7 @@ async def on_reset_engine(sid, kwargs):
     # clients = {}
     # client_sessions = {}
     # registered_sessions = {}
-    termninal_session = {}
+    terminal_session = {}
     generatedUrls = {}
     generatedUrlFiles = {}
     requestUploadFiles = {}
