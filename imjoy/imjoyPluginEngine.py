@@ -1,6 +1,4 @@
 """Implement the ImJoy plugin engine."""
-
-import argparse
 import asyncio
 import datetime
 import fcntl
