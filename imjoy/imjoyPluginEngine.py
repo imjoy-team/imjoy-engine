@@ -31,7 +31,7 @@ import yaml
 # import webbrowser
 from aiohttp import streamer, web
 
-from imjoy.setup import parse_cmd_line
+from imjoy.options import parse_cmd_line
 
 if sys.platform == "win32":
     from ctypes import windll

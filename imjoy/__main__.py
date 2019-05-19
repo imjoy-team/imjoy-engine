@@ -4,7 +4,7 @@ import os
 import subprocess
 import sys
 
-from imjoy.setup import parse_cmd_line
+from imjoy.options import parse_cmd_line
 
 
 def main():
