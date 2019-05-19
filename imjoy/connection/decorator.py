@@ -2,7 +2,7 @@
 
 
 def ws_handler(event, namespace=None):
-    """Register a websocket handler via decorator."""
+    """Register a socketio handler via decorator."""
 
     def wrapper(func):
         """Decorate a ws event handler."""

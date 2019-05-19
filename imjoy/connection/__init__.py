@@ -1,4 +1,4 @@
-"""Provide the websocket connection manager."""
+"""Provide the socketio connection manager."""
 import asyncio
 from functools import partial
 
@@ -12,7 +12,7 @@ from .server import setup_app, run_app
 
 
 def create_connection_manager(eng):
-    """Create a websocket connection and return the connection instance."""
+    """Create a socketio connection and return the connection instance."""
     # An event handler can be found like this:
     # handler = sio.handlers[namespace][event]
     # ALLOWED_ORIGINS = [opt.base_url, 'http://imjoy.io', 'https://imjoy.io']
@@ -25,7 +25,7 @@ def create_connection_manager(eng):
 
 
 def register_event(eng, event, handler=None, namespace=None):
-    """Register a websocket event handler."""
+    """Register a socketio event handler."""
     # pylint: disable=protected-access
     if handler is None:
         handler = event
@@ -56,11 +56,11 @@ class ConnectionManager:
         run_app(self.eng, self.app)
 
     def register_event(self, event, handler=None, namespace=None):
-        """Register a websocket event handler."""
+        """Register a socketio event handler."""
         register_event(self.eng, event, handler=handler, namespace=namespace)
 
     def _register_handlers(self):
-        """Register static websocket event handlers."""
+        """Register static socketio event handlers."""
         register_handlers(self.eng, register_event)
 
 
