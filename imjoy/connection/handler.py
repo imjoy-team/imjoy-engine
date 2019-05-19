@@ -65,7 +65,7 @@ def connect(eng, sid, environ):
 
 async def read_and_forward_terminal_output(eng):
     """Read from terminal and forward to the client."""
-    terminal_session = eng.ws_conn.data.terminal_session
+    terminal_session = eng.conn.data.terminal_session
     max_read_bytes = 1024 * 20
     try:
         terminal_session["output_monitor_running"] = True
@@ -79,7 +79,7 @@ async def read_and_forward_terminal_output(eng):
                 if data_ready:
                     output = os.read(terminal_session["fd"], max_read_bytes).decode()
                     if output:
-                        await eng.ws_conn.sio.emit(
+                        await eng.conn.sio.emit(
                             "terminal_output", {"output": output}
                         )
     finally:
@@ -90,8 +90,8 @@ async def read_and_forward_terminal_output(eng):
 async def on_start_terminal(eng, sid, kwargs):
     """Handle new terminal client connected."""
     logger = eng.logger
-    registered_sessions = eng.ws_conn.data.registered_sessions
-    terminal_session = eng.ws_conn.data.terminal_session
+    registered_sessions = eng.conn.data.registered_sessions
+    terminal_session = eng.conn.data.terminal_session
     try:
         if sid not in registered_sessions:
             logger.debug("client %s is not registered.", sid)
@@ -169,8 +169,8 @@ async def on_start_terminal(eng, sid, kwargs):
 async def on_terminal_input(eng, sid, data):
     """Write to the terminal as if you are typing in a real terminal."""
     logger = eng.logger
-    registered_sessions = eng.ws_conn.data.registered_sessions
-    terminal_session = eng.ws_conn.data.terminal_session
+    registered_sessions = eng.conn.data.registered_sessions
+    terminal_session = eng.conn.data.terminal_session
     if sid not in registered_sessions:
         return
     try:
@@ -193,8 +193,8 @@ def set_winsize(fdesc, row, col, xpix=0, ypix=0):
 async def on_terminal_window_resize(eng, sid, data):
     """Resize terminal window."""
     logger = eng.logger
-    registered_sessions = eng.ws_conn.data.registered_sessions
-    terminal_session = eng.ws_conn.data.terminal_session
+    registered_sessions = eng.conn.data.registered_sessions
+    terminal_session = eng.conn.data.terminal_session
     if sid not in registered_sessions:
         return
     try:
@@ -209,7 +209,7 @@ async def on_terminal_window_resize(eng, sid, data):
 async def on_init_plugin(eng, sid, kwargs):
     """Initialize plugin."""
     logger = eng.logger
-    registered_sessions = eng.ws_conn.data.registered_sessions
+    registered_sessions = eng.conn.data.registered_sessions
     try:
         if sid in registered_sessions:
             obj = registered_sessions[sid]
@@ -297,7 +297,7 @@ async def on_init_plugin(eng, sid, kwargs):
                 "executeSuccess",
                 "executeFailure",
             ]:
-                await eng.ws_conn.sio.emit("message_from_plugin_" + secretKey, kwargs)
+                await eng.conn.sio.emit("message_from_plugin_" + secretKey, kwargs)
                 logger.debug("message from %s", pid)
                 if kwargs["type"] == "initialized":
                     addPlugin(eng, plugin_info, sid)
@@ -305,21 +305,21 @@ async def on_init_plugin(eng, sid, kwargs):
                     logger.info("Killing plugin %s due to exeuction failure.", pid)
                     killPlugin(eng, pid)
             else:
-                await eng.ws_conn.sio.emit(
+                await eng.conn.sio.emit(
                     "message_from_plugin_" + secretKey,
                     {"type": "message", "data": kwargs},
                 )
 
-        eng.ws_conn.register_event(message_from_plugin)
+        eng.conn.register_event(message_from_plugin)
 
         @sio_on("message_to_plugin_" + secretKey, namespace=NAME_SPACE)
         async def message_to_plugin(eng, sid, kwargs):
             # print('forwarding message_to_plugin_'+secretKey, kwargs)
             if kwargs["type"] == "message":
-                await eng.ws_conn.sio.emit("to_plugin_" + secretKey, kwargs["data"])
+                await eng.conn.sio.emit("to_plugin_" + secretKey, kwargs["data"])
             logger.debug("message to plugin %s", secretKey)
 
-        eng.ws_conn.register_event(message_to_plugin)
+        eng.conn.register_event(message_to_plugin)
 
         eloop = asyncio.get_event_loop()
 
@@ -332,7 +332,7 @@ async def on_init_plugin(eng, sid, kwargs):
                 str(success),
                 message,
             )
-            coro = eng.ws_conn.sio.emit(
+            coro = eng.conn.sio.emit(
                 "message_from_plugin_" + secretKey,
                 {
                     "type": "disconnected",
@@ -344,7 +344,7 @@ async def on_init_plugin(eng, sid, kwargs):
         def logging_callback(msg, type="info"):
             if msg == "":
                 return
-            coro = eng.ws_conn.sio.emit(
+            coro = eng.conn.sio.emit(
                 "message_from_plugin_" + secretKey,
                 {"type": "logging", "details": {"value": msg, "type": type}},
             )
@@ -396,7 +396,7 @@ async def on_init_plugin(eng, sid, kwargs):
 async def on_reset_engine(eng, sid, kwargs):
     """Reset engine."""
     logger = eng.logger
-    registered_sessions = eng.ws_conn.data.registered_sessions
+    registered_sessions = eng.conn.data.registered_sessions
     logger.info("kill plugin: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -404,20 +404,20 @@ async def on_reset_engine(eng, sid, kwargs):
 
     await killAllPlugins(eng, sid)
 
-    eng.ws_conn.data.attempt_count = 0
-    eng.ws_conn.data.cmd_history = []
-    eng.ws_conn.data.plugins = {}
-    eng.ws_conn.data.plugin_sessions = {}
-    eng.ws_conn.data.plugin_sids = {}
-    eng.ws_conn.data.plugin_signatures = {}
-    # eng.ws_conn.data.clients = {}
-    # eng.ws_conn.data.client_sessions = {}
-    # eng.ws_conn.data.registered_sessions = {}
-    eng.ws_conn.data.generatedUrls = {}
-    eng.ws_conn.data.generatedUrlFiles = {}
-    eng.ws_conn.data.requestUploadFiles = {}
-    eng.ws_conn.data.requestUrls = {}
-    eng.ws_conn.data.terminal_session = {}
+    eng.conn.data.attempt_count = 0
+    eng.conn.data.cmd_history = []
+    eng.conn.data.plugins = {}
+    eng.conn.data.plugin_sessions = {}
+    eng.conn.data.plugin_sids = {}
+    eng.conn.data.plugin_signatures = {}
+    # eng.conn.data.clients = {}
+    # eng.conn.data.client_sessions = {}
+    # eng.conn.data.registered_sessions = {}
+    eng.conn.data.generatedUrls = {}
+    eng.conn.data.generatedUrlFiles = {}
+    eng.conn.data.requestUploadFiles = {}
+    eng.conn.data.requestUrls = {}
+    eng.conn.data.terminal_session = {}
 
     return {"success": True}
 
@@ -426,8 +426,8 @@ async def on_reset_engine(eng, sid, kwargs):
 async def on_kill_plugin(eng, sid, kwargs):
     """Kill plugin."""
     logger = eng.logger
-    plugins = eng.ws_conn.data.plugins
-    registered_sessions = eng.ws_conn.data.registered_sessions
+    plugins = eng.conn.data.plugins
+    registered_sessions = eng.conn.data.registered_sessions
     logger.info("kill plugin: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -445,7 +445,7 @@ async def on_kill_plugin(eng, sid, kwargs):
                 # kill the plugin now
                 killPlugin(eng, pid)
 
-            await eng.ws_conn.sio.emit(
+            await eng.conn.sio.emit(
                 "to_plugin_" + plugins[pid]["secret"],
                 {"type": "disconnect"},
                 callback=exited,
@@ -458,7 +458,7 @@ async def on_kill_plugin(eng, sid, kwargs):
 async def on_register_client(eng, sid, kwargs):
     """Register client."""
     logger = eng.logger
-    conn_data = eng.ws_conn.data
+    conn_data = eng.conn.data
     client_id = kwargs.get("id", str(uuid.uuid4()))
     workspace = kwargs.get("workspace", "default")
     session_id = kwargs.get("session_id", str(uuid.uuid4()))
@@ -471,7 +471,7 @@ async def on_register_client(eng, sid, kwargs):
         logger.debug("token mismatch: %s != %s", token, eng.opt.token)
         print("======== Connection Token: " + eng.opt.token + " ========")
         if eng.opt.engine_container_token is not None:
-            await eng.ws_conn.sio.emit(
+            await eng.conn.sio.emit(
                 "message_to_container_" + eng.opt.engine_container_token,
                 {
                     "type": "popup_token",
@@ -528,7 +528,7 @@ async def on_register_client(eng, sid, kwargs):
 async def on_list_dir(eng, sid, kwargs):
     """List files in directory."""
     logger = eng.logger
-    registered_sessions = eng.ws_conn.data.registered_sessions
+    registered_sessions = eng.conn.data.registered_sessions
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -566,7 +566,7 @@ async def on_list_dir(eng, sid, kwargs):
 async def on_remove_files(eng, sid, kwargs):
     """Remove files."""
     logger = eng.logger
-    registered_sessions = eng.ws_conn.data.registered_sessions
+    registered_sessions = eng.conn.data.registered_sessions
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -609,9 +609,9 @@ async def on_remove_files(eng, sid, kwargs):
 async def on_request_upload_url(eng, sid, kwargs):
     """Request upload url."""
     logger = eng.logger
-    registered_sessions = eng.ws_conn.data.registered_sessions
-    requestUploadFiles = eng.ws_conn.data.requestUploadFiles
-    requestUrls = eng.ws_conn.data.requestUrls
+    registered_sessions = eng.conn.data.registered_sessions
+    requestUploadFiles = eng.conn.data.requestUploadFiles
+    requestUrls = eng.conn.data.requestUrls
     logger.info("requesting file upload url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -653,9 +653,9 @@ async def on_request_upload_url(eng, sid, kwargs):
 async def on_get_file_url(eng, sid, kwargs):
     """Return file url."""
     logger = eng.logger
-    generatedUrlFiles = eng.ws_conn.data.generatedUrlFiles
-    generatedUrls = eng.ws_conn.data.generatedUrls
-    registered_sessions = eng.ws_conn.data.registered_sessions
+    generatedUrlFiles = eng.conn.data.generatedUrlFiles
+    generatedUrls = eng.conn.data.generatedUrls
+    registered_sessions = eng.conn.data.registered_sessions
     logger.info("generating file url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -693,8 +693,8 @@ async def on_get_file_url(eng, sid, kwargs):
 async def on_get_file_path(eng, sid, kwargs):
     """Return file path."""
     logger = eng.logger
-    generatedUrls = eng.ws_conn.data.generatedUrls
-    registered_sessions = eng.ws_conn.data.registered_sessions
+    generatedUrls = eng.conn.data.generatedUrls
+    registered_sessions = eng.conn.data.registered_sessions
     logger.info("generating file url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -713,8 +713,8 @@ async def on_get_file_path(eng, sid, kwargs):
 async def on_get_engine_status(eng, sid, kwargs):
     """Return engine status."""
     logger = eng.logger
-    plugins = eng.ws_conn.data.plugins
-    registered_sessions = eng.ws_conn.data.registered_sessions
+    plugins = eng.conn.data.plugins
+    registered_sessions = eng.conn.data.registered_sessions
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -746,7 +746,7 @@ async def on_get_engine_status(eng, sid, kwargs):
 async def on_kill_plugin_process(eng, sid, kwargs):
     """Kill plugin process."""
     logger = eng.logger
-    registered_sessions = eng.ws_conn.data.registered_sessions
+    registered_sessions = eng.conn.data.registered_sessions
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
