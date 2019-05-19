@@ -8,6 +8,8 @@ import sys
 import time
 import traceback
 
+import GPUtil
+
 from imjoy.const import (
     DEFAULT_REQUIREMENTS_PY2,
     DEFAULT_REQUIREMENTS_PY3,
@@ -218,7 +220,7 @@ def launch_plugin(
         logger.info("plugin aborting...")
         logging_callback("plugin aborting...")
         return False
-    env_name = None
+    virtual_env_name = None
     try:
         repos = parseRepos(requirements, work_dir)
         logging_callback(2, type="progress")
@@ -244,9 +246,12 @@ def launch_plugin(
                     "Failed to obtain the git repo: " + str(ex), type="error"
                 )
 
-        default_env_name = "{}-{}".format(pname, tag) if tag != "" else pname
-        default_env_name = default_env_name.replace(" ", "_")
-        env_name, envs, is_py2 = parseEnv(eng, env, work_dir, default_env_name)
+        default_virtual_env = "{}-{}".format(pname, tag) if tag != "" else pname
+        default_virtual_env = default_virtual_env.replace(" ", "_")
+        virtual_env_name, envs, is_py2 = parseEnv(
+            eng, env, work_dir, default_virtual_env
+        )
+        environment_variables = {}
         default_requirements = (
             DEFAULT_REQUIREMENTS_PY2 if is_py2 else DEFAULT_REQUIREMENTS_PY3
         )
@@ -261,25 +266,43 @@ def launch_plugin(
 
         if envs is not None and len(envs) > 0:
             for env in envs:
-                print("Running env command: " + env)
-                logger.info("running env command: %s", env)
-                if env not in cmd_history:
-                    logging_callback("running env command: {}".format(env))
-                    code, errors = run_process(
-                        eng, pid, env.split(), env=plugin_env, cwd=work_dir
-                    )
+                if type(env) is str:
+                    print("Running env command: " + env)
+                    logger.info("running env command: %s", env)
+                    if env not in cmd_history:
+                        logging_callback("running env command: {}".format(env))
+                        code, errors = run_process(
+                            eng, pid, env.split(), env=plugin_env, cwd=work_dir
+                        )
 
-                    if code == 0:
-                        cmd_history.append(env)
-                        logging_callback("env command executed successfully.")
+                        if code == 0:
+                            cmd_history.append(env)
+                            logging_callback("env command executed successfully.")
 
-                    if errors is not None:
-                        logging_callback(str(errors, "utf-8"), type="error")
+                        if errors is not None:
+                            logging_callback(str(errors, "utf-8"), type="error")
 
-                    logging_callback(30, type="progress")
+                        logging_callback(30, type="progress")
+                    else:
+                        logger.debug("skip command: %s", env)
+                        logging_callback("skip env command: " + env)
+
+                elif type(env) is dict:
+                    assert "type" in env
+                    if env["type"] == "gputil":
+                        # Set CUDA_DEVICE_ORDER so the IDs assigned by CUDA match those from nvidia-smi
+                        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+                        deviceIDs = GPUtil.getAvailable(**env["options"])
+                        if len(deviceIDs) <= 0:
+                            raise Exception("No GPU is available to run this plugin.")
+                        environment_variables["CUDA_VISIBLE_DEVICES"] = ",".join(
+                            [str(deviceID) for deviceID in deviceIDs]
+                        )
+                        logging_callback("GPU id assigned: " + str(deviceIDs))
+                    elif env["type"] == "variable":
+                        environment_variables.update(env["options"])
                 else:
-                    logger.debug("skip command: %s", env)
-                    logging_callback("skip env command: " + env)
+                    logger.debug("skip unsupported env: %s", env)
 
                 if abort.is_set():
                     logger.info("plugin aborting...")
@@ -295,9 +318,9 @@ def launch_plugin(
             )
             requirements_cmd = None
 
-        if not opt.freeze and opt.CONDA_AVAILABLE and env_name is not None:
+        if not opt.freeze and opt.CONDA_AVAILABLE and virtual_env_name is not None:
             requirements_cmd = opt.conda_activate.format(
-                env_name + " && " + requirements_cmd
+                virtual_env_name + " && " + requirements_cmd
             )
 
         logger.info("Running requirements command: %s", requirements_cmd)
@@ -382,10 +405,15 @@ def launch_plugin(
                 env=plugin_env,
                 cwd=work_dir,
             )
-        if not opt.freeze and code and opt.CONDA_AVAILABLE and env_name is not None:
+        if (
+            not opt.freeze
+            and code
+            and opt.CONDA_AVAILABLE
+            and virtual_env_name is not None
+        ):
             psutil_cmd = parseRequirements(REQ_PSUTIL_CONDA, conda=opt.CONDA_AVAILABLE)
             psutil_cmd = opt.conda_activate.format(
-                "{} && {}".format(env_name, psutil_cmd)
+                "{} && {}".format(virtual_env_name, psutil_cmd)
             )
             code, _ = run_process(
                 eng,
@@ -404,20 +432,17 @@ def launch_plugin(
             "Failed to setup plugin virtual environment or its requirements: %s",
             error_traceback,
         )
-        logging_callback(
-            "Failed to setup plugin virual environment or its requirements: "
-            + error_traceback,
-            type="error",
-        )
         abort.set()
+        stop_callback(False, "Plugin process failed to start: " + error_traceback)
+        return False
 
     if abort.is_set():
         logger.info("Plugin aborting...")
-        logging_callback("Plugin aborting...")
+        stop_callback(False, "Plugin process failed to start")
         return False
     # env = os.environ.copy()
-    if opt.CONDA_AVAILABLE and env_name is not None:
-        args = opt.conda_activate.format(env_name + " && " + args)
+    if opt.CONDA_AVAILABLE and virtual_env_name is not None:
+        args = opt.conda_activate.format(virtual_env_name + " && " + args)
     if type(args) is str:
         args = args.split()
     if not args:
@@ -436,13 +461,16 @@ def launch_plugin(
         kwargs.update(preexec_fn=os.setsid)
     logging_callback(100, type="progress")
     try:
+        _env = plugin_env.copy()
+        _env.update(environment_variables)
+        logger.debug("running process with env: %s", _env)
         process = subprocess.Popen(
             args,
             bufsize=1,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             shell=True,
-            env=plugin_env,
+            env=_env,
             cwd=work_dir,
             **kwargs,
         )
