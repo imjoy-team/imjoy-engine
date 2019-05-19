@@ -1,12 +1,22 @@
 """Provide main entrypoint."""
-import sys
+import json
 import os
 import subprocess
-import json
+import sys
+
+from imjoy.setup import parse_cmd_line
 
 
 def main():
     """Run main."""
+    opt = parse_cmd_line()
+    if opt.dev:
+        print("Running ImJoy Plugin Engine in development mode")
+        from .imjoyPluginEngine import main
+
+        main()
+        return
+
     # add executable path to PATH
     os.environ["PATH"] = (
         os.path.split(sys.executable)[0] + os.pathsep + os.environ.get("PATH", "")
