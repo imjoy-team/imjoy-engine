@@ -3,7 +3,8 @@ import logging
 import sys
 
 from imjoy.helper import setup_logging
-from imjoy.setup import bootstrap, parse_cmd_line, prep_env
+from imjoy.options import parse_cmd_line
+from imjoy.env import bootstrap, prep_env
 from imjoy.connection import create_connection_manager
 
 

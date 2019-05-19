@@ -1,12 +1,22 @@
 """Provide main entrypoint."""
-import sys
+import json
 import os
 import subprocess
-import json
+import sys
+
+from imjoy.options import parse_cmd_line
 
 
 def main():
     """Run main."""
+    opt = parse_cmd_line()
+    if opt.dev:
+        print("Running ImJoy Plugin Engine in development mode")
+        from .imjoyPluginEngine import main
+
+        main()
+        return
+
     # add executable path to PATH
     os.environ["PATH"] = (
         os.path.split(sys.executable)[0] + os.pathsep + os.environ.get("PATH", "")
@@ -18,7 +28,7 @@ def main():
         process = subprocess.Popen(
             ["conda", "info", "--json", "-s"], stdout=subprocess.PIPE
         )
-        cout, err = process.communicate()
+        cout, _ = process.communicate()
         conda_prefix = json.loads(cout.decode("ascii"))["conda_prefix"]
         print("Found conda environment: " + conda_prefix)
         CONDA_AVAILABLE = True
