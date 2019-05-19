@@ -6,6 +6,7 @@ import socketio
 from aiohttp import web
 
 from imjoy.const import ENG
+from imjoy.helper import dotdict
 from .decorator import partial_coro
 from .handler import register_services
 from .server import setup_app, run_app
@@ -48,7 +49,26 @@ class ConnectionManager:
         self.eng = eng
         self.app = app
         self.sio = sio
-        self.data = ConnectionData()
+        self.store = None
+        self.init_store()
+    
+    def init_store(self):
+        """Initialize the connection data store"""
+        self.store = dotdict()
+        self.store.attempt_count = 0
+        self.store.cmd_history = []
+        self.store.plugins = {}
+        self.store.plugin_sessions = {}
+        self.store.plugin_sids = {}
+        self.store.plugin_signatures = {}
+        self.store.clients = {}
+        self.store.client_sessions = {}
+        self.store.registered_sessions = {}
+        self.store.generatedUrls = {}
+        self.store.generatedUrlFiles = {}
+        self.store.requestUploadFiles = {}
+        self.store.requestUrls = {}
+        self.store.terminal_session = {}
 
     def start(self):
         """Start the connection."""
@@ -62,26 +82,3 @@ class ConnectionManager:
     def _register_services(self):
         """Register event handlers for internal services."""
         register_services(self.eng, register_event_handler)
-
-
-class ConnectionData:
-    """Represent connection data."""
-
-    # pylint: disable=too-few-public-methods, too-many-instance-attributes
-
-    def __init__(self):
-        """Set up the instance."""
-        self.attempt_count = 0
-        self.cmd_history = []
-        self.plugins = {}
-        self.plugin_sessions = {}
-        self.plugin_sids = {}
-        self.plugin_signatures = {}
-        self.clients = {}
-        self.client_sessions = {}
-        self.registered_sessions = {}
-        self.generatedUrls = {}
-        self.generatedUrlFiles = {}
-        self.requestUploadFiles = {}
-        self.requestUrls = {}
-        self.terminal_session = {}

@@ -15,10 +15,12 @@ class Engine:
         self.logger = logger
         self.opt = opt
         self.conn = None
+        self.store = None
 
     def setup(self):
         """Set up the engine."""
         self.conn = create_connection_manager(self)
+        self.store = self.conn.store
 
     def start(self):
         """Start the engine."""

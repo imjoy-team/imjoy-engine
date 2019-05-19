@@ -22,9 +22,9 @@ from imjoy.util import console_to_str, parseRepos
 def resumePluginSession(eng, pid, session_id, plugin_signature):
     """Resume plugin session."""
     logger = eng.logger
-    plugins = eng.conn.data.plugins
-    plugin_sessions = eng.conn.data.plugin_sessions
-    plugin_signatures = eng.conn.data.plugin_signatures
+    plugins = eng.store.plugins
+    plugin_sessions = eng.store.plugin_sessions
+    plugin_signatures = eng.store.plugin_signatures
     if pid in plugins:
         if session_id in plugin_sessions:
             plugin_sessions[session_id].append(plugins[pid])
@@ -42,8 +42,8 @@ def resumePluginSession(eng, pid, session_id, plugin_signature):
 def addClientSession(eng, session_id, client_id, sid, base_url, workspace):
     """Add client session."""
     logger = eng.logger
-    clients = eng.conn.data.clients
-    registered_sessions = eng.conn.data.registered_sessions
+    clients = eng.store.clients
+    registered_sessions = eng.store.registered_sessions
     if client_id in clients:
         clients[client_id].append(sid)
         client_connected = True
@@ -63,9 +63,9 @@ def addClientSession(eng, session_id, client_id, sid, base_url, workspace):
 def disconnectClientSession(eng, sid):
     """Disconnect client session."""
     logger = eng.logger
-    clients = eng.conn.data.clients
-    plugin_sessions = eng.conn.data.plugin_sessions
-    registered_sessions = eng.conn.data.registered_sessions
+    clients = eng.store.clients
+    plugin_sessions = eng.store.plugin_sessions
+    registered_sessions = eng.store.registered_sessions
     if sid in registered_sessions:
         logger.info("disconnecting client session %s", sid)
         obj = registered_sessions[sid]
@@ -84,10 +84,10 @@ def disconnectClientSession(eng, sid):
 
 def addPlugin(eng, plugin_info, sid=None):
     """Add plugin."""
-    plugins = eng.conn.data.plugins
-    plugin_sessions = eng.conn.data.plugin_sessions
-    plugin_sids = eng.conn.data.plugin_sids
-    plugin_signatures = eng.conn.data.plugin_signatures
+    plugins = eng.store.plugins
+    plugin_sessions = eng.store.plugin_sessions
+    plugin_sids = eng.store.plugin_sids
+    plugin_signatures = eng.store.plugin_signatures
     pid = plugin_info["id"]
     session_id = plugin_info["session_id"]
     plugin_signatures[plugin_info["signature"]] = plugin_info
@@ -105,10 +105,10 @@ def addPlugin(eng, plugin_info, sid=None):
 def disconnectPlugin(eng, sid):
     """Disconnect plugin."""
     logger = eng.logger
-    plugins = eng.conn.data.plugins
-    plugin_sessions = eng.conn.data.plugin_sessions
-    plugin_sids = eng.conn.data.plugin_sids
-    plugin_signatures = eng.conn.data.plugin_signatures
+    plugins = eng.store.plugins
+    plugin_sessions = eng.store.plugin_sessions
+    plugin_sids = eng.store.plugin_sids
+    plugin_signatures = eng.store.plugin_signatures
     if sid in plugin_sids:
         logger.info("disconnecting plugin session %s", sid)
         pid = plugin_sids[sid]["id"]
@@ -132,16 +132,16 @@ def disconnectPlugin(eng, sid):
 
 def setPluginPID(eng, plugin_id, pid):
     """Set plugin pid."""
-    plugins = eng.conn.data.plugins
+    plugins = eng.store.plugins
     plugins[plugin_id]["process_id"] = pid
 
 
 def killPlugin(eng, pid):
     """Kill plugin."""
     logger = eng.logger
-    plugins = eng.conn.data.plugins
-    plugin_sids = eng.conn.data.plugin_sids
-    plugin_signatures = eng.conn.data.plugin_signatures
+    plugins = eng.store.plugins
+    plugin_sids = eng.store.plugin_sids
+    plugin_signatures = eng.store.plugin_signatures
     if pid in plugins:
         try:
             plugins[pid]["abort"].set()
@@ -168,7 +168,7 @@ async def killAllPlugins(eng, ssid):
     """Kill all plugins."""
     logger = eng.logger
     on_kill_plugin = eng.conn.sio.handlers[NAME_SPACE]["kill_plugin"]
-    plugin_sids = eng.conn.data.plugin_sids
+    plugin_sids = eng.store.plugin_sids
     tasks = []
     for sid in list(plugin_sids.keys()):
         try:
@@ -213,7 +213,7 @@ def launch_plugin(
     """Launch plugin."""
     logger = eng.logger
     opt = eng.opt
-    plugins = eng.conn.data.plugins
+    plugins = eng.store.plugins
     if abort.is_set():
         logger.info("plugin aborting...")
         logging_callback("plugin aborting...")
@@ -257,7 +257,7 @@ def launch_plugin(
             requirements, default_requirements_cmd, opt.CONDA_AVAILABLE
         )
 
-        cmd_history = eng.conn.data.cmd_history
+        cmd_history = eng.store.cmd_history
 
         if envs is not None and len(envs) > 0:
             for env in envs:
