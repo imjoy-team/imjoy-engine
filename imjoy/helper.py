@@ -106,7 +106,7 @@ def parseRequirements(requirements, default_command=None, conda=False):
 
 def parseEnv(eng, env, work_dir, default_env_name):
     """Parse environment."""
-    env_name = ""
+    virtual_env_name = ""
     is_py2 = False
     envs = None
     logger = eng.logger
@@ -122,47 +122,48 @@ def parseEnv(eng, env, work_dir, default_env_name):
             else:
                 envs = env
             for i, _env in enumerate(envs):
-                if "conda create" in _env:
-                    # if not _env.startswith('conda'):
-                    #     raise Exception('env command must start with conda')
-                    if "python=2" in _env:
-                        is_py2 = True
-                    parms = shlex.split(_env)
-                    if "-n" in parms:
-                        env_name = parms[parms.index("-n") + 1]
-                    elif "--name" in parms:
-                        env_name = parms[parms.index("--name") + 1]
-                    else:
-                        env_name = default_env_name
-                        envs[i] = _env.replace(
-                            "conda create", "conda create -n " + env_name
-                        )
-
-                    if "-y" not in parms:
-                        envs[i] = _env.replace("conda create", "conda create -y")
-
-                if "conda env create" in _env:
-                    parms = shlex.split(_env)
-                    if "-f" in parms:
-                        try:
-                            env_file = os.path.join(
-                                work_dir, parms[parms.index("-f") + 1]
+                if type(_env) is str:
+                    if "conda create" in _env:
+                        # if not _env.startswith('conda'):
+                        #     raise Exception('env command must start with conda')
+                        if "python=2" in _env:
+                            is_py2 = True
+                        parms = shlex.split(_env)
+                        if "-n" in parms:
+                            virtual_env_name = parms[parms.index("-n") + 1]
+                        elif "--name" in parms:
+                            virtual_env_name = parms[parms.index("--name") + 1]
+                        else:
+                            virtual_env_name = default_env_name
+                            envs[i] = _env.replace(
+                                "conda create", "conda create -n " + virtual_env_name
                             )
-                            with open(env_file, "r") as stream:
-                                env_config = yaml.load(stream)
-                                assert "name" in env_config
-                                env_name = env_config["name"]
-                        except Exception as exc:
+
+                        if "-y" not in parms:
+                            envs[i] = _env.replace("conda create", "conda create -y")
+
+                    if "conda env create" in _env:
+                        parms = shlex.split(_env)
+                        if "-f" in parms:
+                            try:
+                                env_file = os.path.join(
+                                    work_dir, parms[parms.index("-f") + 1]
+                                )
+                                with open(env_file, "r") as stream:
+                                    env_config = yaml.load(stream)
+                                    assert "name" in env_config
+                                    virtual_env_name = env_config["name"]
+                            except Exception as exc:
+                                raise Exception(
+                                    "Failed to read the env name "
+                                    "from the specified env file: " + str(exc)
+                                )
+
+                        else:
                             raise Exception(
-                                "Failed to read the env name "
-                                "from the specified env file: " + str(exc)
+                                "You should provided a environment file "
+                                "via the `conda env create -f`"
                             )
-
-                    else:
-                        raise Exception(
-                            "You should provided a environment file "
-                            "via the `conda env create -f`"
-                        )
 
         else:
             print(
@@ -175,10 +176,10 @@ def parseEnv(eng, env, work_dir, default_env_name):
                 env,
             )
 
-    if env_name.strip() == "":
-        env_name = None
+    if virtual_env_name.strip() == "":
+        virtual_env_name = None
 
-    return env_name, envs, is_py2
+    return virtual_env_name, envs, is_py2
 
 
 def scandir(path, type_=None, recursive=False):

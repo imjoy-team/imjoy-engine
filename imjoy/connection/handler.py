@@ -16,6 +16,8 @@ import traceback
 import uuid
 from urllib.parse import urlparse
 
+import GPUtil
+
 from imjoy.const import API_VERSION, NAME_SPACE, TEMPLATE_SCRIPT, __version__
 from imjoy.helper import get_psutil, killProcess, scandir
 from imjoy.plugin import (
@@ -512,6 +514,21 @@ async def on_register_client(eng, sid, kwargs):
             "processor": platform.processor(),
             "node": platform.node(),
         }
+
+        GPUs = GPUtil.getGPUs()
+        engine_info["GPUs"] = [
+            {
+                "name": gpu.name,
+                "id": gpu.id,
+                "memory_total": gpu.memoryTotal,
+                "memory_util": gpu.memoryUtil,
+                "memoryUsed": gpu.memoryUsed,
+                "driver": gpu.driver,
+                "temperature": temperature,
+                "load": gpu.load,
+            }
+            for gpu in GPUs
+        ]
 
         return {
             "success": True,

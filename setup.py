@@ -51,6 +51,7 @@ if sys.version_info > (3, 0):
         "numpy",
         "janus",
         "pyyaml",
+        "gputil",
     ]
     print("Trying to install psutil with pip...")
     ret = subprocess.Popen(
