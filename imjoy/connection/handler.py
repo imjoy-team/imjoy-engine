@@ -63,7 +63,6 @@ def register_services(eng, register_event_handler):
     register_event_handler(eng, on_start_terminal)
     register_event_handler(eng, on_terminal_input)
     register_event_handler(eng, on_terminal_window_resize)
-    
 
 
 @sio_on("connect", namespace=NAME_SPACE)
