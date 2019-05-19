@@ -35,7 +35,7 @@ def register_event(eng, event, handler=None, namespace=None):
         injected_handler = partial_coro(handler, eng)
     else:
         injected_handler = partial(handler, eng)
-    eng.ws_conn.sio.on(event, handler=injected_handler, namespace=namespace)
+    eng.conn.sio.on(event, handler=injected_handler, namespace=namespace)
 
 
 class WSConnection:
