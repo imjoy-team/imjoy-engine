@@ -1,9 +1,11 @@
 """Provide main entrypoint."""
+import importlib
 import json
 import os
 import subprocess
 import sys
 
+import imjoy
 from imjoy.options import parse_cmd_line
 
 
@@ -57,7 +59,10 @@ def main():
         ).wait()
         if ret != 0:
             print("Failed to upgrade ImJoy Plugin Engine.")
-        from .imjoyPluginEngine import main
+
+        # reload to use the new version
+        importlib.reload(imjoy)
+        from imjoy.imjoyPluginEngine import main
 
         main()
     else:
