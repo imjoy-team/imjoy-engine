@@ -11,7 +11,7 @@ from .handler import register_handlers
 from .server import setup_app, run_app
 
 
-def create_connection(eng):
+def create_connection_manager(eng):
     """Create a websocket connection and return the connection instance."""
     # An event handler can be found like this:
     # handler = sio.handlers[namespace][event]
@@ -21,7 +21,7 @@ def create_connection(eng):
     app[ENG] = eng
     sio.attach(app)
     setup_app(eng, app)
-    return WSConnection(eng, app, sio)
+    return ConnectionManager(eng, app, sio)
 
 
 def register_event(eng, event, handler=None, namespace=None):
@@ -38,8 +38,8 @@ def register_event(eng, event, handler=None, namespace=None):
     eng.conn.sio.on(event, handler=injected_handler, namespace=namespace)
 
 
-class WSConnection:
-    """Represent a websocket connection."""
+class ConnectionManager:
+    """Represent a connection manager for socketio event handler and session data."""
 
     # pylint: disable=too-few-public-methods
 

@@ -4,7 +4,7 @@ import sys
 
 from imjoy.helper import setup_logging
 from imjoy.setup import bootstrap, parse_cmd_line, prep_env
-from imjoy.connection import create_connection
+from imjoy.connection import create_connection_manager
 
 
 class Engine:
@@ -18,7 +18,7 @@ class Engine:
 
     def setup(self):
         """Set up the engine."""
-        self.conn = create_connection(self)
+        self.conn = create_connection_manager(self)
 
     def start(self):
         """Start the engine."""
