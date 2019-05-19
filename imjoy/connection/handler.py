@@ -1,4 +1,4 @@
-"""Provide websocket event handlers."""
+"""Provide socketio event handlers."""
 import asyncio
 import fcntl
 import os
@@ -39,7 +39,7 @@ MAX_ATTEMPTS = 1000
 
 
 def register_handlers(eng, register_event):
-    """Register event handlers on websocket."""
+    """Register event handlers on socketio."""
     register_event(eng, connect)
     register_event(eng, on_init_plugin)
     register_event(eng, on_reset_engine)
