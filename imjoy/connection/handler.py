@@ -122,7 +122,7 @@ async def on_start_terminal(eng, sid, kwargs):
                 return {
                     "success": True,
                     "exists": True,
-                    "message": "Welcome to ImJoy plugin engine terminal!",
+                    "message": f"Welcome to ImJoy Plugin Engine Terminal (v{__version__}).",
                 }
 
         if sys.platform == "linux" or sys.platform == "linux2":
@@ -132,8 +132,8 @@ async def on_start_terminal(eng, sid, kwargs):
             # OS X
             default_terminal_command = ["bash"]
         elif sys.platform == "win32":
-            # Windows...
-            default_terminal_command = ["start", "cmd"]
+            # Windows
+            default_terminal_command = ["cmd.exe"]
         else:
             default_terminal_command = ["bash"]
         cmd = kwargs.get("cmd", default_terminal_command)
@@ -144,6 +144,9 @@ async def on_start_terminal(eng, sid, kwargs):
             # this is the child process fork.
             # anything printed here will show up in the pty, including the output
             # of this subprocess
+            term_env = os.environ.copy()
+            term_env["TERM"] = "xterm-256color"
+            subprocess.run(cmd, env=term_env)
             subprocess.run(cmd)
         else:
             # this is the parent process fork.
