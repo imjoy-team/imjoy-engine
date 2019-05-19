@@ -40,20 +40,30 @@ MAX_ATTEMPTS = 1000
 
 def register_services(eng, register_event_handler):
     """Register services running by the engine."""
+    # basic engine service
     register_event_handler(eng, connect)
-    register_event_handler(eng, on_init_plugin)
+    register_event_handler(eng, disconnect)
     register_event_handler(eng, on_reset_engine)
-    register_event_handler(eng, on_kill_plugin)
+    register_event_handler(eng, on_get_engine_status)
+
+    # plugin service
     register_event_handler(eng, on_register_client)
+    register_event_handler(eng, on_init_plugin)
+    register_event_handler(eng, on_kill_plugin)
+    register_event_handler(eng, on_kill_plugin_process)
+
+    # file server
     register_event_handler(eng, on_list_dir)
-    register_event_handler(eng, on_remove_files)
-    register_event_handler(eng, on_request_upload_url)
     register_event_handler(eng, on_get_file_url)
     register_event_handler(eng, on_get_file_path)
-    register_event_handler(eng, on_get_engine_status)
-    register_event_handler(eng, on_kill_plugin_process)
-    register_event_handler(eng, on_message)
-    register_event_handler(eng, disconnect)
+    register_event_handler(eng, on_remove_files)
+    register_event_handler(eng, on_request_upload_url)
+
+    # terminal
+    register_event_handler(eng, on_start_terminal)
+    register_event_handler(eng, on_terminal_input)
+    register_event_handler(eng, on_terminal_window_resize)
+    
 
 
 @sio_on("connect", namespace=NAME_SPACE)
@@ -754,13 +764,6 @@ async def on_kill_plugin_process(eng, sid, kwargs):
                 "success": False,
                 "error": "Failed to kill plugin process: #" + str(kwargs["pid"]),
             }
-
-
-@sio_on("message", namespace=NAME_SPACE)
-async def on_message(eng, sid, kwargs):
-    """Receive message."""
-    logger = eng.logger
-    logger.info("message recieved: %s", kwargs)
 
 
 @sio_on("disconnect", namespace=NAME_SPACE)
