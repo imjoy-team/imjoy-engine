@@ -7,6 +7,7 @@ from importlib import import_module
 
 import yaml
 
+
 class dotdict(dict):
     """Access dictionary attributes with dot.notation."""
 
@@ -17,6 +18,7 @@ class dotdict(dict):
     def __deepcopy__(self, memo=None):
         """Make a deep copy."""
         return dotdict(copy.deepcopy(dict(self), memo=memo))
+
 
 def get_psutil():
     """Try to import and return psutil."""

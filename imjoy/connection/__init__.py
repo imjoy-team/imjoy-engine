@@ -51,7 +51,7 @@ class ConnectionManager:
         self.sio = sio
         self.store = None
         self.init_store()
-    
+
     def init_store(self):
         """Initialize the connection data store"""
         self.store = dotdict()
