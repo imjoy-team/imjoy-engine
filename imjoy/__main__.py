@@ -1,9 +1,11 @@
 """Provide main entrypoint."""
+import importlib
 import json
 import os
 import subprocess
 import sys
 
+import imjoy
 from imjoy.options import parse_cmd_line
 
 
@@ -28,7 +30,7 @@ def main():
         process = subprocess.Popen(
             ["conda", "info", "--json", "-s"], stdout=subprocess.PIPE
         )
-        cout, err = process.communicate()
+        cout, _ = process.communicate()
         conda_prefix = json.loads(cout.decode("ascii"))["conda_prefix"]
         print("Found conda environment: " + conda_prefix)
         CONDA_AVAILABLE = True
@@ -57,7 +59,10 @@ def main():
         ).wait()
         if ret != 0:
             print("Failed to upgrade ImJoy Plugin Engine.")
-        from .imjoyPluginEngine import main
+
+        # reload to use the new version
+        importlib.reload(imjoy)
+        from imjoy.imjoyPluginEngine import main
 
         main()
     else:

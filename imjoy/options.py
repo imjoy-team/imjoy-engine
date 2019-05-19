@@ -1,5 +1,6 @@
 """Provide setup function to prepare the engine."""
 import argparse
+from imjoy.const import __version__
 
 
 def parse_cmd_line():
@@ -46,6 +47,10 @@ def parse_cmd_line():
     )
     parser.add_argument(
         "--dev", action="store_true", help="run ImJoy Engine in development mode"
+    )
+
+    parser.add_argument(
+        "-v", "--version", action="version", version="%(prog)s " + __version__
     )
 
     opt = parser.parse_args()

@@ -4,7 +4,6 @@ node_modules
 package.json
 package-lock.json
 __ImJoy__
-__websocket_relay__.js
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
