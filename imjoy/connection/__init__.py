@@ -49,26 +49,28 @@ class ConnectionManager:
         self.eng = eng
         self.app = app
         self.sio = sio
-        self.store = None
-        self.init_store()
-
-    def init_store(self):
-        """Initialize the connection data store"""
         self.store = dotdict()
+        self.reset_store()
+
+    def reset_store(self, reset_clients=True):
+        """Reset the connection data store"""
         self.store.attempt_count = 0
         self.store.cmd_history = []
         self.store.plugins = {}
         self.store.plugin_sessions = {}
         self.store.plugin_sids = {}
         self.store.plugin_signatures = {}
-        self.store.clients = {}
-        self.store.client_sessions = {}
-        self.store.registered_sessions = {}
+
         self.store.generatedUrls = {}
         self.store.generatedUrlFiles = {}
         self.store.requestUploadFiles = {}
         self.store.requestUrls = {}
         self.store.terminal_session = {}
+
+        if reset_clients:
+            self.store.clients = {}
+            self.store.client_sessions = {}
+            self.store.registered_sessions = {}
 
     def start(self):
         """Start the connection."""

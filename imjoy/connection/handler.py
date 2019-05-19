@@ -402,20 +402,7 @@ async def on_reset_engine(eng, sid, kwargs):
 
     await killAllPlugins(eng, sid)
 
-    eng.store.attempt_count = 0
-    eng.store.cmd_history = []
-    eng.store.plugins = {}
-    eng.store.plugin_sessions = {}
-    eng.store.plugin_sids = {}
-    eng.store.plugin_signatures = {}
-    # eng.store.clients = {}
-    # eng.store.client_sessions = {}
-    # eng.store.registered_sessions = {}
-    eng.store.generatedUrls = {}
-    eng.store.generatedUrlFiles = {}
-    eng.store.requestUploadFiles = {}
-    eng.store.requestUrls = {}
-    eng.store.terminal_session = {}
+    eng.conn.reset_store(reset_clients=False)
 
     return {"success": True}
 
