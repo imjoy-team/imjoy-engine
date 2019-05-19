@@ -7,7 +7,7 @@ from aiohttp import web
 
 from imjoy.const import ENG
 from .decorator import partial_coro
-from .handler import register_handlers
+from .handler import register_services
 from .server import setup_app, run_app
 
 
@@ -24,7 +24,7 @@ def create_connection_manager(eng):
     return ConnectionManager(eng, app, sio)
 
 
-def register_event(eng, event, handler=None, namespace=None):
+def register_event_handler(eng, event, handler=None, namespace=None):
     """Register a socketio event handler."""
     # pylint: disable=protected-access
     if handler is None:
@@ -52,16 +52,16 @@ class ConnectionManager:
 
     def start(self):
         """Start the connection."""
-        self._register_handlers()
+        self._register_services()
         run_app(self.eng, self.app)
 
-    def register_event(self, event, handler=None, namespace=None):
+    def register_event_handler(self, event, handler=None, namespace=None):
         """Register a socketio event handler."""
-        register_event(self.eng, event, handler=handler, namespace=namespace)
+        register_event_handler(self.eng, event, handler=handler, namespace=namespace)
 
-    def _register_handlers(self):
+    def _register_services(self):
         """Register static socketio event handlers."""
-        register_handlers(self.eng, register_event)
+        register_services(self.eng, register_event_handler)
 
 
 class ConnectionData:

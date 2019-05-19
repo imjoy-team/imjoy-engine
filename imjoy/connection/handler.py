@@ -38,22 +38,22 @@ if sys.platform == "win32":
 MAX_ATTEMPTS = 1000
 
 
-def register_handlers(eng, register_event):
+def register_services(eng, register_event_handler):
     """Register event handlers on socketio."""
-    register_event(eng, connect)
-    register_event(eng, on_init_plugin)
-    register_event(eng, on_reset_engine)
-    register_event(eng, on_kill_plugin)
-    register_event(eng, on_register_client)
-    register_event(eng, on_list_dir)
-    register_event(eng, on_remove_files)
-    register_event(eng, on_request_upload_url)
-    register_event(eng, on_get_file_url)
-    register_event(eng, on_get_file_path)
-    register_event(eng, on_get_engine_status)
-    register_event(eng, on_kill_plugin_process)
-    register_event(eng, on_message)
-    register_event(eng, disconnect)
+    register_event_handler(eng, connect)
+    register_event_handler(eng, on_init_plugin)
+    register_event_handler(eng, on_reset_engine)
+    register_event_handler(eng, on_kill_plugin)
+    register_event_handler(eng, on_register_client)
+    register_event_handler(eng, on_list_dir)
+    register_event_handler(eng, on_remove_files)
+    register_event_handler(eng, on_request_upload_url)
+    register_event_handler(eng, on_get_file_url)
+    register_event_handler(eng, on_get_file_path)
+    register_event_handler(eng, on_get_engine_status)
+    register_event_handler(eng, on_kill_plugin_process)
+    register_event_handler(eng, on_message)
+    register_event_handler(eng, disconnect)
 
 
 @sio_on("connect", namespace=NAME_SPACE)
@@ -308,7 +308,7 @@ async def on_init_plugin(eng, sid, kwargs):
                     {"type": "message", "data": kwargs},
                 )
 
-        eng.conn.register_event(message_from_plugin)
+        eng.conn.register_event_handler(message_from_plugin)
 
         @sio_on("message_to_plugin_" + secretKey, namespace=NAME_SPACE)
         async def message_to_plugin(eng, sid, kwargs):
@@ -317,7 +317,7 @@ async def on_init_plugin(eng, sid, kwargs):
                 await eng.conn.sio.emit("to_plugin_" + secretKey, kwargs["data"])
             logger.debug("message to plugin %s", secretKey)
 
-        eng.conn.register_event(message_to_plugin)
+        eng.conn.register_event_handler(message_to_plugin)
 
         eloop = asyncio.get_event_loop()
 
