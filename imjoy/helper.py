@@ -1,4 +1,5 @@
 """Provide helper functions that are aware of the ImJoy engine."""
+import copy
 import logging
 import os
 import shlex
@@ -6,6 +7,16 @@ from importlib import import_module
 
 import yaml
 
+class dotdict(dict):
+    """Access dictionary attributes with dot.notation."""
+
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+    def __deepcopy__(self, memo=None):
+        """Make a deep copy."""
+        return dotdict(copy.deepcopy(dict(self), memo=memo))
 
 def get_psutil():
     """Try to import and return psutil."""

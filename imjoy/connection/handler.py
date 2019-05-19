@@ -39,7 +39,7 @@ MAX_ATTEMPTS = 1000
 
 
 def register_services(eng, register_event_handler):
-    """Register event handlers on socketio."""
+    """Register services running by the engine."""
     register_event_handler(eng, connect)
     register_event_handler(eng, on_init_plugin)
     register_event_handler(eng, on_reset_engine)
@@ -65,7 +65,7 @@ def connect(eng, sid, environ):
 
 async def read_and_forward_terminal_output(eng):
     """Read from terminal and forward to the client."""
-    terminal_session = eng.conn.data.terminal_session
+    terminal_session = eng.store.terminal_session
     max_read_bytes = 1024 * 20
     try:
         terminal_session["output_monitor_running"] = True
@@ -88,8 +88,8 @@ async def read_and_forward_terminal_output(eng):
 async def on_start_terminal(eng, sid, kwargs):
     """Handle new terminal client connected."""
     logger = eng.logger
-    registered_sessions = eng.conn.data.registered_sessions
-    terminal_session = eng.conn.data.terminal_session
+    registered_sessions = eng.store.registered_sessions
+    terminal_session = eng.store.terminal_session
     try:
         if sid not in registered_sessions:
             logger.debug("client %s is not registered.", sid)
@@ -167,8 +167,8 @@ async def on_start_terminal(eng, sid, kwargs):
 async def on_terminal_input(eng, sid, data):
     """Write to the terminal as if you are typing in a real terminal."""
     logger = eng.logger
-    registered_sessions = eng.conn.data.registered_sessions
-    terminal_session = eng.conn.data.terminal_session
+    registered_sessions = eng.store.registered_sessions
+    terminal_session = eng.store.terminal_session
     if sid not in registered_sessions:
         return
     try:
@@ -191,8 +191,8 @@ def set_winsize(fdesc, row, col, xpix=0, ypix=0):
 async def on_terminal_window_resize(eng, sid, data):
     """Resize terminal window."""
     logger = eng.logger
-    registered_sessions = eng.conn.data.registered_sessions
-    terminal_session = eng.conn.data.terminal_session
+    registered_sessions = eng.store.registered_sessions
+    terminal_session = eng.store.terminal_session
     if sid not in registered_sessions:
         return
     try:
@@ -207,7 +207,7 @@ async def on_terminal_window_resize(eng, sid, data):
 async def on_init_plugin(eng, sid, kwargs):
     """Initialize plugin."""
     logger = eng.logger
-    registered_sessions = eng.conn.data.registered_sessions
+    registered_sessions = eng.store.registered_sessions
     try:
         if sid in registered_sessions:
             obj = registered_sessions[sid]
@@ -394,7 +394,7 @@ async def on_init_plugin(eng, sid, kwargs):
 async def on_reset_engine(eng, sid, kwargs):
     """Reset engine."""
     logger = eng.logger
-    registered_sessions = eng.conn.data.registered_sessions
+    registered_sessions = eng.store.registered_sessions
     logger.info("kill plugin: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -402,20 +402,20 @@ async def on_reset_engine(eng, sid, kwargs):
 
     await killAllPlugins(eng, sid)
 
-    eng.conn.data.attempt_count = 0
-    eng.conn.data.cmd_history = []
-    eng.conn.data.plugins = {}
-    eng.conn.data.plugin_sessions = {}
-    eng.conn.data.plugin_sids = {}
-    eng.conn.data.plugin_signatures = {}
-    # eng.conn.data.clients = {}
-    # eng.conn.data.client_sessions = {}
-    # eng.conn.data.registered_sessions = {}
-    eng.conn.data.generatedUrls = {}
-    eng.conn.data.generatedUrlFiles = {}
-    eng.conn.data.requestUploadFiles = {}
-    eng.conn.data.requestUrls = {}
-    eng.conn.data.terminal_session = {}
+    eng.store.attempt_count = 0
+    eng.store.cmd_history = []
+    eng.store.plugins = {}
+    eng.store.plugin_sessions = {}
+    eng.store.plugin_sids = {}
+    eng.store.plugin_signatures = {}
+    # eng.store.clients = {}
+    # eng.store.client_sessions = {}
+    # eng.store.registered_sessions = {}
+    eng.store.generatedUrls = {}
+    eng.store.generatedUrlFiles = {}
+    eng.store.requestUploadFiles = {}
+    eng.store.requestUrls = {}
+    eng.store.terminal_session = {}
 
     return {"success": True}
 
@@ -424,8 +424,8 @@ async def on_reset_engine(eng, sid, kwargs):
 async def on_kill_plugin(eng, sid, kwargs):
     """Kill plugin."""
     logger = eng.logger
-    plugins = eng.conn.data.plugins
-    registered_sessions = eng.conn.data.registered_sessions
+    plugins = eng.store.plugins
+    registered_sessions = eng.store.registered_sessions
     logger.info("kill plugin: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -456,7 +456,7 @@ async def on_kill_plugin(eng, sid, kwargs):
 async def on_register_client(eng, sid, kwargs):
     """Register client."""
     logger = eng.logger
-    conn_data = eng.conn.data
+    conn_data = eng.store
     client_id = kwargs.get("id", str(uuid.uuid4()))
     workspace = kwargs.get("workspace", "default")
     session_id = kwargs.get("session_id", str(uuid.uuid4()))
@@ -526,7 +526,7 @@ async def on_register_client(eng, sid, kwargs):
 async def on_list_dir(eng, sid, kwargs):
     """List files in directory."""
     logger = eng.logger
-    registered_sessions = eng.conn.data.registered_sessions
+    registered_sessions = eng.store.registered_sessions
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -564,7 +564,7 @@ async def on_list_dir(eng, sid, kwargs):
 async def on_remove_files(eng, sid, kwargs):
     """Remove files."""
     logger = eng.logger
-    registered_sessions = eng.conn.data.registered_sessions
+    registered_sessions = eng.store.registered_sessions
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -607,9 +607,9 @@ async def on_remove_files(eng, sid, kwargs):
 async def on_request_upload_url(eng, sid, kwargs):
     """Request upload url."""
     logger = eng.logger
-    registered_sessions = eng.conn.data.registered_sessions
-    requestUploadFiles = eng.conn.data.requestUploadFiles
-    requestUrls = eng.conn.data.requestUrls
+    registered_sessions = eng.store.registered_sessions
+    requestUploadFiles = eng.store.requestUploadFiles
+    requestUrls = eng.store.requestUrls
     logger.info("requesting file upload url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -651,9 +651,9 @@ async def on_request_upload_url(eng, sid, kwargs):
 async def on_get_file_url(eng, sid, kwargs):
     """Return file url."""
     logger = eng.logger
-    generatedUrlFiles = eng.conn.data.generatedUrlFiles
-    generatedUrls = eng.conn.data.generatedUrls
-    registered_sessions = eng.conn.data.registered_sessions
+    generatedUrlFiles = eng.store.generatedUrlFiles
+    generatedUrls = eng.store.generatedUrls
+    registered_sessions = eng.store.registered_sessions
     logger.info("generating file url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -691,8 +691,8 @@ async def on_get_file_url(eng, sid, kwargs):
 async def on_get_file_path(eng, sid, kwargs):
     """Return file path."""
     logger = eng.logger
-    generatedUrls = eng.conn.data.generatedUrls
-    registered_sessions = eng.conn.data.registered_sessions
+    generatedUrls = eng.store.generatedUrls
+    registered_sessions = eng.store.registered_sessions
     logger.info("generating file url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -711,8 +711,8 @@ async def on_get_file_path(eng, sid, kwargs):
 async def on_get_engine_status(eng, sid, kwargs):
     """Return engine status."""
     logger = eng.logger
-    plugins = eng.conn.data.plugins
-    registered_sessions = eng.conn.data.registered_sessions
+    plugins = eng.store.plugins
+    registered_sessions = eng.store.registered_sessions
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -744,7 +744,7 @@ async def on_get_engine_status(eng, sid, kwargs):
 async def on_kill_plugin_process(eng, sid, kwargs):
     """Kill plugin process."""
     logger = eng.logger
-    registered_sessions = eng.conn.data.registered_sessions
+    registered_sessions = eng.store.registered_sessions
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
         return {"success": False, "error": "client has not been registered."}

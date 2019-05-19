@@ -151,7 +151,7 @@ async def upload_file(request):
     """Upload file."""
     eng = request.app[ENG]
     logger = eng.logger
-    requestUploadFiles = eng.conn.data.requestUploadFiles
+    requestUploadFiles = eng.store.requestUploadFiles
     urlid = request.match_info["urlid"]  # Could be a HUGE file
     if urlid not in requestUploadFiles:
         raise web.HTTPForbidden(text="Invalid URL")
@@ -210,7 +210,7 @@ async def upload_file(request):
 async def download_file(request):
     """Download file."""
     eng = request.app[ENG]
-    generatedUrls = eng.conn.data.generatedUrls
+    generatedUrls = eng.store.generatedUrls
     urlid = request.match_info["urlid"]  # Could be a HUGE file
     name = request.match_info["name"]
     if urlid not in generatedUrls:
