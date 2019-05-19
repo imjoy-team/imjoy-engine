@@ -60,7 +60,7 @@ class ConnectionManager:
         register_event_handler(self.eng, event, handler=handler, namespace=namespace)
 
     def _register_services(self):
-        """Register static socketio event handlers."""
+        """Register event handlers for internal services."""
         register_services(self.eng, register_event_handler)
 
 
