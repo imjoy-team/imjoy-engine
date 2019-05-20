@@ -532,8 +532,7 @@ async def on_register_client(eng, sid, kwargs):
                 for gpu in GPUs
             ]
         except Exception as exc:  # pylint: disable=broad-except
-            logger.error('Failed to get GPU information with GPUtil')
-        
+            logger.error("Failed to get GPU information with GPUtil")
 
         return {
             "success": True,
