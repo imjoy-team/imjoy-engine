@@ -124,8 +124,6 @@ def parseEnv(eng, env, work_dir, default_env_name):
             for i, _env in enumerate(envs):
                 if type(_env) is str:
                     if "conda create" in _env:
-                        # if not _env.startswith('conda'):
-                        #     raise Exception('env command must start with conda')
                         if "python=2" in _env:
                             is_py2 = True
                         parms = shlex.split(_env)
