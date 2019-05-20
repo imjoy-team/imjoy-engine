@@ -93,11 +93,13 @@ def addPlugin(eng, plugin_info, sid=None):
     pid = plugin_info["id"]
     session_id = plugin_info["session_id"]
     plugin_signatures[plugin_info["signature"]] = plugin_info
+
+    if pid not in plugins:
+        if session_id in plugin_sessions:
+            plugin_sessions[session_id].append(plugin_info)
+        else:
+            plugin_sessions[session_id] = [plugin_info]
     plugins[pid] = plugin_info
-    if session_id in plugin_sessions:
-        plugin_sessions[session_id].append(plugin_info)
-    else:
-        plugin_sessions[session_id] = [plugin_info]
 
     if pid in plugins and sid is not None:
         plugin_sids[sid] = plugin_info
@@ -148,8 +150,9 @@ def killPlugin(eng, pid):
         try:
             plugins[pid]["abort"].set()
             plugins[pid]["aborting"] = asyncio.get_event_loop().create_future()
-            killProcess(logger, plugins[pid]["process_id"])
-            print('INFO: "{}" was killed.'.format(pid))
+            if plugins[pid]["process_id"] is not None:
+                killProcess(logger, plugins[pid]["process_id"])
+                print('INFO: "{}" was killed.'.format(pid))
         except Exception as exc:  # pylint: disable=broad-except
             print('WARNING: failed to kill plugin "{}".'.format(pid))
             logger.error(str(exc))
