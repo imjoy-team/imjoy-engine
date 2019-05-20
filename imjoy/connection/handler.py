@@ -516,20 +516,24 @@ async def on_register_client(eng, sid, kwargs):
             "node": platform.node(),
         }
 
-        GPUs = GPUtil.getGPUs()
-        engine_info["GPUs"] = [
-            {
-                "name": gpu.name,
-                "id": gpu.id,
-                "memory_total": gpu.memoryTotal,
-                "memory_util": gpu.memoryUtil,
-                "memoryUsed": gpu.memoryUsed,
-                "driver": gpu.driver,
-                "temperature": temperature,
-                "load": gpu.load,
-            }
-            for gpu in GPUs
-        ]
+        try:
+            GPUs = GPUtil.getGPUs()
+            engine_info["GPUs"] = [
+                {
+                    "name": gpu.name,
+                    "id": gpu.id,
+                    "memory_total": gpu.memoryTotal,
+                    "memory_util": gpu.memoryUtil,
+                    "memoryUsed": gpu.memoryUsed,
+                    "driver": gpu.driver,
+                    "temperature": gpu.temperature,
+                    "load": gpu.load,
+                }
+                for gpu in GPUs
+            ]
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.error('Failed to get GPU information with GPUtil')
+        
 
         return {
             "success": True,
