@@ -295,6 +295,7 @@ async def on_init_plugin(eng, sid, kwargs):
             "type": config["type"],
             "client_id": client_id,
             "signature": plugin_signature,
+            "process_id": None,
         }
         logger.info("Add plugin: %s", str(plugin_info))
         addPlugin(eng, plugin_info)
@@ -740,7 +741,9 @@ async def on_get_engine_status(eng, sid, kwargs):
     pid_dict = {}
     for i in plugins:
         p = plugins[i]
-        pid_dict[p["process_id"]] = p
+        if p["process_id"] is not None:
+            pid_dict[p["process_id"]] = p
+
     procs = []
     for proc in children:
         if proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE:
@@ -748,6 +751,7 @@ async def on_get_engine_status(eng, sid, kwargs):
                 procs.append({"name": pid_dict[proc.pid]["name"], "pid": proc.pid})
             else:
                 procs.append({"name": proc.name(), "pid": proc.pid})
+
     return {
         "success": True,
         "plugin_num": len(plugins),
@@ -783,6 +787,19 @@ async def on_kill_plugin_process(eng, sid, kwargs):
                 "success": False,
                 "error": "Failed to kill plugin process: #" + str(kwargs["pid"]),
             }
+
+    current_process = psutil.Process()
+    children = current_process.children(recursive=True)
+    pids = []
+    for proc in children:
+        if proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE:
+            pids.append(proc.pid)
+    # remove plugin if the corresponding process does not exist any more
+    for i in list(plugins.keys()):
+        p = plugins[i]
+        if p["process_id"] not in pids:
+            p["process_id"] = None
+            killPlugin(eng, p["id"])
 
 
 @sio_on("disconnect", namespace=NAME_SPACE)
