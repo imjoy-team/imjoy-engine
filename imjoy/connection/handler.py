@@ -1,20 +1,18 @@
 """Provide socketio event handlers."""
 import asyncio
-import fcntl
 import os
 import platform
-import pty
 import select
 import shlex
 import shutil
 import struct
 import subprocess
 import sys
-import termios
 import threading
 import traceback
 import uuid
 from urllib.parse import urlparse
+
 
 import GPUtil
 
@@ -36,6 +34,10 @@ from .decorator import ws_handler as sio_on
 
 if sys.platform == "win32":
     from imjoy.util import get_drives
+else:
+    import fcntl
+    import pty
+    import termios
 
 MAX_ATTEMPTS = 1000
 
@@ -98,6 +100,8 @@ async def read_and_forward_terminal_output(eng):
 @sio_on("start_terminal", namespace=NAME_SPACE)
 async def on_start_terminal(eng, sid, kwargs):
     """Handle new terminal client connected."""
+    if sys.platform == "win32":
+        return {"success": False, "error": "Terminal is not available on Windows yet."}
     logger = eng.logger
     registered_sessions = eng.store.registered_sessions
     terminal_session = eng.store.terminal_session
@@ -107,7 +111,6 @@ async def on_start_terminal(eng, sid, kwargs):
             return {"success": False, "error": "client not registered."}
 
         if "child_pid" in terminal_session and "fd" in terminal_session:
-
             process_exists = True
             psutil = get_psutil()
             if psutil is not None:
@@ -180,6 +183,9 @@ async def on_start_terminal(eng, sid, kwargs):
 @sio_on("terminal_input", namespace=NAME_SPACE)
 async def on_terminal_input(eng, sid, data):
     """Write to the terminal as if you are typing in a real terminal."""
+    if sys.platform == "win32":
+        return "Terminal is not available on Windows yet."
+
     logger = eng.logger
     registered_sessions = eng.store.registered_sessions
     terminal_session = eng.store.terminal_session
@@ -197,6 +203,8 @@ async def on_terminal_input(eng, sid, data):
 
 def set_winsize(fdesc, row, col, xpix=0, ypix=0):
     """Set window size."""
+    if sys.platform == "win32":
+        return
     winsize = struct.pack("HHHH", row, col, xpix, ypix)
     fcntl.ioctl(fdesc, termios.TIOCSWINSZ, winsize)
 
