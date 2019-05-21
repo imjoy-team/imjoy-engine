@@ -101,7 +101,7 @@ async def read_and_forward_terminal_output(eng):
 async def on_start_terminal(eng, sid, kwargs):
     """Handle new terminal client connected."""
     if sys.platform == "win32":
-        return {"success": False, "error": "Terminal is not available oon Windows yet."}
+        return {"success": False, "error": "Terminal is not available on Windows yet."}
     logger = eng.logger
     registered_sessions = eng.store.registered_sessions
     terminal_session = eng.store.terminal_session
@@ -184,7 +184,7 @@ async def on_start_terminal(eng, sid, kwargs):
 async def on_terminal_input(eng, sid, data):
     """Write to the terminal as if you are typing in a real terminal."""
     if sys.platform == "win32":
-        return "Terminal is not available oon Windows yet."
+        return "Terminal is not available on Windows yet."
 
     logger = eng.logger
     registered_sessions = eng.store.registered_sessions
