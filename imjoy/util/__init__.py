@@ -33,7 +33,7 @@ class Registry(dict):
         return decorator
 
 
-def parseRepos(requirements, work_dir):
+def parse_repos(requirements, work_dir):
     """Return a list of repositories from a list of requirements."""
     repos = []
     if type(requirements) is list:

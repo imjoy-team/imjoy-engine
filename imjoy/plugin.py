@@ -24,7 +24,7 @@ from imjoy.helper import (
     run_commands,
     run_process,
 )
-from imjoy.util import console_to_str, parseRepos
+from imjoy.util import console_to_str, parse_repos
 
 
 def resume_plugin_session(eng, pid, session_id, plugin_signature):
@@ -231,7 +231,7 @@ def launch_plugin(
     venv_name = None
     progress = 0
     try:
-        repos = parseRepos(requirements, work_dir)
+        repos = parse_repos(requirements, work_dir)
         progress = 5
         logging_callback(progress, type="progress")
         for repo in repos:
