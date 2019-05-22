@@ -269,6 +269,7 @@ def launch_plugin(
         reqs_cmds += default_reqs_cmds
 
         cmd_history = eng.store.cmd_history
+        envs = envs or []
 
         def process_start(pid=None, cmd=None):
             """Run before process starts."""
@@ -277,54 +278,59 @@ def launch_plugin(
             if cmd is not None:
                 logger.info("Running command %s", cmd)
 
-        if envs is not None and len(envs) > 0:
-            for env in envs:
-                if type(env) is str:
-                    print("Running env command: " + env)
-                    logger.info("running env command: %s", env)
-                    if env not in cmd_history:
-                        logging_callback("running env command: {}".format(env))
-                        code, errors = run_process(
-                            env.split(),
-                            process_start=process_start,
-                            env=plugin_env,
-                            cwd=work_dir,
-                        )
+        def process_finish(cmd=None, **kwargs):
+            """Notify when an install process command has finished."""
+            logger.debug("Finished running: %s", cmd)
+            nonlocal progress
+            progress += int(65 / (len(envs) + len(reqs_cmds)))
+            logging_callback(progress, type="progress")
 
-                        if code == 0:
-                            cmd_history.append(env)
-                            logging_callback("env command executed successfully.")
+        for env in envs:
+            if type(env) is str:
+                print("Running env command: " + env)
+                logger.info("running env command: %s", env)
+                if env not in cmd_history:
+                    logging_callback("running env command: {}".format(env))
+                    code, errors = run_process(
+                        env.split(),
+                        process_start=process_start,
+                        process_finish=process_finish,
+                        env=plugin_env,
+                        cwd=work_dir,
+                    )
 
-                        if errors is not None:
-                            logging_callback(str(errors, "utf-8"), type="error")
+                    if code == 0:
+                        cmd_history.append(env)
+                        logging_callback("env command executed successfully.")
 
-                        progress += int(5 / len(envs))
-                        logging_callback(progress, type="progress")
-                    else:
-                        logger.debug("skip command: %s", env)
-                        logging_callback("skip env command: " + env)
+                    if errors is not None:
+                        logging_callback(str(errors, "utf-8"), type="error")
 
-                elif type(env) is dict:
-                    assert "type" in env
-                    if env["type"] == "gputil":
-                        # Set CUDA_DEVICE_ORDER
-                        # so the IDs assigned by CUDA match those from nvidia-smi
-                        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-                        deviceIDs = GPUtil.getAvailable(**env["options"])
-                        if len(deviceIDs) <= 0:
-                            raise Exception("No GPU is available to run this plugin.")
-                        environment_variables["CUDA_VISIBLE_DEVICES"] = ",".join(
-                            [str(deviceID) for deviceID in deviceIDs]
-                        )
-                        logging_callback("GPU id assigned: " + str(deviceIDs))
-                    elif env["type"] == "variable":
-                        environment_variables.update(env["options"])
                 else:
-                    logger.debug("skip unsupported env: %s", env)
+                    logger.debug("skip command: %s", env)
+                    logging_callback("skip env command: " + env)
 
-                if abort.is_set():
-                    logger.info("plugin aborting...")
-                    return False
+            elif type(env) is dict:
+                assert "type" in env
+                if env["type"] == "gputil":
+                    # Set CUDA_DEVICE_ORDER
+                    # so the IDs assigned by CUDA match those from nvidia-smi
+                    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+                    deviceIDs = GPUtil.getAvailable(**env["options"])
+                    if len(deviceIDs) <= 0:
+                        raise Exception("No GPU is available to run this plugin.")
+                    environment_variables["CUDA_VISIBLE_DEVICES"] = ",".join(
+                        [str(deviceID) for deviceID in deviceIDs]
+                    )
+                    logging_callback("GPU id assigned: " + str(deviceIDs))
+                elif env["type"] == "variable":
+                    environment_variables.update(env["options"])
+            else:
+                logger.debug("skip unsupported env: %s", env)
+
+            if abort.is_set():
+                logger.info("plugin aborting...")
+                return False
 
         if opt.freeze:
             print(
@@ -338,13 +344,6 @@ def launch_plugin(
 
         elif opt.CONDA_AVAILABLE and venv_name is not None:
             reqs_cmds = apply_conda_activate(reqs_cmds, opt.conda_activate, venv_name)
-
-        def process_finish(cmd=None, **kwargs):
-            """Notify when an install process command has finished."""
-            logger.debug("Finished running: %s", cmd)
-            nonlocal progress
-            progress += int(60 / len(reqs_cmds))
-            logging_callback(progress, type="progress")
 
         install_reqs(
             eng,
