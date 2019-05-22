@@ -64,7 +64,7 @@ class ConnectionManager:
         self.store.generated_urls = {}
         self.store.generated_url_files = {}
         self.store.requestUploadFiles = {}
-        self.store.requestUrls = {}
+        self.store.request_urls = {}
         self.store.terminal_session = {}
 
         if reset_clients:
