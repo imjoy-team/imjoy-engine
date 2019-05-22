@@ -140,7 +140,6 @@ def install_reqs(
     if code == 0:
         cmd_history.extend(commands)
         logging_callback("Requirements command executed successfully.")
-        logging_callback(70, type="progress")
         return
     logging_callback(f"Failed to run requirements command: {commands}", type="error")
     if errors is not None:
