@@ -79,7 +79,7 @@ def handle_execute(conn, job, logger):
             conn.emit({"type": "executeSuccess"})
         except Exception:  # pylint: disable=broad-except
             traceback_error = traceback.format_exc()
-            logger.error("error during execution: %s", traceback_error)
+            logger.error("Error during execution: %s", traceback_error)
             conn.emit({"type": "executeFailure", "error": traceback_error})
 
 
@@ -100,7 +100,7 @@ def handle_method(conn, job, logger):
                 resolve(result)
             except Exception:  # pylint: disable=broad-except
                 traceback_error = traceback.format_exc()
-                logger.error("error in method %s: %s", job["name"], traceback_error)
+                logger.error("Error in method %s: %s", job["name"], traceback_error)
                 reject(Exception(formatTraceback(traceback_error)))
         else:
             try:
@@ -110,7 +110,7 @@ def handle_method(conn, job, logger):
                 method(*args)
             except Exception:  # pylint: disable=broad-except
                 logger.error(
-                    "error in method %s: %s", job["name"], traceback.format_exc()
+                    "Error in method %s: %s", job["name"], traceback.format_exc()
                 )
     else:
         raise Exception("method " + job["name"] + " is not found.")
@@ -135,7 +135,7 @@ def handle_callback(conn, job, logger):
             resolve(result)
         except Exception:  # pylint: disable=broad-except
             traceback_error = traceback.format_exc()
-            logger.error("error in method %s: %s", job["num"], traceback_error)
+            logger.error("Error in method %s: %s", job["num"], traceback_error)
             reject(Exception(formatTraceback(traceback_error)))
     else:
         try:
@@ -150,4 +150,4 @@ def handle_callback(conn, job, logger):
             args = conn.unwrap(job["args"], True)
             method(*args)
         except Exception:  # pylint: disable=broad-except
-            logger.error("error in method %s: %s", job["num"], traceback.format_exc())
+            logger.error("Error in method %s: %s", job["num"], traceback.format_exc())
