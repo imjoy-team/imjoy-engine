@@ -37,10 +37,10 @@ def parse_repos(requirements, work_dir):
     """Return a list of repositories from a list of requirements."""
     repos = []
     if type(requirements) is list:
-        requirements = [str(r) for r in requirements]
-        for r in requirements:
-            if ":" in r:
-                rs = r.split(":")
+        requirements = [str(req) for req in requirements]
+        for req in requirements:
+            if ":" in req:
+                rs = req.split(":")
                 tp, libs = rs[0], ":".join(rs[1:])
                 tp, libs = tp.strip(), libs.strip()
                 libs = [l.strip() for l in libs.split(" ") if l.strip() != ""]
