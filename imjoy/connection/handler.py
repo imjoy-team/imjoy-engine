@@ -672,7 +672,7 @@ async def on_request_upload_url(eng, sid, kwargs):
 async def on_get_file_url(eng, sid, kwargs):
     """Return file url."""
     logger = eng.logger
-    generatedUrlFiles = eng.store.generatedUrlFiles
+    generated_url_files = eng.store.generated_url_files
     generated_urls = eng.store.generated_urls
     registered_sessions = eng.store.registered_sessions
     logger.info("Generating file url: %s", kwargs)
@@ -692,20 +692,20 @@ async def on_get_file_url(eng, sid, kwargs):
         file_info["headers"] = kwargs["headers"]
     _, name = os.path.split(path)
     file_info["name"] = name
-    if path in generatedUrlFiles:
-        return {"success": True, "url": generatedUrlFiles[path]}
+    if path in generated_url_files:
+        return {"success": True, "url": generated_url_files[path]}
     else:
         urlid = str(uuid.uuid4())
         generated_urls[urlid] = file_info
         base_url = kwargs.get("base_url", registered_sessions[sid]["base_url"])
         if kwargs.get("password"):
             file_info["password"] = kwargs["password"]
-            generatedUrlFiles[path] = "{}/file/{}@{}/{}".format(
+            generated_url_files[path] = "{}/file/{}@{}/{}".format(
                 base_url, urlid, file_info["password"], name
             )
         else:
-            generatedUrlFiles[path] = "{}/file/{}/{}".format(base_url, urlid, name)
-        return {"success": True, "url": generatedUrlFiles[path]}
+            generated_url_files[path] = "{}/file/{}/{}".format(base_url, urlid, name)
+        return {"success": True, "url": generated_url_files[path]}
 
 
 @sio_on("get_file_path", namespace=NAME_SPACE)

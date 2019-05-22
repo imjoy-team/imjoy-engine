@@ -62,7 +62,7 @@ class ConnectionManager:
         self.store.plugin_signatures = {}
 
         self.store.generated_urls = {}
-        self.store.generatedUrlFiles = {}
+        self.store.generated_url_files = {}
         self.store.requestUploadFiles = {}
         self.store.requestUrls = {}
         self.store.terminal_session = {}
