@@ -351,16 +351,19 @@ def launch_plugin(
 
         if not opt.freeze:
             psutil_cmds = parse_requirements(REQ_PSUTIL)
+            logger.info("Running requirements commands: %s", psutil_cmds)
             code, _ = run_commands(
                 plugin_env, work_dir, psutil_cmds, process_start, process_finish
             )
         if not opt.freeze and code and opt.CONDA_AVAILABLE and venv_name is not None:
+            logger.info("Failed installing psutil with pip, trying conda")
             psutil_cmds = parse_requirements(
                 REQ_PSUTIL_CONDA, conda=opt.CONDA_AVAILABLE
             )
             psutil_cmds = apply_conda_activate(
                 psutil_cmds, opt.conda_activate, venv_name
             )
+            logger.info("Running requirements commands: %s", psutil_cmds)
             code, _ = run_commands(
                 plugin_env, work_dir, psutil_cmds, process_start, process_finish
             )
