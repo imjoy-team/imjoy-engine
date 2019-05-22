@@ -519,7 +519,7 @@ async def on_register_client(eng, sid, kwargs):
         }
 
         try:
-            GPUs = GPUtil.getGPUs()
+            gpus = GPUtil.getGPUs()
             engine_info["GPUs"] = [
                 {
                     "name": gpu.name,
@@ -531,7 +531,7 @@ async def on_register_client(eng, sid, kwargs):
                     "temperature": gpu.temperature,
                     "load": gpu.load,
                 }
-                for gpu in GPUs
+                for gpu in gpus
             ]
         except Exception:  # pylint: disable=broad-except
             logger.error("Failed to get GPU information with GPUtil")
