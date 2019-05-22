@@ -375,7 +375,7 @@ async def on_init_plugin(eng, sid, kwargs):
             secret_key,
             NAME_SPACE,
         )
-        taskThread = threading.Thread(
+        task_thread = threading.Thread(
             target=launch_plugin,
             args=[
                 eng,
@@ -393,8 +393,8 @@ async def on_init_plugin(eng, sid, kwargs):
                 plugin_env,
             ],
         )
-        taskThread.daemon = True
-        taskThread.start()
+        task_thread.daemon = True
+        task_thread.start()
         return {
             "success": True,
             "initialized": False,
