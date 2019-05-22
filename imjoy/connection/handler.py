@@ -637,34 +637,34 @@ async def on_request_upload_url(eng, sid, kwargs):
         return {"success": False, "error": "client has not been registered"}
 
     urlid = str(uuid.uuid4())
-    fileInfo = {
+    file_info = {
         "id": urlid,
         "overwrite": kwargs.get("overwrite", False),
         "workspace": registered_sessions[sid]["workspace"],
     }
     if "path" in kwargs:
-        fileInfo["path"] = kwargs["path"]
+        file_info["path"] = kwargs["path"]
 
     if "dir" in kwargs:
         path = os.path.expanduser(kwargs["dir"])
         if not os.path.isabs(path):
-            path = os.path.join(eng.opt.WORKSPACE_DIR, fileInfo["workspace"], path)
-        fileInfo["dir"] = path
+            path = os.path.join(eng.opt.WORKSPACE_DIR, file_info["workspace"], path)
+        file_info["dir"] = path
 
-    if "path" in fileInfo:
-        path = fileInfo["path"]
-        if "dir" in fileInfo:
-            path = os.path.join(fileInfo["dir"], path)
+    if "path" in file_info:
+        path = file_info["path"]
+        if "dir" in file_info:
+            path = os.path.join(file_info["dir"], path)
         else:
-            path = os.path.join(eng.opt.WORKSPACE_DIR, fileInfo["workspace"], path)
+            path = os.path.join(eng.opt.WORKSPACE_DIR, file_info["workspace"], path)
 
         if os.path.exists(path) and not kwargs.get("overwrite", False):
             return {"success": False, "error": "file already exist."}
 
     base_url = kwargs.get("base_url", registered_sessions[sid]["base_url"])
     url = "{}/upload/{}".format(base_url, urlid)
-    requestUrls[url] = fileInfo
-    requestUploadFiles[urlid] = fileInfo
+    requestUrls[url] = file_info
+    requestUploadFiles[urlid] = file_info
     return {"success": True, "id": urlid, "url": url}
 
 
@@ -683,25 +683,25 @@ async def on_get_file_url(eng, sid, kwargs):
     path = os.path.abspath(os.path.expanduser(kwargs["path"]))
     if not os.path.exists(path):
         return {"success": False, "error": "file does not exist."}
-    fileInfo = {"path": path}
+    file_info = {"path": path}
     if os.path.isdir(path):
-        fileInfo["type"] = "dir"
+        file_info["type"] = "dir"
     else:
-        fileInfo["type"] = "file"
+        file_info["type"] = "file"
     if kwargs.get("headers"):
-        fileInfo["headers"] = kwargs["headers"]
+        file_info["headers"] = kwargs["headers"]
     _, name = os.path.split(path)
-    fileInfo["name"] = name
+    file_info["name"] = name
     if path in generatedUrlFiles:
         return {"success": True, "url": generatedUrlFiles[path]}
     else:
         urlid = str(uuid.uuid4())
-        generatedUrls[urlid] = fileInfo
+        generatedUrls[urlid] = file_info
         base_url = kwargs.get("base_url", registered_sessions[sid]["base_url"])
         if kwargs.get("password"):
-            fileInfo["password"] = kwargs["password"]
+            file_info["password"] = kwargs["password"]
             generatedUrlFiles[path] = "{}/file/{}@{}/{}".format(
-                base_url, urlid, fileInfo["password"], name
+                base_url, urlid, file_info["password"], name
             )
         else:
             generatedUrlFiles[path] = "{}/file/{}/{}".format(base_url, urlid, name)
