@@ -133,9 +133,9 @@ def disconnectPlugin(eng, sid):
         del plugin_sids[sid]
         for session_id in plugin_sessions.keys():
             exist = False
-            for p in plugin_sessions[session_id]:
-                if p["id"] == pid:
-                    exist = p
+            for plugin in plugin_sessions[session_id]:
+                if plugin["id"] == pid:
+                    exist = plugin
             if exist:
                 logger.info("Cleaning up plugin session %s", session_id)
                 plugin_sessions[session_id].remove(exist)
