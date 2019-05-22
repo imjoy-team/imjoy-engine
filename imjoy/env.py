@@ -40,9 +40,9 @@ def prep_env(opt, logger):
                 "Sorry, ImJoy plugin engine can only run within a conda environment "
                 "or at least in Python 3."
             )
-        print(
-            "WARNING: you are running ImJoy without conda, "
-            "you may have problem with some plugins."
+        logger.warning(
+            "You are running ImJoy without conda, "
+            "you may have problems with some plugins"
         )
 
     if opt.CONDA_AVAILABLE:
@@ -68,15 +68,15 @@ def prep_env(opt, logger):
 def bootstrap(opt, logger):
     """Bootstrap the engine."""
     if not opt.CONDA_AVAILABLE and not opt.freeze:
-        print(
-            "WARNING: `pip install` command may not work, "
-            "in that case you may want to add `--freeze`."
+        logger.warning(
+            "Command `pip install` may not work, "
+            "in that case you may want to add `--freeze`"
         )
 
     if opt.freeze:
-        print(
-            "WARNING: you are running the plugin engine with `--freeze`, "
-            "this means you need to handle all the plugin requirements yourself."
+        logger.warning(
+            "You are running the plugin engine with `--freeze`, "
+            "this means you need to handle all the plugin requirements yourself"
         )
 
     opt.WORKSPACE_DIR = os.path.expanduser(opt.workspace)
@@ -109,24 +109,24 @@ def bootstrap(opt, logger):
         logger.debug("Failed to kill last process")
     try:
         engine_pid = str(os.getpid())
-        with open(pid_file, "w") as f:
-            f.write(engine_pid)
+        with open(pid_file, "w") as fil:
+            fil.write(engine_pid)
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Failed to save .pid file: %s", str(exc))
 
     opt.WEB_APP_DIR = os.path.join(opt.WORKSPACE_DIR, "__ImJoy__")
     if opt.serve:
         if shutil.which("git") is None:
-            print("Installing git...")
+            logger.info("Installing git")
             ret = subprocess.Popen(
                 "conda install -y git && git clone -b gh-pages --depth 1 "
                 "https://github.com/oeway/ImJoy".split(),
                 shell=False,
             ).wait()
             if ret != 0:
-                print(
+                logger.error(
                     "Failed to install git, "
-                    "please check whether you have internet access."
+                    "please check whether you have internet access"
                 )
                 sys.exit(3)
         if os.path.exists(opt.WEB_APP_DIR) and os.path.isdir(opt.WEB_APP_DIR):
@@ -134,19 +134,19 @@ def bootstrap(opt, logger):
                 ["git", "stash"], cwd=opt.WEB_APP_DIR, shell=False
             ).wait()
             if ret != 0:
-                print("Failed to clean files locally.")
+                logger.error("Failed to clean files locally")
             ret = subprocess.Popen(
                 ["git", "pull", "--all"], cwd=opt.WEB_APP_DIR, shell=False
             ).wait()
             if ret != 0:
-                print("Failed to pull files for serving offline.")
+                logger.error("Failed to pull files for serving offline")
             ret = subprocess.Popen(
                 ["git", "checkout", "gh-pages"], cwd=opt.WEB_APP_DIR, shell=False
             ).wait()
             if ret != 0:
-                print("Failed to checkout files from gh-pages.")
+                logger.error("Failed to checkout files from gh-pages")
         if not os.path.exists(opt.WEB_APP_DIR):
-            print("Downloading files for serving ImJoy locally...")
+            logger.info("Downloading files for serving ImJoy locally")
             ret = subprocess.Popen(
                 "git clone -b gh-pages --depth 1 "
                 "https://github.com/oeway/ImJoy __ImJoy__".split(),
@@ -154,9 +154,9 @@ def bootstrap(opt, logger):
                 cwd=opt.WORKSPACE_DIR,
             ).wait()
             if ret != 0:
-                print(
+                logger.error(
                     "Failed to download files, "
-                    "please check whether you have internet access."
+                    "please check whether you have internet access"
                 )
                 sys.exit(4)
 
