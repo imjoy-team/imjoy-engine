@@ -6,7 +6,6 @@ import subprocess
 import sys
 import time
 import traceback
-from functools import partial
 
 import GPUtil
 from imjoy.const import (
@@ -17,10 +16,11 @@ from imjoy.const import (
     REQ_PSUTIL_CONDA,
 )
 from imjoy.helper import (
-    install_reqs_fallback,
+    apply_conda_activate,
+    install_reqs,
     killProcess,
     parseEnv,
-    parseRequirements,
+    parse_reqs,
     run_process,
 )
 from imjoy.util import console_to_str, parseRepos
@@ -227,7 +227,7 @@ def launch_plugin(
         logger.info("plugin aborting...")
         logging_callback("plugin aborting...")
         return False
-    virtual_env_name = None
+    venv_name = None
     try:
         repos = parseRepos(requirements, work_dir)
         logging_callback(2, type="progress")
@@ -255,22 +255,23 @@ def launch_plugin(
 
         default_virtual_env = "{}-{}".format(pname, tag) if tag != "" else pname
         default_virtual_env = default_virtual_env.replace(" ", "_")
-        virtual_env_name, envs, is_py2 = parseEnv(
-            eng, env, work_dir, default_virtual_env
-        )
+        venv_name, envs, is_py2 = parseEnv(eng, env, work_dir, default_virtual_env)
         environment_variables = {}
         default_requirements = (
             DEFAULT_REQUIREMENTS_PY2 if is_py2 else DEFAULT_REQUIREMENTS_PY3
         )
-        default_requirements_cmd = parseRequirements(
-            default_requirements, conda=opt.CONDA_AVAILABLE
-        )
-        requirements_cmd = parseRequirements(
-            requirements, default_requirements_cmd, opt.CONDA_AVAILABLE
-        )
+        default_reqs_cmds = parse_reqs(default_requirements, conda=opt.CONDA_AVAILABLE)
+        reqs_cmds = parse_reqs(requirements, opt.CONDA_AVAILABLE)
+        reqs_cmds += default_reqs_cmds
 
         cmd_history = eng.store.cmd_history
-        process_start = partial(setPluginPID, eng, plugin_id)
+
+        def process_start(pid=None, cmd=None):
+            """Run before process starts."""
+            if pid is not None:
+                setPluginPID(eng, plugin_id, pid)
+            if cmd is not None:
+                logger.info("Running command %s", cmd)
 
         if envs is not None and len(envs) > 0:
             for env in envs:
@@ -281,7 +282,7 @@ def launch_plugin(
                         logging_callback("running env command: {}".format(env))
                         code, errors = run_process(
                             env.split(),
-                            callback=process_start,
+                            process_start=process_start,
                             env=plugin_env,
                             cwd=work_dir,
                         )
@@ -322,56 +323,51 @@ def launch_plugin(
 
         if opt.freeze:
             print(
-                "WARNING: blocked pip command: \n{}\n"
-                "You may want to run it yourself.".format(requirements_cmd)
+                f"WARNING: blocked pip command: \n{reqs_cmds}\n"
+                "You may want to run it yourself."
             )
             logger.warning(
-                "pip command is blocked due to `--freeze` mode: %s", requirements_cmd
+                "pip command is blocked due to `--freeze` mode: %s", reqs_cmds
             )
-            requirements_cmd = None
+            reqs_cmds = []
 
-        if not opt.freeze and opt.CONDA_AVAILABLE and virtual_env_name is not None:
-            requirements_cmd = opt.conda_activate.format(
-                virtual_env_name + " && " + requirements_cmd
-            )
+        elif opt.CONDA_AVAILABLE and venv_name is not None:
+            reqs_cmds = apply_conda_activate(reqs_cmds, opt.conda_activate, venv_name)
 
-        def process_finish(cmd):
+        def process_finish(cmd=None, **kwargs):
             """Notify when an install process command has finished."""
-            logger.warning("Finished installing: %s", cmd)
+            logger.warning("Finished running: %s", cmd)
 
-        install_reqs_fallback(
+        install_reqs(
             eng,
             plugin_env,
             work_dir,
-            requirements_cmd,
+            reqs_cmds,
             process_start,
             process_finish,
             logging_callback,
         )
 
         if not opt.freeze:
-            psutil_cmd = parseRequirements(REQ_PSUTIL)
+            psutil_cmds = parse_reqs(REQ_PSUTIL)
             code, _ = run_process(
-                psutil_cmd,
-                callback=process_start,
+                psutil_cmds,
+                process_start=process_start,
+                process_finish=process_finish,
                 shell=True,
                 stderr=None,
                 env=plugin_env,
                 cwd=work_dir,
             )
-        if (
-            not opt.freeze
-            and code
-            and opt.CONDA_AVAILABLE
-            and virtual_env_name is not None
-        ):
-            psutil_cmd = parseRequirements(REQ_PSUTIL_CONDA, conda=opt.CONDA_AVAILABLE)
-            psutil_cmd = opt.conda_activate.format(
-                "{} && {}".format(virtual_env_name, psutil_cmd)
+        if not opt.freeze and code and opt.CONDA_AVAILABLE and venv_name is not None:
+            psutil_cmds = parse_reqs(REQ_PSUTIL_CONDA, conda=opt.CONDA_AVAILABLE)
+            psutil_cmds = apply_conda_activate(
+                psutil_cmds, opt.conda_activate, venv_name
             )
             code, _ = run_process(
-                psutil_cmd,
-                callback=process_start,
+                psutil_cmds,
+                process_start=process_start,
+                process_finish=process_finish,
                 shell=True,
                 stderr=None,
                 env=plugin_env,
@@ -394,8 +390,8 @@ def launch_plugin(
         stop_callback(False, "Plugin process failed to start")
         return False
     # env = os.environ.copy()
-    if opt.CONDA_AVAILABLE and virtual_env_name is not None:
-        args = opt.conda_activate.format(virtual_env_name + " && " + args)
+    if opt.CONDA_AVAILABLE and venv_name is not None:
+        [args] = apply_conda_activate([args], opt.conda_activate, venv_name)
     if type(args) is str:
         args = args.split()
     if not args:

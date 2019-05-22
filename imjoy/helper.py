@@ -64,60 +64,60 @@ def killProcess(logger, pid):
         )
 
 
-def parseRequirements(requirements, default_command=None, conda=False):
-    """Parse requirements."""
-    if default_command is None:
-        default_command = ""
-    requirements_cmd = ""
-    if type(requirements) is list:
-        requirements = [str(r) for r in requirements]
+def parse_reqs(reqs, conda=False):
+    """Parse requirements.
 
-        for r in requirements:
-            if ":" in r:
-                rs = r.split(":")
-                tp, libs = rs[0], ":".join(rs[1:])
-                tp, libs = tp.strip(), libs.strip()
-                libs = [l.strip() for l in libs.split(" ") if l.strip() != ""]
-                if tp == "conda" and len(libs) > 0 and conda:
-                    requirements_cmd += " && conda install -y " + " ".join(libs)
-                elif tp == "pip" and len(libs) > 0:
-                    requirements_cmd += " && pip install " + " ".join(libs)
-                elif tp == "repo" and len(libs) > 0:
-                    pass
-                elif tp == "cmd" and len(libs) > 0:
-                    requirements_cmd += " && " + " ".join(libs)
-                elif "+" in tp or "http" in tp:
-                    requirements_cmd += " && pip install " + r
-                else:
-                    raise Exception("Unsupported requirement type: " + tp)
+    Return a list of commands to install the requirements.
+    """
+    commands = []
+    if not isinstance(reqs, list):
+        reqs = [reqs]
+    reqs = [str(req) for req in reqs]
+
+    for req in reqs:
+        if ":" in req:
+            req_parts = req.split(":")
+            typ, libs = req_parts[0], ":".join(req_parts[1:])
+            typ, libs = typ.strip(), libs.strip()
+            libs = [l.strip() for l in libs.split(" ") if l.strip()]
+            if typ == "conda" and libs and conda:
+                commands.append("conda install -y " + " ".join(libs))
+            elif typ == "pip" and libs:
+                commands.append("pip install " + " ".join(libs))
+            elif typ == "repo" and libs:
+                pass
+            elif typ == "cmd" and libs:
+                commands.append(" ".join(libs))
+            elif "+" in typ or "http" in typ:
+                commands.append(f"pip install {req}")
             else:
-                requirements_cmd += " && pip install " + r
+                raise Exception(f"Unsupported requirement type: {typ}")
+        else:
+            commands.append(f"pip install {req}")
 
-    elif type(requirements) is str and requirements.strip() != "":
-        requirements_cmd += " && " + requirements
-    elif (
-        requirements is None or type(requirements) is str and requirements.strip() == ""
-    ):
-        pass
-    else:
-        raise Exception("Unsupported requirements type.")
-    requirements_cmd = "{} && {}".format(requirements_cmd, default_command)
-    requirements_cmd = requirements_cmd.strip(" &")
-    return requirements_cmd
+    return commands
 
 
-def install_reqs_fallback(
-    eng, env, work_dir, reqs_cmd, process_start, process_finish, logging_callback
+def apply_conda_activate(reqs_cmds, conda_activate, venv_name):
+    """Apply the conda activate command to conda install commands."""
+    return [conda_activate.format(f"{venv_name} && {cmd}") for cmd in reqs_cmds]
+
+
+def install_reqs(
+    eng, env, work_dir, reqs_cmds, process_start, process_finish, logging_callback
 ):
     """Install requirements including fallback handling."""
     logger = eng.logger
     cmd_history = eng.store.cmd_history
-    if reqs_cmd is None or reqs_cmd in cmd_history:
-        logger.debug("skip command: %s", reqs_cmd)
-        return
-
+    commands = []
     code = 0
     error = None
+
+    for cmd in reqs_cmds:
+        if cmd in cmd_history:
+            logger.debug("skip command: %s", cmd)
+            continue
+        commands.append(cmd)
 
     def fail_install():
         """Notify of failed installation."""
@@ -129,22 +129,22 @@ def install_reqs_fallback(
             f"Failed to install dependencies with exit code {code} and error: {error}"
         )
 
-    def _process_start(process_pid):
+    def _process_start(pid=None, cmd=None):
         """Run after starting the process."""
         logging_callback(
-            f"Running requirements subprocess(pid={process_pid}): {reqs_cmd}"
+            f"Running requirements subprocess(pid={pid}): {cmd}"
         )
-        process_start(process_pid)
+        process_start(pid=pid)
 
-    logger.info("Running requirements command: %s", reqs_cmd)
-    code, errors = install_reqs(env, work_dir, reqs_cmd, _process_start, process_finish)
+    logger.info("Running requirements command: %s", commands)
+    code, errors = run_commands(env, work_dir, commands, _process_start, process_finish)
 
     if code == 0:
-        cmd_history.append(reqs_cmd)
+        cmd_history.extend(commands)
         logging_callback("Requirements command executed successfully.")
         logging_callback(70, type="progress")
         return
-    logging_callback(f"Failed to run requirements command: {reqs_cmd}", type="error")
+    logging_callback(f"Failed to run requirements command: {commands}", type="error")
     if errors is not None:
         logging_callback(str(errors, "utf-8"), type="error")
 
@@ -163,48 +163,57 @@ def install_reqs_fallback(
     # try to install git and pip
     git_cmd = f"conda install -y{git_cmd}"
     code, _ = run_process(
-        git_cmd.split(), callback=_process_start, stderr=None, env=env, cwd=work_dir
+        git_cmd.split(),
+        process_start=_process_start,
+        stderr=None,
+        env=env,
+        cwd=work_dir,
     )
     if code != 0:
         fail_install()
 
-    logger.info("Running requirements command: %s", reqs_cmd)
-    code, errors = install_reqs(env, work_dir, reqs_cmd, _process_start, process_finish)
+    logger.info("Running requirements command: %s", commands)
+    code, errors = run_commands(env, work_dir, commands, _process_start, process_finish)
 
     if code != 0:
         fail_install()
 
 
-def install_reqs(env, work_dir, reqs_cmd, process_start, process_finish):
-    """Install requirements."""
+def run_commands(env, work_dir, commands, process_start, process_finish):
+    """Run commands in separate processes."""
     code = 0
     errors = None
-    commands = reqs_cmd.split(" && ")
 
     for cmd in commands:
         print("Running command:", cmd)
         code, errors = run_process(
-            cmd, callback=process_start, shell=True, env=env, cwd=work_dir
+            cmd,
+            process_start=process_start,
+            process_finish=process_finish,
+            shell=True,
+            env=env,
+            cwd=work_dir,
         )
         if code:
             return code, errors
-        process_finish(cmd)
 
     return code, errors
 
 
-def run_process(cmd, callback=None, **kwargs):
+def run_process(cmd, process_start=None, process_finish=None, **kwargs):
     """Run subprocess command."""
     shell = kwargs.pop("shell", False)
     stderr = kwargs.pop("stderr", subprocess.PIPE)
-    process_ = subprocess.Popen(cmd, shell=shell, stderr=stderr, **kwargs)
-    if callback is not None:
-        callback(process_.pid)
-    return_code = process_.wait()
+    process = subprocess.Popen(cmd, shell=shell, stderr=stderr, **kwargs)
+    if process_start is not None:
+        process_start(pid=process.pid, cmd=cmd)
+    return_code = process.wait()
     if stderr is not None:
-        _, errors = process_.communicate()
+        _, errors = process.communicate()
     else:
         errors = None
+    if process_finish is not None:
+        process_finish(pid=process.pid, cmd=cmd)
 
     return return_code, errors
 
