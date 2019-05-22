@@ -175,7 +175,7 @@ def kill_plugin(eng, pid):
         del plugins[pid]
 
 
-async def killAllPlugins(eng, ssid):
+async def kill_all_plugins(eng, ssid):
     """Kill all plugins."""
     logger = eng.logger
     on_kill_plugin = eng.conn.sio.handlers[NAME_SPACE]["kill_plugin"]

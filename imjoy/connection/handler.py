@@ -24,7 +24,7 @@ from imjoy.plugin import (
     disconnectClientSession,
     disconnectPlugin,
     force_kill_timeout,
-    killAllPlugins,
+    kill_all_plugins,
     kill_plugin,
     launch_plugin,
     resume_plugin_session,
@@ -418,7 +418,7 @@ async def on_reset_engine(eng, sid, kwargs):
         logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered"}
 
-    await killAllPlugins(eng, sid)
+    await kill_all_plugins(eng, sid)
 
     eng.conn.reset_store(reset_clients=False)
 
@@ -779,7 +779,7 @@ async def on_kill_plugin_process(eng, sid, kwargs):
         }
     if kwargs["all"]:
         logger.info("Killing all the plugins")
-        await killAllPlugins(eng, sid)
+        await kill_all_plugins(eng, sid)
         return {"success": True}
     else:
         try:
