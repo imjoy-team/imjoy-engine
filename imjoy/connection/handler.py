@@ -775,6 +775,7 @@ async def on_get_engine_status(eng, sid, kwargs):
 async def on_kill_plugin_process(eng, sid, kwargs):
     """Kill plugin process."""
     logger = eng.logger
+    plugins = eng.store.plugins
     registered_sessions = eng.store.registered_sessions
     if sid not in registered_sessions:
         logger.debug("client %s is not registered.", sid)
@@ -799,6 +800,9 @@ async def on_kill_plugin_process(eng, sid, kwargs):
                 "error": "Failed to kill plugin process: #" + str(kwargs["pid"]),
             }
 
+    psutil = get_psutil()
+    if not psutil:
+        return
     current_process = psutil.Process()
     children = current_process.children(recursive=True)
     pids = []
