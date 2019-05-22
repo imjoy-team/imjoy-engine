@@ -32,7 +32,8 @@ def run_app(eng, app):
             logger.error(
                 "Failed to open port %s, "
                 "please try to terminate the process which is using that port, "
-                "or restart your computer.", eng.opt.port
+                "or restart your computer.",
+                eng.opt.port,
             )
 
 
@@ -62,7 +63,8 @@ def setup_router(eng, app):
 
         app.router.add_get("/docs", docs_handler, name="docs")
         logger.info(
-            "A local version of Imjoy web app is available at %s", eng.opt.base_url)
+            "A local version of Imjoy web app is available at %s", eng.opt.base_url
+        )
     else:
 
         async def index(request):
@@ -316,7 +318,7 @@ async def on_startup(app):
     if eng.opt.serve:
         logger.info(
             "You can access your local ImJoy web app through %s , imjoy!",
-            eng.opt.base_url
+            eng.opt.base_url,
         )
     else:
         logger.info(

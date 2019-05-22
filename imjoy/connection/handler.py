@@ -347,9 +347,7 @@ async def on_init_plugin(eng, sid, kwargs):
                 plugin_info["aborting"].set_result(success)
             message = str(message or "")
             logger.info(
-                "Disconnecting from plugin (success: %s, message: %s)",
-                success,
-                message,
+                "Disconnecting from plugin (success: %s, message: %s)", success, message
             )
             coro = eng.conn.sio.emit(
                 "message_from_plugin_" + secretKey,

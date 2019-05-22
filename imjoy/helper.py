@@ -51,8 +51,7 @@ def killProcess(logger, pid):
                 logger.info("Subprocess %s has already been killed", pid)
             except Exception as exc:  # pylint: disable=broad-except
                 logger.error(
-                    "Failed to kill a subprocess (pid=%s). Error: %s",
-                    pid, exc
+                    "Failed to kill a subprocess (pid=%s). Error: %s", pid, exc
                 )
         cp.kill()
         logger.info("Plugin process %s was killed.", pid)
@@ -61,7 +60,9 @@ def killProcess(logger, pid):
     except Exception as exc:  # pylint: disable=broad-except
         logger.error(
             "Failed to kill a process (pid=%s), "
-            "you may want to kill it manually. Error: %s", pid, exc
+            "you may want to kill it manually. Error: %s",
+            pid,
+            exc,
         )
 
 
