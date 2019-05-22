@@ -234,20 +234,22 @@ def launch_plugin(
         repos = parseRepos(requirements, work_dir)
         progress = 5
         logging_callback(progress, type="progress")
-        for k, r in enumerate(repos):
+        for repo in repos:
             try:
-                logger.info("Cloning repo %s to %s", r["url"], r["repo_dir"])
-                logging_callback(f"Cloning repo {r['url']} to {r['repo_dir']}")
-                if os.path.exists(r["repo_dir"]):
-                    assert os.path.isdir(r["repo_dir"])
+                logger.info("Cloning repo %s to %s", repo["url"], repo["repo_dir"])
+                logging_callback(f"Cloning repo {repo['url']} to {repo['repo_dir']}")
+                if os.path.exists(repo["repo_dir"]):
+                    assert os.path.isdir(repo["repo_dir"])
                     cmd = "git pull --all"
-                    run_cmd(eng, cmd.split(" "), cwd=r["repo_dir"], plugin_id=plugin_id)
+                    run_cmd(
+                        eng, cmd.split(" "), cwd=repo["repo_dir"], plugin_id=plugin_id
+                    )
                 else:
                     cmd = (
                         "git clone --progress --depth=1 "
-                        + r["url"]
+                        + repo["url"]
                         + " "
-                        + r["repo_dir"]
+                        + repo["repo_dir"]
                     )
                     run_cmd(eng, cmd.split(" "), cwd=work_dir, plugin_id=plugin_id)
                 progress += int(20 / len(repos))
