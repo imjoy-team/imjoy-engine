@@ -443,29 +443,29 @@ def launch_plugin(
             outputs = str(outputs, "utf-8")
         if errors is not None:
             errors = str(errors, "utf-8")
-        exitCode = process.returncode
+        exit_code = process.returncode
     except Exception as exc:  # pylint: disable=broad-except
         logger.error(traceback.format_exc())
         outputs, errors = "", str(exc)
-        exitCode = 100
+        exit_code = 100
     finally:
-        if exitCode == 0:
-            logging_callback(f"Plugin process exited with code {exitCode}")
+        if exit_code == 0:
+            logging_callback(f"Plugin process exited with code {exit_code}")
             stop_callback(True, outputs)
             return True
         else:
             logging_callback(
-                f"Plugin process exited with code {exitCode}", type="error"
+                f"Plugin process exited with code {exit_code}", type="error"
             )
             logger.error(
                 "Error occured during terminating a process.\n"
                 "Command: %s\nExit code: %s",
                 args,
-                exitCode,
+                exit_code,
             )
             errors = errors or ""
             stop_callback(
-                False, f"{errors}\nPlugin process exited with code {exitCode}"
+                False, f"{errors}\nPlugin process exited with code {exit_code}"
             )
             return False
 
