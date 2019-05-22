@@ -129,7 +129,7 @@ class PluginConnection:
         sys.stdout.flush()
         socketIO.on("to_plugin_" + secret, self.sio_plugin_message)
         self.emit({"type": "initialized", "dedicatedThread": True})
-        print('Plugin "{}" Initialized.'.format(pid))
+        logger.info("Plugin %s initialized", pid)
 
         def on_disconnect():
             if not self.daemon:
@@ -159,7 +159,7 @@ class PluginConnection:
 
     def default_exit(self):
         """Exit default."""
-        logger.info("terminating plugin: " + self.id)
+        logger.info("Terminating plugin: %s", self.id)
         self.abort.set()
         os._exit(0)
 
@@ -168,11 +168,11 @@ class PluginConnection:
         if "exit" in self.interface:
             try:
                 self.interface["exit"]()
-            except Exception as e:
-                logger.error("Error when exiting: %s", e)
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.error("Error when exiting: %s", exc)
                 sys.exit(1)
             else:
-                logger.info("terminating plugin")
+                logger.info("Terminating plugin")
                 sys.exit(code)
         else:
             sys.exit(0)
@@ -325,10 +325,10 @@ class PluginConnection:
                     bObject = np.frombuffer(
                         aObject["__value__"], dtype=aObject["__dtype__"]
                     ).reshape(tuple(aObject["__shape__"]))
-                except Exception as e:
-                    logger.debug("Error in converting: %s", e)
+                except Exception as exc:
+                    logger.debug("Error in converting: %s", exc)
                     bObject = aObject
-                    raise e
+                    raise exc
             elif aObject["__jailed_type__"] == "error":
                 bObject = Exception(aObject["__value__"])
             elif aObject["__jailed_type__"] == "argument":
@@ -534,20 +534,20 @@ class PluginConnection:
             try:
                 if "exit" in self.interface and callable(self.interface["exit"]):
                     self.interface["exit"]()
-            except Exception as e:
-                logger.error("Error when exiting: %s", e)
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.error("Error when exiting: %s", exc)
             if callback:
                 callback(*args)
         elif data["type"] == "execute":
             if not self.executed:
                 self.sync_q.put(data)
             else:
-                logger.debug("skip execution.")
+                logger.debug("Skip execution")
                 self.emit({"type": "executeSuccess"})
         elif data["type"] == "message":
             d = data["data"]
             self.sync_q.put(d)
-            logger.debug("added task to the queue")
+            logger.debug("Added task to the queue")
         sys.stdout.flush()
 
 

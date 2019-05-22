@@ -34,8 +34,8 @@ def task_worker(conn, sync_q, logger, abort):
             continue
         try:
             handler(conn, job, logger)
-        except Exception:
-            print("error occured in the loop.", traceback.format_exc())
+        except Exception:  # pylint: disable=broad-except
+            logger.error("Error occured in the loop %s", traceback.format_exc())
         sys.stdout.flush()
 
 

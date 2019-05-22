@@ -27,8 +27,8 @@ async def task_worker(conn, async_q, logger, abort=None):
             continue
         try:
             await handler(conn, job, logger)
-        except Exception:
-            print("error occured in the loop.", traceback.format_exc())
+        except Exception:  # pylint: disable=broad-except
+            logger.error("Error occured in the loop %s", traceback.format_exc())
         finally:
             sys.stdout.flush()
             async_q.task_done()
