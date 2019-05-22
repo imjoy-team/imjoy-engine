@@ -673,7 +673,7 @@ async def on_get_file_url(eng, sid, kwargs):
     """Return file url."""
     logger = eng.logger
     generatedUrlFiles = eng.store.generatedUrlFiles
-    generatedUrls = eng.store.generatedUrls
+    generated_urls = eng.store.generated_urls
     registered_sessions = eng.store.registered_sessions
     logger.info("Generating file url: %s", kwargs)
     if sid not in registered_sessions:
@@ -696,7 +696,7 @@ async def on_get_file_url(eng, sid, kwargs):
         return {"success": True, "url": generatedUrlFiles[path]}
     else:
         urlid = str(uuid.uuid4())
-        generatedUrls[urlid] = file_info
+        generated_urls[urlid] = file_info
         base_url = kwargs.get("base_url", registered_sessions[sid]["base_url"])
         if kwargs.get("password"):
             file_info["password"] = kwargs["password"]
@@ -712,7 +712,7 @@ async def on_get_file_url(eng, sid, kwargs):
 async def on_get_file_path(eng, sid, kwargs):
     """Return file path."""
     logger = eng.logger
-    generatedUrls = eng.store.generatedUrls
+    generated_urls = eng.store.generated_urls
     registered_sessions = eng.store.registered_sessions
     logger.info("Generating file url: %s", kwargs)
     if sid not in registered_sessions:
@@ -721,8 +721,8 @@ async def on_get_file_path(eng, sid, kwargs):
 
     url = kwargs["url"]
     urlid = urlparse(url).path.replace("/file/", "")
-    if urlid in generatedUrls:
-        file_info = generatedUrls[urlid]
+    if urlid in generated_urls:
+        file_info = generated_urls[urlid]
         return {"success": True, "path": file_info["path"]}
     else:
         return {"success": False, "error": "url not found."}

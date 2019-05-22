@@ -61,7 +61,7 @@ class ConnectionManager:
         self.store.plugin_sids = {}
         self.store.plugin_signatures = {}
 
-        self.store.generatedUrls = {}
+        self.store.generated_urls = {}
         self.store.generatedUrlFiles = {}
         self.store.requestUploadFiles = {}
         self.store.requestUrls = {}

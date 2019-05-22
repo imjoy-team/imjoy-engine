@@ -212,12 +212,12 @@ async def upload_file(request):
 async def download_file(request):
     """Download file."""
     eng = request.app[ENG]
-    generatedUrls = eng.store.generatedUrls
+    generated_urls = eng.store.generated_urls
     urlid = request.match_info["urlid"]  # Could be a HUGE file
     name = request.match_info["name"]
-    if urlid not in generatedUrls:
+    if urlid not in generated_urls:
         raise web.HTTPForbidden(text="Invalid URL")
-    fileInfo = generatedUrls[urlid]
+    fileInfo = generated_urls[urlid]
     if fileInfo.get("password", False):
         password = request.match_info.get("password")
         if password != fileInfo["password"]:
