@@ -241,7 +241,7 @@ def launch_plugin(
                 if os.path.exists(r["repo_dir"]):
                     assert os.path.isdir(r["repo_dir"])
                     cmd = "git pull --all"
-                    runCmd(eng, cmd.split(" "), cwd=r["repo_dir"], plugin_id=plugin_id)
+                    run_cmd(eng, cmd.split(" "), cwd=r["repo_dir"], plugin_id=plugin_id)
                 else:
                     cmd = (
                         "git clone --progress --depth=1 "
@@ -249,7 +249,7 @@ def launch_plugin(
                         + " "
                         + r["repo_dir"]
                     )
-                    runCmd(eng, cmd.split(" "), cwd=work_dir, plugin_id=plugin_id)
+                    run_cmd(eng, cmd.split(" "), cwd=work_dir, plugin_id=plugin_id)
                 progress += int(20 / len(repos))
                 logging_callback(progress, type="progress")
             except Exception as exc:  # pylint: disable=broad-except
@@ -470,7 +470,7 @@ def launch_plugin(
             return False
 
 
-def runCmd(
+def run_cmd(
     eng,
     cmd,
     shell=False,
