@@ -41,7 +41,7 @@ def resumePluginSession(eng, pid, session_id, plugin_signature):
 
     if plugin_signature in plugin_signatures:
         plugin_info = plugin_signatures[plugin_signature]
-        logger.info("resuming plugin %s", pid)
+        logger.info("Resuming plugin %s", pid)
         return plugin_info
     else:
         return None
@@ -58,7 +58,7 @@ def addClientSession(eng, session_id, client_id, sid, base_url, workspace):
     else:
         clients[client_id] = [sid]
         client_connected = False
-    logger.info("adding client session %s", sid)
+    logger.info("Adding client session %s", sid)
     registered_sessions[sid] = {
         "client": client_id,
         "session": session_id,
@@ -75,7 +75,7 @@ def disconnectClientSession(eng, sid):
     plugin_sessions = eng.store.plugin_sessions
     registered_sessions = eng.store.registered_sessions
     if sid in registered_sessions:
-        logger.info("disconnecting client session %s", sid)
+        logger.info("Disconnecting client session %s", sid)
         obj = registered_sessions[sid]
         client_id, session_id = obj["client"], obj["session"]
         del registered_sessions[sid]
@@ -120,12 +120,14 @@ def disconnectPlugin(eng, sid):
     plugin_sids = eng.store.plugin_sids
     plugin_signatures = eng.store.plugin_signatures
     if sid in plugin_sids:
-        logger.info("disconnecting plugin session %s", sid)
+        logger.info("Disconnecting plugin session %s", sid)
         pid = plugin_sids[sid]["id"]
         if pid in plugins:
-            logger.info("clean up plugin %s", pid)
+            logger.info("Cleaning up plugin %s", pid)
             if plugins[pid]["signature"] in plugin_signatures:
-                logger.info("clean up plugin signature %s", plugins[pid]["signature"])
+                logger.info(
+                    "Cleaning up plugin signature %s", plugins[pid]["signature"]
+                )
                 del plugin_signatures[plugins[pid]["signature"]]
             del plugins[pid]
         del plugin_sids[sid]
@@ -135,7 +137,7 @@ def disconnectPlugin(eng, sid):
                 if p["id"] == pid:
                     exist = p
             if exist:
-                logger.info("clean up plugin session %s", session_id)
+                logger.info("Cleaning up plugin session %s", session_id)
                 plugin_sessions[session_id].remove(exist)
                 killPlugin(eng, exist["id"])
 
@@ -158,20 +160,18 @@ def killPlugin(eng, pid):
             plugins[pid]["aborting"] = asyncio.get_event_loop().create_future()
             if plugins[pid]["process_id"] is not None:
                 killProcess(logger, plugins[pid]["process_id"])
-                print('INFO: "{}" was killed.'.format(pid))
         except Exception as exc:  # pylint: disable=broad-except
-            print('WARNING: failed to kill plugin "{}".'.format(pid))
-            logger.error(str(exc))
+            logger.error("Failed to kill plugin %s, error: %s", pid, exc)
         if "sid" in plugins[pid]:
             if plugins[pid]["sid"] in plugin_sids:
                 del plugin_sids[plugins[pid]["sid"]]
 
         if plugins[pid]["signature"] in plugin_signatures:
             logger.info(
-                "clean up killed plugin signature %s", plugins[pid]["signature"]
+                "Cleaning up killed plugin signature %s", plugins[pid]["signature"]
             )
             del plugin_signatures[plugins[pid]["signature"]]
-        logger.info("clean up killed plugin %s", pid)
+        logger.info("Cleaning up killed plugin %s", pid)
         del plugins[pid]
 
 
@@ -185,7 +185,7 @@ async def killAllPlugins(eng, ssid):
         try:
             await on_kill_plugin(ssid, {"id": plugin_sids[sid]["id"]})
         except Exception as exc:  # pylint: disable=broad-except
-            logger.error(str(exc))
+            logger.error("%s", exc)
 
     return asyncio.gather(*tasks)
 
@@ -225,8 +225,8 @@ def launch_plugin(
     logger = eng.logger
     opt = eng.opt
     if abort.is_set():
-        logger.info("plugin aborting...")
-        logging_callback("plugin aborting...")
+        logger.info("Plugin aborting")
+        logging_callback("Plugin aborting")
         return False
     venv_name = None
     progress = 0
@@ -236,8 +236,8 @@ def launch_plugin(
         logging_callback(progress, type="progress")
         for k, r in enumerate(repos):
             try:
-                print("Cloning repo " + r["url"] + " to " + r["repo_dir"])
-                logging_callback("Cloning repo " + r["url"] + " to " + r["repo_dir"])
+                logger.info("Cloning repo %s to %s", r["url"], r["repo_dir"])
+                logging_callback(f"Cloning repo {r['url']} to {r['repo_dir']}")
                 if os.path.exists(r["repo_dir"]):
                     assert os.path.isdir(r["repo_dir"])
                     cmd = "git pull --all"
@@ -252,10 +252,8 @@ def launch_plugin(
                     runCmd(eng, cmd.split(" "), cwd=work_dir, plugin_id=plugin_id)
                 progress += int(20 / len(repos))
                 logging_callback(progress, type="progress")
-            except Exception as ex:  # pylint: disable=broad-except
-                logging_callback(
-                    "Failed to obtain the git repo: " + str(ex), type="error"
-                )
+            except Exception as exc:  # pylint: disable=broad-except
+                logging_callback(f"Failed to obtain the git repo: {exc}", type="error")
 
         default_virtual_env = "{}-{}".format(pname, tag) if tag != "" else pname
         default_virtual_env = default_virtual_env.replace(" ", "_")
@@ -288,10 +286,9 @@ def launch_plugin(
 
         for env in envs:
             if type(env) is str:
-                print("Running env command: " + env)
-                logger.info("running env command: %s", env)
                 if env not in cmd_history:
-                    logging_callback("running env command: {}".format(env))
+                    logger.info("Running env command: %s", env)
+                    logging_callback(f"Running env command: {env}")
                     code, errors = run_process(
                         env.split(),
                         process_start=process_start,
@@ -302,14 +299,14 @@ def launch_plugin(
 
                     if code == 0:
                         cmd_history.append(env)
-                        logging_callback("env command executed successfully.")
+                        logging_callback("Successful execution of env command")
 
                     if errors is not None:
                         logging_callback(str(errors, "utf-8"), type="error")
 
                 else:
-                    logger.debug("skip command: %s", env)
-                    logging_callback("skip env command: " + env)
+                    logger.debug("Skip env command: %s", env)
+                    logging_callback(f"Skip env command: {env}")
 
             elif type(env) is dict:
                 assert "type" in env
@@ -323,21 +320,17 @@ def launch_plugin(
                     environment_variables["CUDA_VISIBLE_DEVICES"] = ",".join(
                         [str(deviceID) for deviceID in deviceIDs]
                     )
-                    logging_callback("GPU id assigned: " + str(deviceIDs))
+                    logging_callback(f"GPU id assigned: {deviceIDs}")
                 elif env["type"] == "variable":
                     environment_variables.update(env["options"])
             else:
-                logger.debug("skip unsupported env: %s", env)
+                logger.debug("Skip unsupported env: %s", env)
 
             if abort.is_set():
-                logger.info("plugin aborting...")
+                logger.info("Plugin aborting")
                 return False
 
         if opt.freeze:
-            print(
-                f"WARNING: blocked pip command: \n{reqs_cmds}\n"
-                "You may want to run it yourself."
-            )
             logger.warning(
                 "pip command is blocked due to `--freeze` mode: %s", reqs_cmds
             )
@@ -374,17 +367,16 @@ def launch_plugin(
 
     except Exception:  # pylint: disable=broad-except
         error_traceback = traceback.format_exc()
-        print(error_traceback)
         logger.error(
             "Failed to setup plugin virtual environment or its requirements: %s",
             error_traceback,
         )
         abort.set()
-        stop_callback(False, "Plugin process failed to start: " + error_traceback)
+        stop_callback(False, f"Plugin process failed to start: {error_traceback}")
         return False
 
     if abort.is_set():
-        logger.info("Plugin aborting...")
+        logger.info("Plugin aborting")
         stop_callback(False, "Plugin process failed to start")
         return False
     # env = os.environ.copy()
@@ -396,7 +388,7 @@ def launch_plugin(
         args = []
     # Convert them all to strings
     args = [str(x) for x in args if str(x) != ""]
-    logger.info("%s task started.", name)
+    logger.info("Plugin %s task started", name)
 
     args = " ".join(args)
     logger.info("Task subprocess args: %s", args)
@@ -411,7 +403,7 @@ def launch_plugin(
     try:
         _env = plugin_env.copy()
         _env.update(environment_variables)
-        logger.debug("running process with env: %s", _env)
+        logger.debug("Running process with env: %s", _env)
         process = subprocess.Popen(
             args,
             bufsize=1,
@@ -422,7 +414,7 @@ def launch_plugin(
             cwd=work_dir,
             **kwargs,
         )
-        logging_callback("running subprocess(pid={}) with {}".format(process.pid, args))
+        logging_callback(f"Running subprocess (pid={process.pid}) with {args}")
         setPluginPID(eng, plugin_id, process.pid)
         # Poll process for new output until finished
         stdfn = sys.stdout.fileno()
@@ -440,7 +432,7 @@ def launch_plugin(
                 break
             time.sleep(0)
 
-        logger.info("Plugin aborting...")
+        logger.info("Plugin aborting")
         killProcess(logger, process.pid)
 
         outputs, errors = process.communicate()
@@ -450,28 +442,27 @@ def launch_plugin(
             errors = str(errors, "utf-8")
         exitCode = process.returncode
     except Exception as exc:  # pylint: disable=broad-except
-        print(traceback.format_exc())
+        logger.error(traceback.format_exc())
         outputs, errors = "", str(exc)
         exitCode = 100
     finally:
         if exitCode == 0:
-            logging_callback("plugin process exited with code {}".format(0))
+            logging_callback(f"Plugin process exited with code {exitCode}")
             stop_callback(True, outputs)
             return True
         else:
             logging_callback(
-                "plugin process exited with code {}".format(exitCode), type="error"
+                f"Plugin process exited with code {exitCode}", type="error"
             )
-            logger.info(
+            logger.error(
                 "Error occured during terminating a process.\n"
-                "command: %s\n exit code: %s\n",
-                str(args),
-                str(exitCode),
+                "Command: %s\nExit code: %s",
+                args,
+                exitCode,
             )
+            errors = errors or ""
             stop_callback(
-                False,
-                (errors or "")
-                + "\nplugin process exited with code {}".format(exitCode),
+                False, f"{errors}\nPlugin process exited with code {exitCode}"
             )
             return False
 
@@ -521,5 +512,5 @@ def runCmd(
         all_output = console_to_str(b"".join(stderr_lines))
     output = "".join(all_output)
     if code != 0 and check_returncode:
-        raise Exception("Command failed with code {}: {}".format(code, cmd))
+        raise Exception(f"Command failed with code {code}: {cmd}")
     return output
