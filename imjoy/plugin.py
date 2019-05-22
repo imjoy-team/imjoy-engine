@@ -19,7 +19,7 @@ from imjoy.helper import (
     apply_conda_activate,
     install_reqs,
     killProcess,
-    parseEnv,
+    parse_env,
     parse_requirements,
     run_commands,
     run_process,
@@ -259,7 +259,7 @@ def launch_plugin(
 
         default_virtual_env = "{}-{}".format(pname, tag) if tag != "" else pname
         default_virtual_env = default_virtual_env.replace(" ", "_")
-        venv_name, envs, is_py2 = parseEnv(eng, env, work_dir, default_virtual_env)
+        venv_name, envs, is_py2 = parse_env(eng, env, work_dir, default_virtual_env)
         environment_variables = {}
         default_requirements = (
             DEFAULT_REQUIREMENTS_PY2 if is_py2 else DEFAULT_REQUIREMENTS_PY3
@@ -271,7 +271,6 @@ def launch_plugin(
         reqs_cmds += default_reqs_cmds
 
         cmd_history = eng.store.cmd_history
-        envs = envs or []
 
         def process_start(pid=None, cmd=None):
             """Run before process starts."""
