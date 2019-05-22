@@ -47,7 +47,7 @@ def resume_plugin_session(eng, pid, session_id, plugin_signature):
         return None
 
 
-def addClientSession(eng, session_id, client_id, sid, base_url, workspace):
+def add_client_session(eng, session_id, client_id, sid, base_url, workspace):
     """Add client session."""
     logger = eng.logger
     clients = eng.store.clients

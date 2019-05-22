@@ -19,7 +19,7 @@ import GPUtil
 from imjoy.const import API_VERSION, NAME_SPACE, TEMPLATE_SCRIPT, __version__
 from imjoy.helper import get_psutil, kill_process, scandir
 from imjoy.plugin import (
-    addClientSession,
+    add_client_session,
     add_plugin,
     disconnect_client_session,
     disconnect_plugin,
@@ -497,7 +497,7 @@ async def on_register_client(eng, sid, kwargs):
         return {"success": False}
     else:
         conn_data.attempt_count = 0
-        if addClientSession(eng, session_id, client_id, sid, base_url, workspace):
+        if add_client_session(eng, session_id, client_id, sid, base_url, workspace):
             confirmation = True
             message = (
                 "Another ImJoy session is connected to this Plugin Engine({}), "
