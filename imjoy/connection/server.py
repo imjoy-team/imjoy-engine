@@ -3,7 +3,6 @@ import os
 import sys
 import threading
 import time
-import traceback
 from mimetypes import MimeTypes
 
 import aiohttp_cors
