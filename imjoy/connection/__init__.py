@@ -53,7 +53,7 @@ class ConnectionManager:
         self.reset_store()
 
     def reset_store(self, reset_clients=True):
-        """Reset the connection data store"""
+        """Reset the connection data store."""
         self.store.attempt_count = 0
         self.store.cmd_history = []
         self.store.plugins = {}
