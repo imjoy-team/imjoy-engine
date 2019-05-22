@@ -310,7 +310,6 @@ async def on_init_plugin(eng, sid, kwargs):
 
         @sio_on("from_plugin_" + secretKey, namespace=NAME_SPACE)
         async def message_from_plugin(eng, sid, kwargs):
-            # print('forwarding message_'+secretKey, kwargs)
             if kwargs["type"] in [
                 "initialized",
                 "importSuccess",
@@ -335,7 +334,6 @@ async def on_init_plugin(eng, sid, kwargs):
 
         @sio_on("message_to_plugin_" + secretKey, namespace=NAME_SPACE)
         async def message_to_plugin(eng, sid, kwargs):
-            # print('forwarding message_to_plugin_'+secretKey, kwargs)
             if kwargs["type"] == "message":
                 await eng.conn.sio.emit("to_plugin_" + secretKey, kwargs["data"])
             logger.debug("message to plugin %s", secretKey)
@@ -408,7 +406,6 @@ async def on_init_plugin(eng, sid, kwargs):
 
     except Exception:  # pylint: disable=broad-except
         traceback_error = traceback.format_exc()
-        print(traceback_error)
         logger.error(traceback_error)
         return {"success": False, "reason": traceback_error}
 
@@ -477,7 +474,6 @@ async def on_register_client(eng, sid, kwargs):
     token = kwargs.get("token")
     if token != eng.opt.token:
         logger.debug("token mismatch: %s != %s", token, eng.opt.token)
-        print("======== Connection Token: " + eng.opt.token + " ========")
         if eng.opt.engine_container_token is not None:
             await eng.conn.sio.emit(
                 "message_to_container_" + eng.opt.engine_container_token,
@@ -491,8 +487,8 @@ async def on_register_client(eng, sid, kwargs):
         #     webbrowser.open(
         #         'http://'+opt.host+':'+opt.port+'/about?token='+opt.token,
         #         new=0, autoraise=True)
-        # except Exception as e:
-        #     print('Failed to open the browser.')
+        # except Exception as exc:
+        #     logger.error("Failed to open the browser: %s.", exc)
         conn_data.attempt_count += 1
         if conn_data.attempt_count >= MAX_ATTEMPTS:
             logger.info(
@@ -583,7 +579,6 @@ async def on_list_dir(eng, sid, kwargs):
 
         return files_list
     except Exception as exc:  # pylint: disable=broad-except
-        print(traceback.format_exc())
         logger.error("list dir error: %s", str(exc))
         return {"success": False, "error": str(exc)}
 
@@ -791,7 +786,6 @@ async def on_kill_plugin_process(eng, sid, kwargs):
         return {"success": True}
     else:
         try:
-            print("Killing plugin process (pid=" + str(kwargs["pid"]) + ")...")
             killProcess(logger, int(kwargs["pid"]))
             return {"success": True}
         except Exception:  # pylint: disable=broad-except
