@@ -142,7 +142,7 @@ def disconnectPlugin(eng, sid):
                 killPlugin(eng, exist["id"])
 
 
-def setPluginPID(eng, plugin_id, pid):
+def set_plugin_pid(eng, plugin_id, pid):
     """Set plugin pid."""
     plugins = eng.store.plugins
     plugins[plugin_id]["process_id"] = pid
@@ -273,7 +273,7 @@ def launch_plugin(
         def process_start(pid=None, cmd=None):
             """Run before process starts."""
             if pid is not None:
-                setPluginPID(eng, plugin_id, pid)
+                set_plugin_pid(eng, plugin_id, pid)
             if cmd is not None:
                 logger.info("Running command %s", cmd)
 
@@ -418,7 +418,7 @@ def launch_plugin(
             **kwargs,
         )
         logging_callback(f"Running subprocess (pid={process.pid}) with {args}")
-        setPluginPID(eng, plugin_id, process.pid)
+        set_plugin_pid(eng, plugin_id, process.pid)
         # Poll process for new output until finished
         stdfn = sys.stdout.fileno()
 
@@ -494,7 +494,7 @@ def run_cmd(
         cwd=cwd,
     )
     if plugin_id is not None:
-        setPluginPID(eng, plugin_id, proc.pid)
+        set_plugin_pid(eng, plugin_id, proc.pid)
 
     all_output = []
     code = None
