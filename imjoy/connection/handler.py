@@ -21,7 +21,7 @@ from imjoy.helper import get_psutil, kill_process, scandir
 from imjoy.plugin import (
     addClientSession,
     add_plugin,
-    disconnectClientSession,
+    disconnect_client_session,
     disconnect_plugin,
     force_kill_timeout,
     kill_all_plugins,
@@ -811,6 +811,6 @@ async def on_kill_plugin_process(eng, sid, kwargs):
 async def disconnect(eng, sid):
     """Disconnect client."""
     logger = eng.logger
-    disconnectClientSession(eng, sid)
+    disconnect_client_session(eng, sid)
     disconnect_plugin(eng, sid)
     logger.info("Disconnect %s", sid)

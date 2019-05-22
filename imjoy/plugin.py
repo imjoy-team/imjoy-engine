@@ -68,7 +68,7 @@ def addClientSession(eng, session_id, client_id, sid, base_url, workspace):
     return client_connected
 
 
-def disconnectClientSession(eng, sid):
+def disconnect_client_session(eng, sid):
     """Disconnect client session."""
     logger = eng.logger
     clients = eng.store.clients
