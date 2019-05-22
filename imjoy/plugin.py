@@ -314,13 +314,13 @@ def launch_plugin(
                     # Set CUDA_DEVICE_ORDER
                     # so the IDs assigned by CUDA match those from nvidia-smi
                     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-                    deviceIDs = GPUtil.getAvailable(**env["options"])
-                    if len(deviceIDs) <= 0:
+                    device_ids = GPUtil.getAvailable(**env["options"])
+                    if len(device_ids) <= 0:
                         raise Exception("No GPU is available to run this plugin.")
                     environment_variables["CUDA_VISIBLE_DEVICES"] = ",".join(
-                        [str(deviceID) for deviceID in deviceIDs]
+                        [str(deviceID) for deviceID in device_ids]
                     )
-                    logging_callback(f"GPU id assigned: {deviceIDs}")
+                    logging_callback(f"GPU id assigned: {device_ids}")
                 elif env["type"] == "variable":
                     environment_variables.update(env["options"])
             else:
