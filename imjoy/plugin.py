@@ -2,14 +2,13 @@
 import asyncio
 import datetime
 import os
-import shutil
 import subprocess
 import sys
 import time
 import traceback
+from functools import partial
 
 import GPUtil
-
 from imjoy.const import (
     DEFAULT_REQUIREMENTS_PY2,
     DEFAULT_REQUIREMENTS_PY3,
@@ -17,7 +16,13 @@ from imjoy.const import (
     REQ_PSUTIL,
     REQ_PSUTIL_CONDA,
 )
-from imjoy.helper import killProcess, parseRequirements, parseEnv
+from imjoy.helper import (
+    install_reqs_fallback,
+    killProcess,
+    parseEnv,
+    parseRequirements,
+    run_process,
+)
 from imjoy.util import console_to_str, parseRepos
 
 
@@ -204,7 +209,7 @@ def launch_plugin(
     eng,
     stop_callback,
     logging_callback,
-    pid,
+    plugin_id,
     pname,
     tag,
     env,
@@ -218,7 +223,6 @@ def launch_plugin(
     """Launch plugin."""
     logger = eng.logger
     opt = eng.opt
-    plugins = eng.store.plugins
     if abort.is_set():
         logger.info("plugin aborting...")
         logging_callback("plugin aborting...")
@@ -234,7 +238,7 @@ def launch_plugin(
                 if os.path.exists(r["repo_dir"]):
                     assert os.path.isdir(r["repo_dir"])
                     cmd = "git pull --all"
-                    runCmd(eng, cmd.split(" "), cwd=r["repo_dir"], plugin_id=pid)
+                    runCmd(eng, cmd.split(" "), cwd=r["repo_dir"], plugin_id=plugin_id)
                 else:
                     cmd = (
                         "git clone --progress --depth=1 "
@@ -242,7 +246,7 @@ def launch_plugin(
                         + " "
                         + r["repo_dir"]
                     )
-                    runCmd(eng, cmd.split(" "), cwd=work_dir, plugin_id=pid)
+                    runCmd(eng, cmd.split(" "), cwd=work_dir, plugin_id=plugin_id)
                 logging_callback(k * 5, type="progress")
             except Exception as ex:  # pylint: disable=broad-except
                 logging_callback(
@@ -266,6 +270,7 @@ def launch_plugin(
         )
 
         cmd_history = eng.store.cmd_history
+        process_start = partial(setPluginPID, eng, plugin_id)
 
         if envs is not None and len(envs) > 0:
             for env in envs:
@@ -275,7 +280,10 @@ def launch_plugin(
                     if env not in cmd_history:
                         logging_callback("running env command: {}".format(env))
                         code, errors = run_process(
-                            eng, pid, env.split(), env=plugin_env, cwd=work_dir
+                            env.split(),
+                            callback=process_start,
+                            env=plugin_env,
+                            cwd=work_dir,
                         )
 
                         if code == 0:
@@ -293,7 +301,8 @@ def launch_plugin(
                 elif type(env) is dict:
                     assert "type" in env
                     if env["type"] == "gputil":
-                        # Set CUDA_DEVICE_ORDER so the IDs assigned by CUDA match those from nvidia-smi
+                        # Set CUDA_DEVICE_ORDER
+                        # so the IDs assigned by CUDA match those from nvidia-smi
                         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
                         deviceIDs = GPUtil.getAvailable(**env["options"])
                         if len(deviceIDs) <= 0:
@@ -326,83 +335,25 @@ def launch_plugin(
                 virtual_env_name + " && " + requirements_cmd
             )
 
-        logger.info("Running requirements command: %s", requirements_cmd)
-        print("Running requirements command: ", requirements_cmd)
-        if requirements_cmd is not None and requirements_cmd not in cmd_history:
-            code, errors = run_process(
-                eng, pid, requirements_cmd, shell=True, env=plugin_env, cwd=work_dir
-            )
-            logging_callback(
-                "Running requirements subprocess(pid={}): {}".format(
-                    plugins[pid]["process_id"], requirements_cmd
-                )
-            )
-            if code != 0:
-                logging_callback(
-                    "Failed to run requirements command: {}".format(requirements_cmd),
-                    type="error",
-                )
-                if errors is not None:
-                    logging_callback(str(errors, "utf-8"), type="error")
-                git_cmd = ""
-                if shutil.which("git") is None:
-                    git_cmd += " git"
-                if shutil.which("pip") is None:
-                    git_cmd += " pip"
-                if git_cmd != "":
-                    logger.info("pip command failed, trying to install git and pip...")
-                    # try to install git and pip
-                    git_cmd = "conda install -y" + git_cmd
-                    code, _ = run_process(
-                        eng,
-                        pid,
-                        git_cmd.split(),
-                        stderr=None,
-                        env=plugin_env,
-                        cwd=work_dir,
-                    )
-                    if code != 0:
-                        logging_callback(
-                            "Failed to install git/pip and dependencies "
-                            "with exit code: " + str(code),
-                            type="error",
-                        )
-                        raise Exception(
-                            "Failed to install git/pip and dependencies "
-                            "with exit code: " + str(code)
-                        )
-                    else:
-                        code, errors = run_process(
-                            eng,
-                            pid,
-                            requirements_cmd,
-                            shell=True,
-                            stderr=None,
-                            env=plugin_env,
-                            cwd=work_dir,
-                        )
-                        if code != 0:
-                            logging_callback(
-                                "Failed to install dependencies with exit code: "
-                                + str(code),
-                                type="error",
-                            )
-                            raise Exception(
-                                "Failed to install dependencies with exit code: "
-                                + str(code)
-                            )
-            else:
-                cmd_history.append(requirements_cmd)
-                logging_callback("Requirements command executed successfully.")
-            logging_callback(70, type="progress")
-        else:
-            logger.debug("skip command: %s", requirements_cmd)
+        def process_finish(cmd):
+            """Notify when an install process command has finished."""
+            logger.warning("Finished installing: %s", cmd)
+
+        install_reqs_fallback(
+            eng,
+            plugin_env,
+            work_dir,
+            requirements_cmd,
+            process_start,
+            process_finish,
+            logging_callback,
+        )
+
         if not opt.freeze:
             psutil_cmd = parseRequirements(REQ_PSUTIL)
             code, _ = run_process(
-                eng,
-                pid,
                 psutil_cmd,
+                callback=process_start,
                 shell=True,
                 stderr=None,
                 env=plugin_env,
@@ -419,9 +370,8 @@ def launch_plugin(
                 "{} && {}".format(virtual_env_name, psutil_cmd)
             )
             code, _ = run_process(
-                eng,
-                pid,
                 psutil_cmd,
+                callback=process_start,
                 shell=True,
                 stderr=None,
                 env=plugin_env,
@@ -478,7 +428,7 @@ def launch_plugin(
             **kwargs,
         )
         logging_callback("running subprocess(pid={}) with {}".format(process.pid, args))
-        setPluginPID(eng, pid, process.pid)
+        setPluginPID(eng, plugin_id, process.pid)
         # Poll process for new output until finished
         stdfn = sys.stdout.fileno()
 
@@ -528,21 +478,6 @@ def launch_plugin(
                 + "\nplugin process exited with code {}".format(exitCode),
             )
             return False
-
-
-def run_process(eng, plugin_id, cmd, **kwargs):
-    """Run subprocess command."""
-    shell = kwargs.pop("shell", False)
-    stderr = kwargs.pop("stderr", subprocess.PIPE)
-    process_ = subprocess.Popen(cmd, shell=shell, stderr=stderr, **kwargs)
-    setPluginPID(eng, plugin_id, process_.pid)
-    return_code = process_.wait()
-    if stderr is not None:
-        _, errors = process_.communicate()
-    else:
-        errors = None
-
-    return return_code, errors
 
 
 def runCmd(

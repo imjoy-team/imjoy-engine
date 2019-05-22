@@ -3,6 +3,8 @@ import copy
 import logging
 import os
 import shlex
+import shutil
+import subprocess
 from importlib import import_module
 
 import yaml
@@ -102,6 +104,109 @@ def parseRequirements(requirements, default_command=None, conda=False):
     requirements_cmd = "{} && {}".format(requirements_cmd, default_command)
     requirements_cmd = requirements_cmd.strip(" &")
     return requirements_cmd
+
+
+def install_reqs_fallback(
+    eng, env, work_dir, reqs_cmd, process_start, process_finish, logging_callback
+):
+    """Install requirements including fallback handling."""
+    logger = eng.logger
+    cmd_history = eng.store.cmd_history
+    if reqs_cmd is None or reqs_cmd in cmd_history:
+        logger.debug("skip command: %s", reqs_cmd)
+        return
+
+    code = 0
+    error = None
+
+    def fail_install():
+        """Notify of failed installation."""
+        logging_callback(
+            f"Failed to install dependencies with exit code {code} and error: {error}",
+            type="error",
+        )
+        raise Exception(
+            f"Failed to install dependencies with exit code {code} and error: {error}"
+        )
+
+    def _process_start(process_pid):
+        """Run after starting the process."""
+        logging_callback(
+            f"Running requirements subprocess(pid={process_pid}): {reqs_cmd}"
+        )
+        process_start(process_pid)
+
+    logger.info("Running requirements command: %s", reqs_cmd)
+    code, errors = install_reqs(env, work_dir, reqs_cmd, _process_start, process_finish)
+
+    if code == 0:
+        cmd_history.append(reqs_cmd)
+        logging_callback("Requirements command executed successfully.")
+        logging_callback(70, type="progress")
+        return
+    logging_callback(f"Failed to run requirements command: {reqs_cmd}", type="error")
+    if errors is not None:
+        logging_callback(str(errors, "utf-8"), type="error")
+
+    if not eng.opt.CONDA_AVAILABLE:
+        fail_install()
+
+    git_cmd = ""
+    if shutil.which("git") is None:
+        git_cmd += " git"
+    if shutil.which("pip") is None:
+        git_cmd += " pip"
+    if git_cmd == "":
+        fail_install()
+
+    logger.info("pip command failed, trying to install git and pip")
+    # try to install git and pip
+    git_cmd = f"conda install -y{git_cmd}"
+    code, _ = run_process(
+        git_cmd.split(), callback=_process_start, stderr=None, env=env, cwd=work_dir
+    )
+    if code != 0:
+        fail_install()
+
+    logger.info("Running requirements command: %s", reqs_cmd)
+    code, errors = install_reqs(env, work_dir, reqs_cmd, _process_start, process_finish)
+
+    if code != 0:
+        fail_install()
+
+
+def install_reqs(env, work_dir, reqs_cmd, process_start, process_finish):
+    """Install requirements."""
+    code = 0
+    errors = None
+    commands = reqs_cmd.split(" && ")
+
+    for cmd in commands:
+        print("Running command:", cmd)
+        code, errors = run_process(
+            cmd, callback=process_start, shell=True, env=env, cwd=work_dir
+        )
+        if code:
+            return code, errors
+        process_finish(cmd)
+
+    return code, errors
+
+
+def run_process(cmd, callback=None, **kwargs):
+    """Run subprocess command."""
+    shell = kwargs.pop("shell", False)
+    stderr = kwargs.pop("stderr", subprocess.PIPE)
+    process_ = subprocess.Popen(cmd, shell=shell, stderr=stderr, **kwargs)
+    if callback is not None:
+        callback(process_.pid)
+    return_code = process_.wait()
+    if stderr is not None:
+        _, errors = process_.communicate()
+    else:
+        errors = None
+
+    return return_code, errors
 
 
 def parseEnv(eng, env, work_dir, default_env_name):
