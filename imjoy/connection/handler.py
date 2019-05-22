@@ -25,7 +25,7 @@ from imjoy.plugin import (
     disconnectPlugin,
     force_kill_timeout,
     killAllPlugins,
-    killPlugin,
+    kill_plugin,
     launch_plugin,
     resume_plugin_session,
 )
@@ -323,7 +323,7 @@ async def on_init_plugin(eng, sid, kwargs):
                     addPlugin(eng, plugin_info, sid)
                 elif kwargs["type"] == "executeFailure":
                     logger.info("Killing plugin %s due to exeuction failure", pid)
-                    killPlugin(eng, pid)
+                    kill_plugin(eng, pid)
             else:
                 await eng.conn.sio.emit(
                     "message_from_plugin_" + secret_key,
@@ -446,7 +446,7 @@ async def on_kill_plugin(eng, sid, kwargs):
                 obj["force_kill"] = False
                 logger.info("Plugin %s exited normally", pid)
                 # kill the plugin now
-                killPlugin(eng, pid)
+                kill_plugin(eng, pid)
 
             await eng.conn.sio.emit(
                 "to_plugin_" + plugins[pid]["secret"],
@@ -804,7 +804,7 @@ async def on_kill_plugin_process(eng, sid, kwargs):
     for plugin in plugins.values():
         if plugin["process_id"] not in pids:
             plugin["process_id"] = None
-            killPlugin(eng, plugin["id"])
+            kill_plugin(eng, plugin["id"])
 
 
 @sio_on("disconnect", namespace=NAME_SPACE)

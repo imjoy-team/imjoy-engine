@@ -86,7 +86,7 @@ def disconnectClientSession(eng, sid):
         if session_id in plugin_sessions:
             for plugin in plugin_sessions[session_id]:
                 if "allow-detach" not in plugin["flags"]:
-                    killPlugin(eng, plugin["id"])
+                    kill_plugin(eng, plugin["id"])
             del plugin_sessions[session_id]
 
 
@@ -139,7 +139,7 @@ def disconnectPlugin(eng, sid):
             if exist:
                 logger.info("Cleaning up plugin session %s", session_id)
                 plugin_sessions[session_id].remove(exist)
-                killPlugin(eng, exist["id"])
+                kill_plugin(eng, exist["id"])
 
 
 def set_plugin_pid(eng, plugin_id, pid):
@@ -148,7 +148,7 @@ def set_plugin_pid(eng, plugin_id, pid):
     plugins[plugin_id]["process_id"] = pid
 
 
-def killPlugin(eng, pid):
+def kill_plugin(eng, pid):
     """Kill plugin."""
     logger = eng.logger
     plugins = eng.store.plugins
@@ -201,7 +201,7 @@ async def force_kill_timeout(eng, t, obj):
             return
     try:
         logger.warning("Timeout, force quitting %s", pid)
-        killPlugin(eng, pid)
+        kill_plugin(eng, pid)
     finally:
         return
 
