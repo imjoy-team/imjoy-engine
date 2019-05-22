@@ -27,7 +27,7 @@ from imjoy.helper import (
 from imjoy.util import console_to_str, parseRepos
 
 
-def resumePluginSession(eng, pid, session_id, plugin_signature):
+def resume_plugin_session(eng, pid, session_id, plugin_signature):
     """Resume plugin session."""
     logger = eng.logger
     plugins = eng.store.plugins

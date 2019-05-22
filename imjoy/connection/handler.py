@@ -27,7 +27,7 @@ from imjoy.plugin import (
     killAllPlugins,
     killPlugin,
     launch_plugin,
-    resumePluginSession,
+    resume_plugin_session,
 )
 
 from .decorator import ws_handler as sio_on
@@ -270,7 +270,7 @@ async def on_init_plugin(eng, sid, kwargs):
             resume = False
 
         if resume:
-            plugin_info = resumePluginSession(eng, pid, session_id, plugin_signature)
+            plugin_info = resume_plugin_session(eng, pid, session_id, plugin_signature)
             if plugin_info is not None:
                 if "aborting" in plugin_info:
                     logger.info("Waiting for plugin %s to abort", plugin_info["id"])
