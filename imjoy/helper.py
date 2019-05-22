@@ -35,7 +35,7 @@ def get_psutil():
         return None
 
 
-def killProcess(logger, pid):
+def kill_process(logger, pid):
     """Kill process."""
     psutil = get_psutil()
     if psutil is None:

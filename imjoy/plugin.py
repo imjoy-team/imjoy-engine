@@ -18,7 +18,7 @@ from imjoy.const import (
 from imjoy.helper import (
     apply_conda_activate,
     install_reqs,
-    killProcess,
+    kill_process,
     parse_env,
     parse_requirements,
     run_commands,
@@ -159,7 +159,7 @@ def killPlugin(eng, pid):
             plugins[pid]["abort"].set()
             plugins[pid]["aborting"] = asyncio.get_event_loop().create_future()
             if plugins[pid]["process_id"] is not None:
-                killProcess(logger, plugins[pid]["process_id"])
+                kill_process(logger, plugins[pid]["process_id"])
         except Exception as exc:  # pylint: disable=broad-except
             logger.error("Failed to kill plugin %s, error: %s", pid, exc)
         if "sid" in plugins[pid]:
@@ -436,7 +436,7 @@ def launch_plugin(
             time.sleep(0)
 
         logger.info("Plugin aborting")
-        killProcess(logger, process.pid)
+        kill_process(logger, process.pid)
 
         outputs, errors = process.communicate()
         if outputs is not None:

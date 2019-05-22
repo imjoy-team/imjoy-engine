@@ -10,7 +10,7 @@ import aiohttp_cors
 from aiohttp import web
 
 from imjoy.const import ENG, __version__
-from imjoy.helper import killProcess, scandir
+from imjoy.helper import kill_process, scandir
 from imjoy.util.aiohttp import file_sender
 
 
@@ -343,7 +343,7 @@ async def on_shutdown(app):
             if stopped.is_set():
                 break
         logger.debug("Plugin engine is killed")
-        killProcess(logger, os.getpid())
+        kill_process(logger, os.getpid())
 
     t = threading.Thread(target=loop)
     t.daemon = True  # stop if the program exits

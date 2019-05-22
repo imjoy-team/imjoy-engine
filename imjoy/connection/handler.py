@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 import GPUtil
 
 from imjoy.const import API_VERSION, NAME_SPACE, TEMPLATE_SCRIPT, __version__
-from imjoy.helper import get_psutil, killProcess, scandir
+from imjoy.helper import get_psutil, kill_process, scandir
 from imjoy.plugin import (
     addClientSession,
     addPlugin,
@@ -784,7 +784,7 @@ async def on_kill_plugin_process(eng, sid, kwargs):
         return {"success": True}
     else:
         try:
-            killProcess(logger, int(kwargs["pid"]))
+            kill_process(logger, int(kwargs["pid"]))
             return {"success": True}
         except Exception:  # pylint: disable=broad-except
             return {
