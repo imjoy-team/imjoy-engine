@@ -291,10 +291,10 @@ async def on_init_plugin(eng, sid, kwargs):
                     plugin_signature,
                 )
 
-        secretKey = str(uuid.uuid4())
+        secret_key = str(uuid.uuid4())
         abort = threading.Event()
         plugin_info = {
-            "secret": secretKey,
+            "secret": secret_key,
             "id": pid,
             "abort": abort,
             "flags": flags,
@@ -308,7 +308,7 @@ async def on_init_plugin(eng, sid, kwargs):
         logger.info("Add plugin: %s", plugin_info)
         addPlugin(eng, plugin_info)
 
-        @sio_on("from_plugin_" + secretKey, namespace=NAME_SPACE)
+        @sio_on("from_plugin_" + secret_key, namespace=NAME_SPACE)
         async def message_from_plugin(eng, sid, kwargs):
             if kwargs["type"] in [
                 "initialized",
@@ -317,7 +317,7 @@ async def on_init_plugin(eng, sid, kwargs):
                 "executeSuccess",
                 "executeFailure",
             ]:
-                await eng.conn.sio.emit("message_from_plugin_" + secretKey, kwargs)
+                await eng.conn.sio.emit("message_from_plugin_" + secret_key, kwargs)
                 logger.debug("Message from %s", pid)
                 if kwargs["type"] == "initialized":
                     addPlugin(eng, plugin_info, sid)
@@ -326,17 +326,17 @@ async def on_init_plugin(eng, sid, kwargs):
                     killPlugin(eng, pid)
             else:
                 await eng.conn.sio.emit(
-                    "message_from_plugin_" + secretKey,
+                    "message_from_plugin_" + secret_key,
                     {"type": "message", "data": kwargs},
                 )
 
         eng.conn.register_event_handler(message_from_plugin)
 
-        @sio_on("message_to_plugin_" + secretKey, namespace=NAME_SPACE)
+        @sio_on("message_to_plugin_" + secret_key, namespace=NAME_SPACE)
         async def message_to_plugin(eng, sid, kwargs):
             if kwargs["type"] == "message":
-                await eng.conn.sio.emit("to_plugin_" + secretKey, kwargs["data"])
-            logger.debug("Message to plugin %s", secretKey)
+                await eng.conn.sio.emit("to_plugin_" + secret_key, kwargs["data"])
+            logger.debug("Message to plugin %s", secret_key)
 
         eng.conn.register_event_handler(message_to_plugin)
 
@@ -350,7 +350,7 @@ async def on_init_plugin(eng, sid, kwargs):
                 "Disconnecting from plugin (success: %s, message: %s)", success, message
             )
             coro = eng.conn.sio.emit(
-                "message_from_plugin_" + secretKey,
+                "message_from_plugin_" + secret_key,
                 {
                     "type": "disconnected",
                     "details": {"success": success, "message": message},
@@ -362,7 +362,7 @@ async def on_init_plugin(eng, sid, kwargs):
             if msg == "":
                 return
             coro = eng.conn.sio.emit(
-                "message_from_plugin_" + secretKey,
+                "message_from_plugin_" + secret_key,
                 {"type": "logging", "details": {"value": msg, "type": type}},
             )
             asyncio.run_coroutine_threadsafe(coro, eloop).result()
@@ -372,7 +372,7 @@ async def on_init_plugin(eng, sid, kwargs):
             TEMPLATE_SCRIPT,
             pid,
             "http://127.0.0.1:" + eng.opt.port,
-            secretKey,
+            secret_key,
             NAME_SPACE,
         )
         taskThread = threading.Thread(
@@ -398,7 +398,7 @@ async def on_init_plugin(eng, sid, kwargs):
         return {
             "success": True,
             "initialized": False,
-            "secret": secretKey,
+            "secret": secret_key,
             "work_dir": os.path.abspath(work_dir),
         }
 
@@ -533,7 +533,7 @@ async def on_register_client(eng, sid, kwargs):
                 }
                 for gpu in GPUs
             ]
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             logger.error("Failed to get GPU information with GPUtil")
 
         return {
@@ -722,8 +722,8 @@ async def on_get_file_path(eng, sid, kwargs):
     url = kwargs["url"]
     urlid = urlparse(url).path.replace("/file/", "")
     if urlid in generatedUrls:
-        fileInfo = generatedUrls[urlid]
-        return {"success": True, "path": fileInfo["path"]}
+        file_info = generatedUrls[urlid]
+        return {"success": True, "path": file_info["path"]}
     else:
         return {"success": False, "error": "url not found."}
 
@@ -743,10 +743,9 @@ async def on_get_engine_status(eng, sid, kwargs):
     current_process = psutil.Process()
     children = current_process.children(recursive=True)
     pid_dict = {}
-    for i in plugins:
-        p = plugins[i]
-        if p["process_id"] is not None:
-            pid_dict[p["process_id"]] = p
+    for plugin in plugins.values():
+        if plugin["process_id"] is not None:
+            pid_dict[plugin["process_id"]] = plugin
 
     procs = []
     for proc in children:
@@ -802,11 +801,10 @@ async def on_kill_plugin_process(eng, sid, kwargs):
         if proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE:
             pids.append(proc.pid)
     # remove plugin if the corresponding process does not exist any more
-    for i in list(plugins.keys()):
-        p = plugins[i]
-        if p["process_id"] not in pids:
-            p["process_id"] = None
-            killPlugin(eng, p["id"])
+    for plugin in plugins.values():
+        if plugin["process_id"] not in pids:
+            plugin["process_id"] = None
+            killPlugin(eng, plugin["id"])
 
 
 @sio_on("disconnect", namespace=NAME_SPACE)
