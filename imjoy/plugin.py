@@ -318,7 +318,7 @@ def launch_plugin(
                     if len(device_ids) <= 0:
                         raise Exception("No GPU is available to run this plugin.")
                     environment_variables["CUDA_VISIBLE_DEVICES"] = ",".join(
-                        [str(deviceID) for deviceID in device_ids]
+                        [str(device_id) for device_id in device_ids]
                     )
                     logging_callback(f"GPU id assigned: {device_ids}")
                 elif env["type"] == "variable":
