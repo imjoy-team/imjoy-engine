@@ -248,7 +248,9 @@ async def download_file(request):
                 return web.json_response(file_list, headers=headers)
         # list the subfolder or get a file in the folder
         else:
-            file_path = os.path.join(file_info["path"], os.sep.join(name.split("/")[1:]))
+            file_path = os.path.join(
+                file_info["path"], os.sep.join(name.split("/")[1:])
+            )
             if not os.path.exists(file_path):
                 return web.Response(
                     body="File <{file_path}> does not exist".format(
