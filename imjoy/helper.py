@@ -42,8 +42,8 @@ def kill_process(logger, pid):
         return
     logger.info("Killing plugin process (pid=%s)", pid)
     try:
-        cp = psutil.Process(pid)
-        for proc in cp.children(recursive=True):
+        current_process = psutil.Process(pid)
+        for proc in current_process.children(recursive=True):
             try:
                 if proc.is_running():
                     proc.kill()
@@ -53,7 +53,7 @@ def kill_process(logger, pid):
                 logger.error(
                     "Failed to kill a subprocess (pid=%s). Error: %s", pid, exc
                 )
-        cp.kill()
+        current_process.kill()
         logger.info("Plugin process %s was killed.", pid)
     except psutil.NoSuchProcess:
         logger.info("Process %s has already been killed", pid)
