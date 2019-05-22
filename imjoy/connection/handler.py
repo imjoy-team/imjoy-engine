@@ -73,7 +73,7 @@ def register_services(eng, register_event_handler):
 def connect(eng, sid, environ):
     """Connect client."""
     logger = eng.logger
-    logger.info("connect %s", sid)
+    logger.info("Connect %s", sid)
 
 
 async def read_and_forward_terminal_output(eng):
@@ -107,7 +107,7 @@ async def on_start_terminal(eng, sid, kwargs):
     terminal_session = eng.store.terminal_session
     try:
         if sid not in registered_sessions:
-            logger.debug("client %s is not registered.", sid)
+            logger.debug("Client %s is not registered", sid)
             return {"success": False, "error": "client not registered."}
 
         if "child_pid" in terminal_session and "fd" in terminal_session:
@@ -161,9 +161,9 @@ async def on_start_terminal(eng, sid, kwargs):
             set_winsize(fdesc, 50, 50)
             cmd = " ".join(shlex.quote(c) for c in cmd)
             logger.info(
-                "terminal subprocess started, command: %s, pid: %s", cmd, child_pid
+                "Terminal subprocess started, command: %s, pid: %s", cmd, child_pid
             )
-            logger.debug("terminal subprocess %s started", terminal_session)
+            logger.debug("Terminal session %s started", terminal_session)
             if (
                 "output_monitor_running" not in terminal_session
                 or not terminal_session["output_monitor_running"]
@@ -235,7 +235,7 @@ async def on_init_plugin(eng, sid, kwargs):
             obj = registered_sessions[sid]
             client_id, session_id = obj["client"], obj["session"]
         else:
-            logger.debug("client %s is not registered.", sid)
+            logger.debug("Client %s is not registered", sid)
             return {"success": False}
         pid = kwargs["id"]
         config = kwargs.get("config", {})
@@ -252,7 +252,7 @@ async def on_init_plugin(eng, sid, kwargs):
         plugin_env = os.environ.copy()
         plugin_env["WORK_DIR"] = work_dir
         logger.info(
-            "initialize the plugin. name=%s, id=%s, cmd=%s, workspace=%s",
+            "Initialize the plugin, name=%s, id=%s, cmd=%s, workspace=%s",
             pname,
             pid,
             cmd,
@@ -276,7 +276,7 @@ async def on_init_plugin(eng, sid, kwargs):
                     logger.info("Waiting for plugin %s to abort", plugin_info["id"])
                     await plugin_info["aborting"]
                 else:
-                    logger.debug("plugin already initialized: %s", pid)
+                    logger.debug("Plugin already initialized: %s", pid)
                     return {
                         "success": True,
                         "resumed": True,
@@ -286,7 +286,7 @@ async def on_init_plugin(eng, sid, kwargs):
                     }
             else:
                 logger.info(
-                    "failed to resume single instance plugin: %s, %s",
+                    "Failed to resume single instance plugin: %s, %s",
                     pid,
                     plugin_signature,
                 )
@@ -305,7 +305,7 @@ async def on_init_plugin(eng, sid, kwargs):
             "signature": plugin_signature,
             "process_id": None,
         }
-        logger.info("Add plugin: %s", str(plugin_info))
+        logger.info("Add plugin: %s", plugin_info)
         addPlugin(eng, plugin_info)
 
         @sio_on("from_plugin_" + secretKey, namespace=NAME_SPACE)
@@ -318,11 +318,11 @@ async def on_init_plugin(eng, sid, kwargs):
                 "executeFailure",
             ]:
                 await eng.conn.sio.emit("message_from_plugin_" + secretKey, kwargs)
-                logger.debug("message from %s", pid)
+                logger.debug("Message from %s", pid)
                 if kwargs["type"] == "initialized":
                     addPlugin(eng, plugin_info, sid)
                 elif kwargs["type"] == "executeFailure":
-                    logger.info("Killing plugin %s due to exeuction failure.", pid)
+                    logger.info("Killing plugin %s due to exeuction failure", pid)
                     killPlugin(eng, pid)
             else:
                 await eng.conn.sio.emit(
@@ -336,7 +336,7 @@ async def on_init_plugin(eng, sid, kwargs):
         async def message_to_plugin(eng, sid, kwargs):
             if kwargs["type"] == "message":
                 await eng.conn.sio.emit("to_plugin_" + secretKey, kwargs["data"])
-            logger.debug("message to plugin %s", secretKey)
+            logger.debug("Message to plugin %s", secretKey)
 
         eng.conn.register_event_handler(message_to_plugin)
 
@@ -347,8 +347,8 @@ async def on_init_plugin(eng, sid, kwargs):
                 plugin_info["aborting"].set_result(success)
             message = str(message or "")
             logger.info(
-                "disconnecting from plugin (success:%s, message: %s)",
-                str(success),
+                "Disconnecting from plugin (success: %s, message: %s)",
+                success,
                 message,
             )
             coro = eng.conn.sio.emit(
@@ -415,9 +415,9 @@ async def on_reset_engine(eng, sid, kwargs):
     """Reset engine."""
     logger = eng.logger
     registered_sessions = eng.store.registered_sessions
-    logger.info("kill plugin: %s", kwargs)
+    logger.info("Kill plugin: %s", kwargs)
     if sid not in registered_sessions:
-        logger.debug("client %s is not registered.", sid)
+        logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered"}
 
     await killAllPlugins(eng, sid)
@@ -433,9 +433,9 @@ async def on_kill_plugin(eng, sid, kwargs):
     logger = eng.logger
     plugins = eng.store.plugins
     registered_sessions = eng.store.registered_sessions
-    logger.info("kill plugin: %s", kwargs)
+    logger.info("Kill plugin: %s", kwargs)
     if sid not in registered_sessions:
-        logger.debug("client %s is not registered.", sid)
+        logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered"}
 
     pid = kwargs["id"]
@@ -446,7 +446,7 @@ async def on_kill_plugin(eng, sid, kwargs):
 
             def exited(result):
                 obj["force_kill"] = False
-                logger.info("Plugin %s exited normally.", pid)
+                logger.info("Plugin %s exited normally", pid)
                 # kill the plugin now
                 killPlugin(eng, pid)
 
@@ -473,7 +473,7 @@ async def on_register_client(eng, sid, kwargs):
 
     token = kwargs.get("token")
     if token != eng.opt.token:
-        logger.debug("token mismatch: %s != %s", token, eng.opt.token)
+        logger.debug("Token mismatch: %s != %s", token, eng.opt.token)
         if eng.opt.engine_container_token is not None:
             await eng.conn.sio.emit(
                 "message_to_container_" + eng.opt.engine_container_token,
@@ -488,7 +488,7 @@ async def on_register_client(eng, sid, kwargs):
         #         'http://'+opt.host+':'+opt.port+'/about?token='+opt.token,
         #         new=0, autoraise=True)
         # except Exception as exc:
-        #     logger.error("Failed to open the browser: %s.", exc)
+        #     logger.error("Failed to open the browser: %s", exc)
         conn_data.attempt_count += 1
         if conn_data.attempt_count >= MAX_ATTEMPTS:
             logger.info(
@@ -509,7 +509,7 @@ async def on_register_client(eng, sid, kwargs):
             confirmation = False
             message = None
 
-        logger.info("register client: %s", kwargs)
+        logger.info("Register client: %s", kwargs)
 
         engine_info = {"api_version": API_VERSION, "version": __version__}
         engine_info["platform"] = {
@@ -552,7 +552,7 @@ async def on_list_dir(eng, sid, kwargs):
     logger = eng.logger
     registered_sessions = eng.store.registered_sessions
     if sid not in registered_sessions:
-        logger.debug("client %s is not registered.", sid)
+        logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered."}
 
     try:
@@ -579,7 +579,7 @@ async def on_list_dir(eng, sid, kwargs):
 
         return files_list
     except Exception as exc:  # pylint: disable=broad-except
-        logger.error("list dir error: %s", str(exc))
+        logger.error("List dir error: %s", exc)
         return {"success": False, "error": str(exc)}
 
 
@@ -589,9 +589,9 @@ async def on_remove_files(eng, sid, kwargs):
     logger = eng.logger
     registered_sessions = eng.store.registered_sessions
     if sid not in registered_sessions:
-        logger.debug("client %s is not registered.", sid)
+        logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered."}
-    logger.info("removing files: %s", kwargs)
+    logger.info("Removing files: %s", kwargs)
     workspace_dir = os.path.join(
         eng.opt.WORKSPACE_DIR, registered_sessions[sid]["workspace"]
     )
@@ -607,7 +607,7 @@ async def on_remove_files(eng, sid, kwargs):
             os.remove(path)
             return {"success": True}
         except Exception as exc:  # pylint: disable=broad-except
-            logger.error("remove files error: %s", str(exc))
+            logger.error("Remove files error: %s", str(exc))
             return {"success": False, "error": str(exc)}
     elif os.path.exists(path) and os.path.isdir(path) and type_ == "dir":
         try:
@@ -619,10 +619,10 @@ async def on_remove_files(eng, sid, kwargs):
                 os.rmdir(path)
             return {"success": True}
         except Exception as exc:  # pylint: disable=broad-except
-            logger.error("remove files error: %s", str(exc))
+            logger.error("Remove files error: %s", str(exc))
             return {"success": False, "error": str(exc)}
     else:
-        logger.error("remove files error: %s", "File not exists or type mismatch.")
+        logger.error("Remove files error: File does not exists or type mismatch")
         return {"success": False, "error": "File not exists or type mismatch."}
 
 
@@ -633,9 +633,9 @@ async def on_request_upload_url(eng, sid, kwargs):
     registered_sessions = eng.store.registered_sessions
     requestUploadFiles = eng.store.requestUploadFiles
     requestUrls = eng.store.requestUrls
-    logger.info("requesting file upload url: %s", kwargs)
+    logger.info("Requesting file upload url: %s", kwargs)
     if sid not in registered_sessions:
-        logger.debug("client %s is not registered.", sid)
+        logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered"}
 
     urlid = str(uuid.uuid4())
@@ -677,9 +677,9 @@ async def on_get_file_url(eng, sid, kwargs):
     generatedUrlFiles = eng.store.generatedUrlFiles
     generatedUrls = eng.store.generatedUrls
     registered_sessions = eng.store.registered_sessions
-    logger.info("generating file url: %s", kwargs)
+    logger.info("Generating file url: %s", kwargs)
     if sid not in registered_sessions:
-        logger.debug("client %s is not registered.", sid)
+        logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered"}
 
     path = os.path.abspath(os.path.expanduser(kwargs["path"]))
@@ -716,9 +716,9 @@ async def on_get_file_path(eng, sid, kwargs):
     logger = eng.logger
     generatedUrls = eng.store.generatedUrls
     registered_sessions = eng.store.registered_sessions
-    logger.info("generating file url: %s", kwargs)
+    logger.info("Generating file url: %s", kwargs)
     if sid not in registered_sessions:
-        logger.debug("client %s is not registered.", sid)
+        logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered"}
 
     url = kwargs["url"]
@@ -737,7 +737,7 @@ async def on_get_engine_status(eng, sid, kwargs):
     plugins = eng.store.plugins
     registered_sessions = eng.store.registered_sessions
     if sid not in registered_sessions:
-        logger.debug("client %s is not registered.", sid)
+        logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered."}
     psutil = get_psutil()
     if psutil is None:
@@ -773,7 +773,7 @@ async def on_kill_plugin_process(eng, sid, kwargs):
     plugins = eng.store.plugins
     registered_sessions = eng.store.registered_sessions
     if sid not in registered_sessions:
-        logger.debug("client %s is not registered.", sid)
+        logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered."}
     if "all" not in kwargs:
         return {
@@ -781,7 +781,7 @@ async def on_kill_plugin_process(eng, sid, kwargs):
             "error": 'You must provide the pid of the plugin process or "all=true".',
         }
     if kwargs["all"]:
-        logger.info("Killing all the plugins...")
+        logger.info("Killing all the plugins")
         await killAllPlugins(eng, sid)
         return {"success": True}
     else:
@@ -817,4 +817,4 @@ async def disconnect(eng, sid):
     logger = eng.logger
     disconnectClientSession(eng, sid)
     disconnectPlugin(eng, sid)
-    logger.info("disconnect %s", sid)
+    logger.info("Disconnect %s", sid)
