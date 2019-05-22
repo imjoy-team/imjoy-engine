@@ -40,6 +40,7 @@ def killProcess(logger, pid):
     psutil = get_psutil()
     if psutil is None:
         return
+    logger.info("Killing plugin process (pid=%s)", pid)
     try:
         cp = psutil.Process(pid)
         for proc in cp.children(recursive=True):
@@ -47,21 +48,20 @@ def killProcess(logger, pid):
                 if proc.is_running():
                     proc.kill()
             except psutil.NoSuchProcess:
-                logger.info("subprocess %s has already been killed", pid)
+                logger.info("Subprocess %s has already been killed", pid)
             except Exception as exc:  # pylint: disable=broad-except
                 logger.error(
-                    "WARNING: failed to kill a subprocess (PID={}). Error: {}".format(
-                        pid, str(exc)
-                    )
+                    "Failed to kill a subprocess (pid=%s). Error: %s",
+                    pid, exc
                 )
         cp.kill()
-        logger.info("plugin process %s was killed.", pid)
+        logger.info("Plugin process %s was killed.", pid)
     except psutil.NoSuchProcess:
-        logger.info("process %s has already been killed", pid)
+        logger.info("Process %s has already been killed", pid)
     except Exception as exc:  # pylint: disable=broad-except
         logger.error(
-            "WARNING: failed to kill a process (PID={}), "
-            "you may want to kill it manually. Error: {}".format(pid, str(exc))
+            "Failed to kill a process (pid=%s), "
+            "you may want to kill it manually. Error: %s", pid, exc
         )
 
 
