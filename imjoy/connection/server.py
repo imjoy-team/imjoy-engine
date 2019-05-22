@@ -344,9 +344,9 @@ async def on_shutdown(app):
         logger.debug("Plugin engine is killed")
         kill_process(logger, os.getpid())
 
-    t = threading.Thread(target=loop)
-    t.daemon = True  # stop if the program exits
-    t.start()
+    loop_thread = threading.Thread(target=loop)
+    loop_thread.daemon = True  # stop if the program exits
+    loop_thread.start()
 
     # stopped.set()  # TODO: Should we uncomment this?
     logger.info("Plugin engine exited")
