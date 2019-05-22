@@ -160,7 +160,7 @@ async def upload_file(request):
     if urlid not in request_upload_files:
         raise web.HTTPForbidden(text="Invalid URL")
 
-    fileInfo = request_upload_files[urlid]
+    file_info = request_upload_files[urlid]
     try:
         reader = await request.multipart()
         field = None
@@ -174,17 +174,17 @@ async def upload_file(request):
         filename = field.filename
         # You cannot rely on Content-Length if transfer is chunked.
         size = 0
-        if "path" in fileInfo:
-            path = fileInfo["path"]
+        if "path" in file_info:
+            path = file_info["path"]
         else:
             path = filename
 
-        if "dir" in fileInfo:
-            path = os.path.join(fileInfo["dir"], path)
+        if "dir" in file_info:
+            path = os.path.join(file_info["dir"], path)
         else:
-            path = os.path.join(eng.opt.WORKSPACE_DIR, fileInfo["workspace"], path)
+            path = os.path.join(eng.opt.WORKSPACE_DIR, file_info["workspace"], path)
 
-        if os.path.exists(path) and not fileInfo.get("overwrite", False):
+        if os.path.exists(path) and not file_info.get("overwrite", False):
             return web.Response(body="File {} already exists.".format(path), status=404)
 
         logger.info("Uploading file to %s", path)
@@ -198,10 +198,10 @@ async def upload_file(request):
                     break
                 size += len(chunk)
                 fil.write(chunk)
-        fileInfo["size"] = size
-        fileInfo["path"] = path
+        file_info["size"] = size
+        file_info["path"] = path
         logger.info("File saved to %s (size %d)", path, size)
-        return web.json_response(fileInfo)
+        return web.json_response(file_info)
 
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Failed to upload file, error: %s", exc)
@@ -216,20 +216,20 @@ async def download_file(request):
     name = request.match_info["name"]
     if urlid not in generated_urls:
         raise web.HTTPForbidden(text="Invalid URL")
-    fileInfo = generated_urls[urlid]
-    if fileInfo.get("password", False):
+    file_info = generated_urls[urlid]
+    if file_info.get("password", False):
         password = request.match_info.get("password")
-        if password != fileInfo["password"]:
+        if password != file_info["password"]:
             raise web.HTTPForbidden(text="Incorrect password for accessing this file.")
-    headers = fileInfo.get("headers")
+    headers = file_info.get("headers")
     default_headers = {}
-    if fileInfo["type"] == "dir":
+    if file_info["type"] == "dir":
         dirname = os.path.dirname(name)
         # list the folder
         if dirname == "" or dirname is None:
-            if name != fileInfo["name"]:
+            if name != file_info["name"]:
                 raise web.HTTPForbidden(text="File name does not match server record!")
-            folder_path = fileInfo["path"]
+            folder_path = file_info["path"]
             if not os.path.exists(folder_path):
                 return web.Response(
                     body="Folder <{folder_path}> does not exist".format(
@@ -248,7 +248,7 @@ async def download_file(request):
                 return web.json_response(file_list, headers=headers)
         # list the subfolder or get a file in the folder
         else:
-            file_path = os.path.join(fileInfo["path"], os.sep.join(name.split("/")[1:]))
+            file_path = os.path.join(file_info["path"], os.sep.join(name.split("/")[1:]))
             if not os.path.exists(file_path):
                 return web.Response(
                     body="File <{file_path}> does not exist".format(
@@ -283,11 +283,11 @@ async def download_file(request):
                 return web.Response(
                     body=file_sender(file_path=file_path), headers=headers
                 )
-    elif fileInfo["type"] == "file":
-        file_path = fileInfo["path"]
-        if name != fileInfo["name"]:
+    elif file_info["type"] == "file":
+        file_path = file_info["path"]
+        if name != file_info["name"]:
             raise web.HTTPForbidden(text="File name does not match server record!")
-        file_name = fileInfo["name"]
+        file_name = file_info["name"]
         if not os.path.exists(file_path):
             return web.Response(
                 body="File <{file_name}> does not exist".format(file_name=file_path),
@@ -305,7 +305,7 @@ async def download_file(request):
         headers.update(default_headers)
         return web.Response(body=file_sender(file_path=file_path), headers=headers)
     else:
-        raise web.HTTPForbidden(text="Unsupported file type: " + fileInfo["type"])
+        raise web.HTTPForbidden(text="Unsupported file type: " + file_info["type"])
 
 
 async def on_startup(app):
