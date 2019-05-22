@@ -131,9 +131,7 @@ def install_reqs(
 
     def _process_start(pid=None, cmd=None):
         """Run after starting the process."""
-        logging_callback(
-            f"Running requirements subprocess(pid={pid}): {cmd}"
-        )
+        logging_callback(f"Running requirements subprocess(pid={pid}): {cmd}")
         process_start(pid=pid)
 
     logger.info("Running requirements commands: %s", commands)
