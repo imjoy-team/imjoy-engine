@@ -112,7 +112,7 @@ def addPlugin(eng, plugin_info, sid=None):
         plugin_info["sid"] = sid
 
 
-def disconnectPlugin(eng, sid):
+def disconnect_plugin(eng, sid):
     """Disconnect plugin."""
     logger = eng.logger
     plugins = eng.store.plugins

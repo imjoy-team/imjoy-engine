@@ -22,7 +22,7 @@ from imjoy.plugin import (
     addClientSession,
     addPlugin,
     disconnectClientSession,
-    disconnectPlugin,
+    disconnect_plugin,
     force_kill_timeout,
     kill_all_plugins,
     kill_plugin,
@@ -812,5 +812,5 @@ async def disconnect(eng, sid):
     """Disconnect client."""
     logger = eng.logger
     disconnectClientSession(eng, sid)
-    disconnectPlugin(eng, sid)
+    disconnect_plugin(eng, sid)
     logger.info("Disconnect %s", sid)
