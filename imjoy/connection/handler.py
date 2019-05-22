@@ -20,7 +20,7 @@ from imjoy.const import API_VERSION, NAME_SPACE, TEMPLATE_SCRIPT, __version__
 from imjoy.helper import get_psutil, kill_process, scandir
 from imjoy.plugin import (
     addClientSession,
-    addPlugin,
+    add_plugin,
     disconnectClientSession,
     disconnect_plugin,
     force_kill_timeout,
@@ -306,7 +306,7 @@ async def on_init_plugin(eng, sid, kwargs):
             "process_id": None,
         }
         logger.info("Add plugin: %s", plugin_info)
-        addPlugin(eng, plugin_info)
+        add_plugin(eng, plugin_info)
 
         @sio_on("from_plugin_" + secret_key, namespace=NAME_SPACE)
         async def message_from_plugin(eng, sid, kwargs):
@@ -320,7 +320,7 @@ async def on_init_plugin(eng, sid, kwargs):
                 await eng.conn.sio.emit("message_from_plugin_" + secret_key, kwargs)
                 logger.debug("Message from %s", pid)
                 if kwargs["type"] == "initialized":
-                    addPlugin(eng, plugin_info, sid)
+                    add_plugin(eng, plugin_info, sid)
                 elif kwargs["type"] == "executeFailure":
                     logger.info("Killing plugin %s due to exeuction failure", pid)
                     kill_plugin(eng, pid)

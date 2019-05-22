@@ -90,7 +90,7 @@ def disconnectClientSession(eng, sid):
             del plugin_sessions[session_id]
 
 
-def addPlugin(eng, plugin_info, sid=None):
+def add_plugin(eng, plugin_info, sid=None):
     """Add plugin."""
     plugins = eng.store.plugins
     plugin_sessions = eng.store.plugin_sessions
