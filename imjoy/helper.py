@@ -136,7 +136,7 @@ def install_reqs(
         )
         process_start(pid=pid)
 
-    logger.info("Running requirements command: %s", commands)
+    logger.info("Running requirements commands: %s", commands)
     code, errors = run_commands(env, work_dir, commands, _process_start, process_finish)
 
     if code == 0:
@@ -172,7 +172,7 @@ def install_reqs(
     if code != 0:
         fail_install()
 
-    logger.info("Running requirements command: %s", commands)
+    logger.info("Running requirements commands: %s", commands)
     code, errors = run_commands(env, work_dir, commands, _process_start, process_finish)
 
     if code != 0:

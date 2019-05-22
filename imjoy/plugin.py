@@ -21,6 +21,7 @@ from imjoy.helper import (
     killProcess,
     parseEnv,
     parse_reqs,
+    run_commands,
     run_process,
 )
 from imjoy.util import console_to_str, parseRepos
@@ -357,28 +358,16 @@ def launch_plugin(
 
         if not opt.freeze:
             psutil_cmds = parse_reqs(REQ_PSUTIL)
-            code, _ = run_process(
-                psutil_cmds,
-                process_start=process_start,
-                process_finish=process_finish,
-                shell=True,
-                stderr=None,
-                env=plugin_env,
-                cwd=work_dir,
+            code, _ = run_commands(
+                plugin_env, work_dir, psutil_cmds, process_start, process_finish
             )
         if not opt.freeze and code and opt.CONDA_AVAILABLE and venv_name is not None:
             psutil_cmds = parse_reqs(REQ_PSUTIL_CONDA, conda=opt.CONDA_AVAILABLE)
             psutil_cmds = apply_conda_activate(
                 psutil_cmds, opt.conda_activate, venv_name
             )
-            code, _ = run_process(
-                psutil_cmds,
-                process_start=process_start,
-                process_finish=process_finish,
-                shell=True,
-                stderr=None,
-                env=plugin_env,
-                cwd=work_dir,
+            code, _ = run_commands(
+                plugin_env, work_dir, psutil_cmds, process_start, process_finish
             )
 
     except Exception:  # pylint: disable=broad-except
