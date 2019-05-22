@@ -228,9 +228,11 @@ def launch_plugin(
         logging_callback("plugin aborting...")
         return False
     venv_name = None
+    progress = 0
     try:
         repos = parseRepos(requirements, work_dir)
-        logging_callback(2, type="progress")
+        progress = 5
+        logging_callback(progress, type="progress")
         for k, r in enumerate(repos):
             try:
                 print("Cloning repo " + r["url"] + " to " + r["repo_dir"])
@@ -247,7 +249,8 @@ def launch_plugin(
                         + r["repo_dir"]
                     )
                     runCmd(eng, cmd.split(" "), cwd=work_dir, plugin_id=plugin_id)
-                logging_callback(k * 5, type="progress")
+                progress += int(20 / len(repos))
+                logging_callback(progress, type="progress")
             except Exception as ex:  # pylint: disable=broad-except
                 logging_callback(
                     "Failed to obtain the git repo: " + str(ex), type="error"
@@ -294,7 +297,8 @@ def launch_plugin(
                         if errors is not None:
                             logging_callback(str(errors, "utf-8"), type="error")
 
-                        logging_callback(30, type="progress")
+                        progress += int(5 / len(envs))
+                        logging_callback(progress, type="progress")
                     else:
                         logger.debug("skip command: %s", env)
                         logging_callback("skip env command: " + env)
@@ -336,7 +340,10 @@ def launch_plugin(
 
         def process_finish(cmd=None, **kwargs):
             """Notify when an install process command has finished."""
-            logger.warning("Finished running: %s", cmd)
+            logger.debug("Finished running: %s", cmd)
+            nonlocal progress
+            progress += int(60 / len(reqs_cmds))
+            logging_callback(progress, type="progress")
 
         install_reqs(
             eng,
@@ -408,7 +415,8 @@ def launch_plugin(
     kwargs = {}
     if sys.platform != "win32":
         kwargs.update(preexec_fn=os.setsid)
-    logging_callback(100, type="progress")
+    progress = 100
+    logging_callback(progress, type="progress")
     try:
         _env = plugin_env.copy()
         _env.update(environment_variables)
@@ -428,7 +436,8 @@ def launch_plugin(
         # Poll process for new output until finished
         stdfn = sys.stdout.fileno()
 
-        logging_callback(0, type="progress")
+        progress = 0
+        logging_callback(progress, type="progress")
 
         while True:
             out = process.stdout.read(1)
