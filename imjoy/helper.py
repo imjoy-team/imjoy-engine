@@ -11,7 +11,7 @@ from pathlib import Path
 import yaml
 
 
-class dotdict(dict):
+class dotdict(dict):  # pylint: disable=invalid-name
     """Access dictionary attributes with dot.notation."""
 
     __getattr__ = dict.get
