@@ -156,12 +156,12 @@ async def upload_file(request):
     """Upload file."""
     eng = request.app[ENG]
     logger = eng.logger
-    requestUploadFiles = eng.store.requestUploadFiles
+    request_upload_files = eng.store.request_upload_files
     urlid = request.match_info["urlid"]  # Could be a HUGE file
-    if urlid not in requestUploadFiles:
+    if urlid not in request_upload_files:
         raise web.HTTPForbidden(text="Invalid URL")
 
-    fileInfo = requestUploadFiles[urlid]
+    fileInfo = request_upload_files[urlid]
     try:
         reader = await request.multipart()
         field = None

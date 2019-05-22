@@ -629,7 +629,7 @@ async def on_request_upload_url(eng, sid, kwargs):
     """Request upload url."""
     logger = eng.logger
     registered_sessions = eng.store.registered_sessions
-    requestUploadFiles = eng.store.requestUploadFiles
+    request_upload_files = eng.store.request_upload_files
     request_urls = eng.store.request_urls
     logger.info("Requesting file upload url: %s", kwargs)
     if sid not in registered_sessions:
@@ -664,7 +664,7 @@ async def on_request_upload_url(eng, sid, kwargs):
     base_url = kwargs.get("base_url", registered_sessions[sid]["base_url"])
     url = "{}/upload/{}".format(base_url, urlid)
     request_urls[url] = file_info
-    requestUploadFiles[urlid] = file_info
+    request_upload_files[urlid] = file_info
     return {"success": True, "id": urlid, "url": url}
 
 

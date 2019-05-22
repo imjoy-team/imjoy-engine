@@ -63,7 +63,7 @@ class ConnectionManager:
 
         self.store.generated_urls = {}
         self.store.generated_url_files = {}
-        self.store.requestUploadFiles = {}
+        self.store.request_upload_files = {}
         self.store.request_urls = {}
         self.store.terminal_session = {}
 
