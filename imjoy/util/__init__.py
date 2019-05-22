@@ -40,8 +40,8 @@ def parse_repos(requirements, work_dir):
         requirements = [str(req) for req in requirements]
         for req in requirements:
             if ":" in req:
-                rs = req.split(":")
-                tp, libs = rs[0], ":".join(rs[1:])
+                req_parts = req.split(":")
+                tp, libs = req_parts[0], ":".join(req_parts[1:])
                 tp, libs = tp.strip(), libs.strip()
                 libs = [l.strip() for l in libs.split(" ") if l.strip() != ""]
                 if tp == "repo" and len(libs) > 0:
