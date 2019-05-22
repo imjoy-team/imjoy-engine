@@ -14,7 +14,7 @@ def main():
     opt = parse_cmd_line()
     if opt.dev:
         print("Running ImJoy Plugin Engine in development mode")
-        from .imjoyPluginEngine import main
+        from .engine import main
 
         main()
         return
@@ -62,7 +62,7 @@ def main():
 
         # reload to use the new version
         importlib.reload(imjoy)
-        from imjoy.imjoyPluginEngine import main
+        from imjoy.engine import main
 
         main()
     else:
