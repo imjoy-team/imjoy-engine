@@ -190,11 +190,11 @@ async def kill_all_plugins(eng, ssid):
     return asyncio.gather(*tasks)
 
 
-async def force_kill_timeout(eng, t, obj):
+async def force_kill_timeout(eng, timeout, obj):
     """Force kill plugin after timeout."""
     logger = eng.logger
     pid = obj["pid"]
-    for _ in range(int(t * 10)):
+    for _ in range(int(timeout * 10)):
         if obj["force_kill"]:
             await asyncio.sleep(0.1)
         else:
