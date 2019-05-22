@@ -50,7 +50,7 @@ async def handle_method_py3(conn, job, logger):
                 resolve(result)
             except Exception:  # pylint: disable=broad-except
                 traceback_error = traceback.format_exc()
-                logger.error("error in method %s: %s", job["name"], traceback_error)
+                logger.error("Error in method %s: %s", job["name"], traceback_error)
                 reject(Exception(formatTraceback(traceback_error)))
         else:
             try:
@@ -62,7 +62,7 @@ async def handle_method_py3(conn, job, logger):
                     await result
             except Exception:  # pylint: disable=broad-except
                 logger.error(
-                    "error in method %s: %s", job["name"], traceback.format_exc()
+                    "Error in method %s: %s", job["name"], traceback.format_exc()
                 )
     else:
         raise Exception("method " + job["name"] + " is not found.")
@@ -89,7 +89,7 @@ async def handle_callback_py3(conn, job, logger):
             resolve(result)
         except Exception:  # pylint: disable=broad-except
             traceback_error = traceback.format_exc()
-            logger.error("error in method %s: %s", job["num"], traceback_error)
+            logger.error("Error in method %s: %s", job["num"], traceback_error)
             reject(Exception(formatTraceback(traceback_error)))
     else:
         try:
@@ -106,4 +106,4 @@ async def handle_callback_py3(conn, job, logger):
             if result is not None and inspect.isawaitable(result):
                 await result
         except Exception:  # pylint: disable=broad-except
-            logger.error("error in method %s: %s", job["num"], traceback.format_exc())
+            logger.error("Error in method %s: %s", job["num"], traceback.format_exc())
