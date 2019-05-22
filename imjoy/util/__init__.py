@@ -56,11 +56,11 @@ def parse_repos(requirements, work_dir):
     return repos
 
 
-def console_to_str(s):
+def console_to_str(string_):
     """From pypa/pip project, pip.backwardwardcompat. License MIT."""
     try:
-        return s.decode(sys.__stdout__.encoding)
+        return string_.decode(sys.__stdout__.encoding)
     except UnicodeDecodeError:
-        return s.decode("utf_8")
+        return string_.decode("utf_8")
     except AttributeError:  # for tests, #13
-        return s
+        return string_
