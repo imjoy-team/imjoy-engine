@@ -32,7 +32,7 @@ def main():
         )
         cout, _ = process.communicate()
         conda_prefix = json.loads(cout.decode("ascii"))["conda_prefix"]
-        print("Found conda environment: " + conda_prefix)
+        print("Found conda environment: {}".format(conda_prefix))
         CONDA_AVAILABLE = True
         if os.name == "nt":
             os.environ["PATH"] = (
@@ -44,13 +44,13 @@ def main():
         if sys.version_info > (3, 0):
             print(
                 "WARNING: you are running ImJoy without conda, "
-                "you may have problem with some plugins."
+                "you may have problem with some plugins"
             )
         conda_prefix = None
 
     if sys.version_info > (3, 0):
         # running in python 3
-        print("Upgrading ImJoy Plugin Engine...")
+        print("Upgrading ImJoy Plugin Engine")
         ret = subprocess.Popen(
             "pip install -U "
             "git+https://github.com/oeway/ImJoy-Engine#egg=imjoy".split(),
@@ -58,7 +58,7 @@ def main():
             shell=False,
         ).wait()
         if ret != 0:
-            print("Failed to upgrade ImJoy Plugin Engine.")
+            print("Failed to upgrade ImJoy Plugin Engine")
 
         # reload to use the new version
         importlib.reload(imjoy)
@@ -67,7 +67,7 @@ def main():
         main()
     else:
         # running in python 2
-        print("ImJoy needs to run in Python 3.6+, bootstrapping with conda ...")
+        print("ImJoy needs to run in Python 3.6+, bootstrapping with conda")
         imjoy_requirements = [
             "requests",
             "six",
@@ -85,12 +85,12 @@ def main():
         if ret == 0:
             print(
                 "conda environment is now ready, "
-                "installing pip requirements and start the engine..."
+                "installing pip requirements and starting the engine"
             )
         else:
             print(
                 "conda environment failed to setup, maybe it already exists. "
-                "Otherwise, please make sure you are running in a conda environment..."
+                "Otherwise, please make sure you are running in a conda environment"
             )
         requirements = imjoy_requirements
         pip_cmd = "pip install -U " + " ".join(requirements)
@@ -123,19 +123,19 @@ def main():
             if distutils.spawn.find_executable("pip") is None:
                 git_cmd += " pip"
             if git_cmd != "":
-                print("pip command failed, trying to install git and pip...")
+                print("pip command failed, trying to install git and pip")
                 # try to install git and pip
                 git_cmd = "conda install -y" + git_cmd
                 ret = subprocess.Popen(git_cmd.split(), shell=False).wait()
                 if ret != 0:
                     raise Exception(
-                        "Failed to install git/pip and dependencies with exit code: "
-                        + str(ret)
+                        "Failed to install git/pip and dependencies "
+                        "with exit code: {}".format(ret)
                     )
                 else:
                     ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
                     if ret != 0:
-                        print("ImJoy failed with exit code: " + str(ret))
+                        print("ImJoy failed with exit code: {}".format(ret))
                         sys.exit(2)
 
 
