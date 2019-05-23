@@ -166,46 +166,46 @@ class PluginConnection:
         else:
             sys.exit(0)
 
-    def _encode(self, aObject):
+    def _encode(self, a_object):
         """Encode object."""
-        if aObject is None:
-            return aObject
-        if type(aObject) is tuple:
-            aObject = list(aObject)
-        isarray = type(aObject) is list
+        if a_object is None:
+            return a_object
+        if type(a_object) is tuple:
+            a_object = list(a_object)
+        isarray = type(a_object) is list
         bObject = [] if isarray else {}
         # skip if already encoded
         if (
-            type(aObject) is dict
-            and "__jailed_type__" in aObject
-            and "__value__" in aObject
+            type(a_object) is dict
+            and "__jailed_type__" in a_object
+            and "__value__" in a_object
         ):
-            return aObject
+            return a_object
 
         # encode interfaces
         if (
-            type(aObject) is dict
-            and "__id__" in aObject
-            and "__jailed_type__" in aObject
-            and aObject["__jailed_type__"] == "plugin_api"
+            type(a_object) is dict
+            and "__id__" in a_object
+            and "__jailed_type__" in a_object
+            and a_object["__jailed_type__"] == "plugin_api"
         ):
             encoded_interface = {}
-            for k in aObject.keys():
-                v = aObject[k]
+            for k in a_object.keys():
+                v = a_object[k]
                 if callable(v):
                     bObject[k] = {
                         "__jailed_type__": "plugin_interface",
-                        "__plugin_id__": aObject["__id__"],
+                        "__plugin_id__": a_object["__id__"],
                         "__value__": k,
                         "num": None,
                     }
                     encoded_interface[k] = v
-            self.plugin_interfaces[aObject["__id__"]] = encoded_interface
+            self.plugin_interfaces[a_object["__id__"]] = encoded_interface
             return bObject
 
-        keys = range(len(aObject)) if isarray else aObject.keys()
+        keys = range(len(a_object)) if isarray else a_object.keys()
         for k in keys:
-            v = aObject[k]
+            v = a_object[k]
             try:
                 basestring
             except NameError:
@@ -274,66 +274,66 @@ class PluginConnection:
 
         return bObject
 
-    def _decode(self, aObject, callbackId, withPromise):
+    def _decode(self, a_object, callbackId, withPromise):
         """Decode object."""
-        if aObject is None:
-            return aObject
-        if "__jailed_type__" in aObject and "__value__" in aObject:
-            if aObject["__jailed_type__"] == "callback":
+        if a_object is None:
+            return a_object
+        if "__jailed_type__" in a_object and "__value__" in a_object:
+            if a_object["__jailed_type__"] == "callback":
                 bObject = self._genRemoteCallback(
-                    callbackId, aObject["num"], withPromise
+                    callbackId, a_object["num"], withPromise
                 )
-            elif aObject["__jailed_type__"] == "interface":
-                name = aObject["__value__"]
+            elif a_object["__jailed_type__"] == "interface":
+                name = a_object["__value__"]
                 if name in self._remote:
                     bObject = self._remote[name]
                 else:
                     bObject = self._genRemoteMethod(name)
-            elif aObject["__jailed_type__"] == "plugin_interface":
+            elif a_object["__jailed_type__"] == "plugin_interface":
                 bObject = self._genRemoteMethod(
-                    aObject["__value__"], aObject["__plugin_id__"]
+                    a_object["__value__"], a_object["__plugin_id__"]
                 )
-            elif aObject["__jailed_type__"] == "ndarray":
+            elif a_object["__jailed_type__"] == "ndarray":
                 # create build array/tensor if used in the plugin
                 try:
                     np = self.local["np"]
-                    if isinstance(aObject["__value__"], bytearray):
-                        aObject["__value__"] = aObject["__value__"]
-                    elif isinstance(aObject["__value__"], list) or isinstance(
-                        aObject["__value__"], tuple
+                    if isinstance(a_object["__value__"], bytearray):
+                        a_object["__value__"] = a_object["__value__"]
+                    elif isinstance(a_object["__value__"], list) or isinstance(
+                        a_object["__value__"], tuple
                     ):
-                        aObject["__value__"] = reduce(
-                            (lambda x, y: x + y), aObject["__value__"]
+                        a_object["__value__"] = reduce(
+                            (lambda x, y: x + y), a_object["__value__"]
                         )
                     else:
                         raise Exception(
                             "Unsupported data type: ",
-                            type(aObject["__value__"]),
-                            aObject["__value__"],
+                            type(a_object["__value__"]),
+                            a_object["__value__"],
                         )
                     bObject = np.frombuffer(
-                        aObject["__value__"], dtype=aObject["__dtype__"]
-                    ).reshape(tuple(aObject["__shape__"]))
+                        a_object["__value__"], dtype=a_object["__dtype__"]
+                    ).reshape(tuple(a_object["__shape__"]))
                 except Exception as exc:
                     logger.debug("Error in converting: %s", exc)
-                    bObject = aObject
+                    bObject = a_object
                     raise exc
-            elif aObject["__jailed_type__"] == "error":
-                bObject = Exception(aObject["__value__"])
-            elif aObject["__jailed_type__"] == "argument":
-                bObject = aObject["__value__"]
+            elif a_object["__jailed_type__"] == "error":
+                bObject = Exception(a_object["__value__"])
+            elif a_object["__jailed_type__"] == "argument":
+                bObject = a_object["__value__"]
             else:
-                bObject = aObject["__value__"]
+                bObject = a_object["__value__"]
             return bObject
         else:
-            if isinstance(aObject, tuple):
-                aObject = list(aObject)
-            isarray = isinstance(aObject, list)
+            if isinstance(a_object, tuple):
+                a_object = list(a_object)
+            isarray = isinstance(a_object, list)
             bObject = [] if isarray else dotdict()
-            keys = range(len(aObject)) if isarray else aObject.keys()
+            keys = range(len(a_object)) if isarray else a_object.keys()
             for k in keys:
-                if isarray or k in aObject:
-                    v = aObject[k]
+                if isarray or k in a_object:
+                    v = a_object[k]
                     if isinstance(v, dict) or isinstance(v, list):
                         if isarray:
                             bObject.append(self._decode(v, callbackId, withPromise))
