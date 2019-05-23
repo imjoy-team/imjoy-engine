@@ -189,7 +189,7 @@ async def upload_file(request):
         if "dir" in file_info:
             path = os.path.join(file_info["dir"], path)
         else:
-            path = os.path.join(engine.opt.WORKSPACE_DIR, file_info["workspace"], path)
+            path = os.path.join(engine.opt.workspace_dir, file_info["workspace"], path)
 
         if os.path.exists(path) and not file_info.get("overwrite", False):
             return web.Response(body="File {} already exists.".format(path), status=404)
@@ -351,7 +351,7 @@ async def on_shutdown(app):
 
     # stopped.set()  # TODO: Should we uncomment this?
     logger.info("Plugin engine exited")
-    pid_file = os.path.join(engine.opt.WORKSPACE_DIR, ".pid")
+    pid_file = os.path.join(engine.opt.workspace_dir, ".pid")
     try:
         os.remove(pid_file)
     except Exception:  # pylint: disable=broad-except

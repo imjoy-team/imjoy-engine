@@ -79,14 +79,14 @@ def bootstrap(opt, logger):
             "this means you need to handle all the plugin requirements yourself"
         )
 
-    opt.WORKSPACE_DIR = os.path.expanduser(opt.workspace)
-    if not os.path.exists(opt.WORKSPACE_DIR):
-        os.makedirs(opt.WORKSPACE_DIR)
+    opt.workspace_dir = os.path.expanduser(opt.workspace)
+    if not os.path.exists(opt.workspace_dir):
+        os.makedirs(opt.workspace_dir)
 
     # read token from file if exists
     try:
         if opt.token is None or opt.token == "":
-            with open(os.path.join(opt.WORKSPACE_DIR, ".token"), "r") as fil:
+            with open(os.path.join(opt.workspace_dir, ".token"), "r") as fil:
                 opt.token = fil.read()
     except Exception:  # pylint: disable=broad-except
         logger.debug("Failed to read token from file")
@@ -94,13 +94,13 @@ def bootstrap(opt, logger):
     try:
         if opt.token is None or opt.token == "":
             opt.token = str(uuid.uuid4())
-            with open(os.path.join(opt.WORKSPACE_DIR, ".token"), "w") as fil:
+            with open(os.path.join(opt.workspace_dir, ".token"), "w") as fil:
                 fil.write(opt.token)
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Failed to save .token file: %s", str(exc))
 
     # try to kill last process
-    pid_file = os.path.join(opt.WORKSPACE_DIR, ".pid")
+    pid_file = os.path.join(opt.workspace_dir, ".pid")
     try:
         if os.path.exists(pid_file):
             with open(pid_file, "r") as fil:
@@ -114,7 +114,7 @@ def bootstrap(opt, logger):
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Failed to save .pid file: %s", str(exc))
 
-    opt.WEB_APP_DIR = os.path.join(opt.WORKSPACE_DIR, "__ImJoy__")
+    opt.WEB_APP_DIR = os.path.join(opt.workspace_dir, "__ImJoy__")
     if opt.serve:
         if shutil.which("git") is None:
             logger.info("Installing git")
@@ -151,7 +151,7 @@ def bootstrap(opt, logger):
                 "git clone -b gh-pages --depth 1 "
                 "https://github.com/oeway/ImJoy __ImJoy__".split(),
                 shell=False,
-                cwd=opt.WORKSPACE_DIR,
+                cwd=opt.workspace_dir,
             ).wait()
             if ret != 0:
                 logger.error(
