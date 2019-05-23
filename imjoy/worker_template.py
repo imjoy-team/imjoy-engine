@@ -401,7 +401,7 @@ class PluginConnection:
     def _genRemoteMethod(self, name, plugin_id=None):
         """Return remote method."""
 
-        def remoteMethod(*arguments, **kwargs):
+        def remote_method(*arguments, **kwargs):
             # wrap keywords to a dictionary and pass to the first argument
             if len(arguments) == 0 and len(kwargs) > 0:
                 arguments = [kwargs]
@@ -423,8 +423,8 @@ class PluginConnection:
             else:
                 return Promise(pfunc)
 
-        remoteMethod.__remote_method = True
-        return remoteMethod
+        remote_method.__remote_method = True
+        return remote_method
 
     def _gen_remote_callback(self, id_, arg_num, with_promise):
         """Return remote callback."""
