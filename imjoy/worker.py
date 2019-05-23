@@ -3,7 +3,7 @@ import traceback
 import sys
 import time
 
-from worker_utils import formatTraceback
+from worker_utils import format_traceback
 from util import Registry
 
 try:
@@ -101,7 +101,7 @@ def handle_method(conn, job, logger):
             except Exception:  # pylint: disable=broad-except
                 traceback_error = traceback.format_exc()
                 logger.error("Error in method %s: %s", job["name"], traceback_error)
-                reject(Exception(formatTraceback(traceback_error)))
+                reject(Exception(format_traceback(traceback_error)))
         else:
             try:
                 method = interface[job["name"]]
@@ -136,7 +136,7 @@ def handle_callback(conn, job, logger):
         except Exception:  # pylint: disable=broad-except
             traceback_error = traceback.format_exc()
             logger.error("Error in method %s: %s", job["num"], traceback_error)
-            reject(Exception(formatTraceback(traceback_error)))
+            reject(Exception(format_traceback(traceback_error)))
     else:
         try:
             method = conn.store.fetch(job["num"])

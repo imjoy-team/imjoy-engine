@@ -10,7 +10,7 @@ from functools import reduce
 from types import ModuleType
 
 from imjoySocketIO_client import LoggingNamespace, SocketIO, find_callback
-from worker_utils import ReferenceStore, debounce, dotdict, get_psutil, setInterval
+from worker_utils import ReferenceStore, debounce, dotdict, get_psutil, set_interval
 
 if sys.version_info >= (3, 0):
     import asyncio
@@ -74,7 +74,7 @@ def ndarray(typedArray, shape, dtype):
 
 
 api_utils = dotdict(
-    ndarray=ndarray, kill=kill, debounce=debounce, setInterval=setInterval
+    ndarray=ndarray, kill=kill, debounce=debounce, set_interval=set_interval
 )
 
 

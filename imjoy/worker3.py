@@ -3,7 +3,7 @@ import inspect
 import sys
 import traceback
 
-from worker_utils import formatTraceback
+from worker_utils import format_traceback
 from worker_utils3 import make_coro
 from util import Registry
 from worker import JOB_HANDLERS
@@ -51,7 +51,7 @@ async def handle_method_py3(conn, job, logger):
             except Exception:  # pylint: disable=broad-except
                 traceback_error = traceback.format_exc()
                 logger.error("Error in method %s: %s", job["name"], traceback_error)
-                reject(Exception(formatTraceback(traceback_error)))
+                reject(Exception(format_traceback(traceback_error)))
         else:
             try:
                 method = conn.interface[job["name"]]
@@ -90,7 +90,7 @@ async def handle_callback_py3(conn, job, logger):
         except Exception:  # pylint: disable=broad-except
             traceback_error = traceback.format_exc()
             logger.error("Error in method %s: %s", job["num"], traceback_error)
-            reject(Exception(formatTraceback(traceback_error)))
+            reject(Exception(format_traceback(traceback_error)))
     else:
         try:
             method = conn.store.fetch(job["num"])

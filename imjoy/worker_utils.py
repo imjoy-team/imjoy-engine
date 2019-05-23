@@ -18,16 +18,16 @@ def get_psutil():
         return None
 
 
-def debounce(s):
+def debounce(secs):
     """Decorate to ensure function can only be called once every `s` seconds."""
 
-    def decorate(f):
-        d = {"t": None}
+    def decorate(func):
+        store = {"t": None}
 
         def wrapped(*args, **kwargs):
-            if d["t"] is None or time.time() - d["t"] >= s:
-                result = f(*args, **kwargs)
-                d["t"] = time.time()
+            if store["t"] is None or time.time() - store["t"] >= secs:
+                result = func(*args, **kwargs)
+                store["t"] = time.time()
                 return result
 
         return wrapped
@@ -35,7 +35,7 @@ def debounce(s):
     return decorate
 
 
-def setInterval(interval):
+def set_interval(interval):
     """Set interval."""
 
     def decorator(function):
@@ -46,9 +46,9 @@ def setInterval(interval):
                 while not stopped.wait(interval):  # until stopped
                     function(*args, **kwargs)
 
-            t = threading.Thread(target=loop)
-            t.daemon = True  # stop if the program exits
-            t.start()
+            thread = threading.Thread(target=loop)
+            thread.daemon = True  # stop if the program exits
+            thread.start()
             return stopped
 
         return wrapper
@@ -56,7 +56,7 @@ def setInterval(interval):
     return decorator
 
 
-class dotdict(dict):
+class dotdict(dict):  # pylint: disable=invalid-name
     """Access dictionary attributes with dot.notation."""
 
     __getattr__ = dict.get
@@ -68,15 +68,16 @@ class dotdict(dict):
         return dotdict(copy.deepcopy(dict(self), memo=memo))
 
 
-def getKeyByValue(d, value):
+def get_key_by_value(dict_, value):
     """Return key by value."""
-    for k, v in d.items():
-        if value == v:
-            return k
+    for key, val in dict_.items():
+        if value == val:
+            return key
     return None
 
 
-def formatTraceback(traceback_string):
+def format_traceback(traceback_string):
+    """Format traceback."""
     formatted_lines = traceback_string.splitlines()
     # remove the second and third line
     formatted_lines.pop(1)
@@ -95,25 +96,25 @@ class ReferenceStore:
         """Set up store."""
         self._store = {}
 
-    def _genId(self):
+    def _gen_id(self):
         """Generate an id."""
         return str(uuid.uuid4())
 
     def put(self, obj):
         """Put an object into the store."""
-        id = self._genId()
-        self._store[id] = obj
-        return id
+        id_ = self._gen_id()
+        self._store[id_] = obj
+        return id_
 
-    def fetch(self, id):
+    def fetch(self, search_id):
         """Fetch an object from the store by id."""
-        if id not in self._store:
+        if search_id not in self._store:
             return None
-        obj = self._store[id]
+        obj = self._store[search_id]
         if not hasattr(obj, "__remote_method"):
-            del self._store[id]
+            del self._store[search_id]
         if hasattr(obj, "__jailed_pairs__"):
-            _id = getKeyByValue(self._store, obj.__jailed_pairs__)
+            _id = get_key_by_value(self._store, obj.__jailed_pairs__)
             self.fetch(_id)
         return obj
 
@@ -140,11 +141,11 @@ class Promise(object):
         try:
             if self._resolve_handler:
                 self._resolve_handler(result)
-        except Exception as e:
+        except Exception as exc:  # pylint: disable=broad-except
             if self._catch_handler:
-                self._catch_handler(e)
+                self._catch_handler(exc)
             elif not self._finally_handler:
-                print("Uncaught Exception: {}".format(e))
+                print("Uncaught Exception: {}".format(exc))
         finally:
             if self._finally_handler:
                 self._finally_handler()
