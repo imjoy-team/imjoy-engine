@@ -506,10 +506,10 @@ class PluginConnection:
         self.local["api"] = _remote
 
         # make a fake module with api
-        m = ModuleType("imjoy")
-        sys.modules[m.__name__] = m
-        m.__file__ = m.__name__ + ".py"
-        m.api = _remote
+        mod = ModuleType("imjoy")
+        sys.modules[mod.__name__] = mod
+        mod.__file__ = mod.__name__ + ".py"
+        mod.api = _remote
 
     def sio_plugin_message(self, *args):
         """Handle plugin message."""
