@@ -86,7 +86,7 @@ class PluginConnection:
         pid,
         secret,
         server,
-        queue=None,
+        job_queue=None,
         loop=None,
         worker=None,
         namespace="/",
@@ -122,7 +122,7 @@ class PluginConnection:
         self.remote_set = False
         self.store = ReferenceStore()
         self.executed = False
-        self.queue = queue
+        self.queue = job_queue
         self.loop = loop
 
         self.init = False
@@ -581,7 +581,7 @@ if __name__ == "__main__":
         opt.secret,
         server=opt.server,
         work_dir=opt.work_dir,
-        queue=q,
+        job_queue=q,
         loop=event_loop,
         worker=task_worker,
     )
