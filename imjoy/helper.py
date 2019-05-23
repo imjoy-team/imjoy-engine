@@ -64,7 +64,7 @@ def killProcess(logger, pid):
         )
 
 
-def parse_reqs(reqs, conda=False):
+def parse_requirements(reqs, conda=False):
     """Parse requirements.
 
     Return a list of commands to install the requirements.
