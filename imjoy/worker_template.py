@@ -91,15 +91,15 @@ class PluginConnection:
             if not os.path.exists(self.work_dir):
                 os.makedirs(self.work_dir)
             os.chdir(self.work_dir)
-        socketIO = SocketIO(server, Namespace=LoggingNamespace)
-        self.socketIO = socketIO
+        socket_io = SocketIO(server, Namespace=LoggingNamespace)
+        self.socket_io = socket_io
         self.init = False
         self.secret = secret
         self.id = pid
         self.daemon = daemon
 
         def emit(msg):
-            socketIO.emit("from_plugin_" + secret, msg)
+            socket_io.emit("from_plugin_" + secret, msg)
 
         self.emit = emit
 
@@ -116,7 +116,7 @@ class PluginConnection:
 
         self.init = False
         sys.stdout.flush()
-        socketIO.on("to_plugin_" + secret, self.sio_plugin_message)
+        socket_io.on("to_plugin_" + secret, self.sio_plugin_message)
         self.emit({"type": "initialized", "dedicatedThread": True})
         logger.info("Plugin %s initialized", pid)
 
@@ -124,7 +124,7 @@ class PluginConnection:
             if not self.daemon:
                 self.exit(1)
 
-        socketIO.on("disconnect", on_disconnect)
+        socket_io.on("disconnect", on_disconnect)
         self.abort = threading.Event()
         self.worker = worker
 
@@ -132,7 +132,7 @@ class PluginConnection:
         """Wait forever."""
         if PYTHON3:
             self.sync_q = self.queue.sync_q
-            fut = self.loop.run_in_executor(None, self.socketIO.wait)
+            fut = self.loop.run_in_executor(None, self.socket_io.wait)
             t = [
                 self.worker(self, self.queue.async_q, logger, self.abort)
                 for i in range(10)
@@ -141,7 +141,7 @@ class PluginConnection:
             self.loop.run_until_complete(fut)
         else:
             self.sync_q = queue.Queue()
-            t = threading.Thread(target=self.socketIO.wait)
+            t = threading.Thread(target=self.socket_io.wait)
             t.daemon = True
             t.start()
             self.worker(self, self.sync_q, logger, self.abort)
