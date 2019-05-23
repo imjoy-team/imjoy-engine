@@ -44,22 +44,22 @@ def setup_router(engine, app):
     # pylint: disable=unused-argument
     logger = engine.logger
     if engine.opt.serve and os.path.exists(
-        os.path.join(engine.opt.WEB_APP_DIR, "index.html")
+        os.path.join(engine.opt.web_app_dir, "index.html")
     ):
 
         async def index(request):
             """Serve the client-side application."""
             with open(
-                os.path.join(engine.opt.WEB_APP_DIR, "index.html"),
+                os.path.join(engine.opt.web_app_dir, "index.html"),
                 "r",
                 encoding="utf-8",
             ) as fil:
                 return web.Response(text=fil.read(), content_type="text/html")
 
         app.router.add_static(
-            "/static", path=str(os.path.join(engine.opt.WEB_APP_DIR, "static"))
+            "/static", path=str(os.path.join(engine.opt.web_app_dir, "static"))
         )
-        # app.router.add_static('/docs/', path=str(os.path.join(WEB_APP_DIR, 'docs')))
+        # app.router.add_static('/docs/', path=str(os.path.join(web_app_dir, 'docs')))
 
         async def docs_handler(request):
             """Handle docs."""

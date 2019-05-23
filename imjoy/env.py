@@ -114,7 +114,7 @@ def bootstrap(opt, logger):
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Failed to save .pid file: %s", str(exc))
 
-    opt.WEB_APP_DIR = os.path.join(opt.workspace_dir, "__ImJoy__")
+    opt.web_app_dir = os.path.join(opt.workspace_dir, "__ImJoy__")
     if opt.serve:
         if shutil.which("git") is None:
             logger.info("Installing git")
@@ -129,23 +129,23 @@ def bootstrap(opt, logger):
                     "please check whether you have internet access"
                 )
                 sys.exit(3)
-        if os.path.exists(opt.WEB_APP_DIR) and os.path.isdir(opt.WEB_APP_DIR):
+        if os.path.exists(opt.web_app_dir) and os.path.isdir(opt.web_app_dir):
             ret = subprocess.Popen(
-                ["git", "stash"], cwd=opt.WEB_APP_DIR, shell=False
+                ["git", "stash"], cwd=opt.web_app_dir, shell=False
             ).wait()
             if ret != 0:
                 logger.error("Failed to clean files locally")
             ret = subprocess.Popen(
-                ["git", "pull", "--all"], cwd=opt.WEB_APP_DIR, shell=False
+                ["git", "pull", "--all"], cwd=opt.web_app_dir, shell=False
             ).wait()
             if ret != 0:
                 logger.error("Failed to pull files for serving offline")
             ret = subprocess.Popen(
-                ["git", "checkout", "gh-pages"], cwd=opt.WEB_APP_DIR, shell=False
+                ["git", "checkout", "gh-pages"], cwd=opt.web_app_dir, shell=False
             ).wait()
             if ret != 0:
                 logger.error("Failed to checkout files from gh-pages")
-        if not os.path.exists(opt.WEB_APP_DIR):
+        if not os.path.exists(opt.web_app_dir):
             logger.info("Downloading files for serving ImJoy locally")
             ret = subprocess.Popen(
                 "git clone -b gh-pages --depth 1 "
