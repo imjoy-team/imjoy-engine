@@ -170,13 +170,13 @@ class PluginConnection:
         """Encode object."""
         if a_object is None:
             return a_object
-        if type(a_object) is tuple:
+        if isinstance(a_object, tuple):
             a_object = list(a_object)
-        isarray = type(a_object) is list
+        isarray = isinstance(a_object, list)
         b_object = [] if isarray else {}
         # skip if already encoded
         if (
-            type(a_object) is dict
+            isinstance(a_object, dict)
             and "__jailed_type__" in a_object
             and "__value__" in a_object
         ):
@@ -184,7 +184,7 @@ class PluginConnection:
 
         # encode interfaces
         if (
-            type(a_object) is dict
+            isinstance(a_object, dict)
             and "__id__" in a_object
             and "__jailed_type__" in a_object
             and a_object["__jailed_type__"] == "plugin_api"
@@ -261,9 +261,9 @@ class PluginConnection:
                     "__shape__": val.shape,
                     "__dtype__": str(val.dtype),
                 }
-            elif type(val) is dict or type(val) is list:
+            elif isinstance(val, (dict, list)):
                 v_obj = self._encode(val)
-            elif not isinstance(val, basestring) and type(val) is bytes:
+            elif not isinstance(val, basestring) and isinstance(val, bytes):
                 v_obj = val.decode()  # covert python3 bytes to str
             elif isinstance(val, Exception):
                 v_obj = {"__jailed_type__": "error", "__value__": str(val)}
@@ -302,9 +302,7 @@ class PluginConnection:
                     np = self.local["np"]  # pylint: disable=invalid-name
                     if isinstance(a_object["__value__"], bytearray):
                         a_object["__value__"] = a_object["__value__"]
-                    elif isinstance(a_object["__value__"], list) or isinstance(
-                        a_object["__value__"], tuple
-                    ):
+                    elif isinstance(a_object["__value__"], (list, tuple)):
                         a_object["__value__"] = reduce(
                             (lambda x, y: x + y), a_object["__value__"]
                         )
@@ -337,7 +335,7 @@ class PluginConnection:
             for key in keys:
                 if isarray or key in a_object:
                     val = a_object[key]
-                    if isinstance(val, dict) or isinstance(val, list):
+                    if isinstance(val, (dict, list)):
                         if isarray:
                             b_object.append(
                                 self._decode(val, callback_id, with_promise)
@@ -399,7 +397,7 @@ class PluginConnection:
                         else:
                             data2[k] = data[k]
                     names.append({"name": name, "data": data2})
-                elif type(data) in [str, int, float, bool]:
+                elif isinstance(data, (str, int, float, bool)):
                     names.append({"name": name, "data": data})
         self.emit({"type": "setInterface", "api": names})
 

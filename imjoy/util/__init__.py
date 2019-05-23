@@ -36,7 +36,7 @@ class Registry(dict):
 def parse_repos(requirements, work_dir):
     """Return a list of repositories from a list of requirements."""
     repos = []
-    if type(requirements) is list:
+    if isinstance(requirements, list):
         requirements = [str(req) for req in requirements]
         for req in requirements:
             if ":" in req:
