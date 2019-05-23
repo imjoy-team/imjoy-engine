@@ -430,7 +430,7 @@ class PluginConnection:
         """Return remote callback."""
         if withPromise:
 
-            def remoteCallback(*arguments, **kwargs):
+            def remote_callback(*arguments, **kwargs):
                 # wrap keywords to a dictionary and pass to the first argument
                 if len(arguments) == 0 and len(kwargs) > 0:
                     arguments = [kwargs]
@@ -456,7 +456,7 @@ class PluginConnection:
 
         else:
 
-            def remoteCallback(*arguments, **kwargs):
+            def remote_callback(*arguments, **kwargs):
                 # wrap keywords to a dictionary and pass to the first argument
                 if len(arguments) == 0 and len(kwargs) > 0:
                     arguments = [kwargs]
@@ -471,7 +471,7 @@ class PluginConnection:
                 )
                 return ret
 
-        return remoteCallback
+        return remote_callback
 
     def set_remote(self, api):
         """Set remote."""
