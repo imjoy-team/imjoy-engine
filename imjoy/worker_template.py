@@ -288,9 +288,9 @@ class PluginConnection:
                 if name in self._remote:
                     b_object = self._remote[name]
                 else:
-                    b_object = self._genRemoteMethod(name)
+                    b_object = self._gen_remote_method(name)
             elif a_object["__jailed_type__"] == "plugin_interface":
-                b_object = self._genRemoteMethod(
+                b_object = self._gen_remote_method(
                     a_object["__value__"], a_object["__plugin_id__"]
                 )
             elif a_object["__jailed_type__"] == "ndarray":
@@ -398,7 +398,7 @@ class PluginConnection:
                     names.append({"name": name, "data": data})
         self.emit({"type": "setInterface", "api": names})
 
-    def _genRemoteMethod(self, name, plugin_id=None):
+    def _gen_remote_method(self, name, plugin_id=None):
         """Return remote method."""
 
         def remote_method(*arguments, **kwargs):
@@ -486,14 +486,14 @@ class PluginConnection:
                         for key in data:
                             if key in data:
                                 if data[key] == "**@@FUNCTION@@**:" + key:
-                                    data2[key] = self._genRemoteMethod(name + "." + key)
+                                    data2[key] = self._gen_remote_method(name + "." + key)
                                 else:
                                     data2[key] = data[key]
                         _remote[name] = data2
                     else:
                         _remote[name] = data
                 else:
-                    _remote[name] = self._genRemoteMethod(name)
+                    _remote[name] = self._gen_remote_method(name)
 
         self._set_local_api(_remote)
         return _remote
