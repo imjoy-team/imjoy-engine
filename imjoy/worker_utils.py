@@ -29,6 +29,7 @@ def debounce(secs):
                 result = func(*args, **kwargs)
                 store["t"] = time.time()
                 return result
+            return None
 
         return wrapped
 
@@ -96,7 +97,8 @@ class ReferenceStore:
         """Set up store."""
         self._store = {}
 
-    def _gen_id(self):
+    @staticmethod
+    def _gen_id():
         """Generate an id."""
         return str(uuid.uuid4())
 
@@ -119,7 +121,7 @@ class ReferenceStore:
         return obj
 
 
-class Promise(object):
+class Promise(object):  # pylint: disable=useless-object-inheritance
     """Represent a promise."""
 
     def __init__(self, pfunc):
