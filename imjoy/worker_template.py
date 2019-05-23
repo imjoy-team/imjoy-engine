@@ -485,7 +485,9 @@ class PluginConnection:
                         for key in data:
                             if key in data:
                                 if data[key] == "**@@FUNCTION@@**:" + key:
-                                    data2[key] = self._gen_remote_method(name + "." + key)
+                                    data2[key] = self._gen_remote_method(
+                                        name + "." + key
+                                    )
                                 else:
                                     data2[key] = data[key]
                         _remote[name] = data2
