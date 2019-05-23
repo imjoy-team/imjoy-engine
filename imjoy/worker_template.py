@@ -249,9 +249,9 @@ class PluginConnection:
             ):
                 v_byte = bytearray(val.tobytes())
                 if len(v_byte) > ARRAY_CHUNK:
-                    vl = int(math.ceil(1.0 * len(v_byte) / ARRAY_CHUNK))
+                    v_len = int(math.ceil(1.0 * len(v_byte) / ARRAY_CHUNK))
                     v_bytes = []
-                    for i in range(vl):
+                    for i in range(v_len):
                         v_bytes.append(v_byte[i * ARRAY_CHUNK : (i + 1) * ARRAY_CHUNK])
                 else:
                     v_bytes = v_byte
