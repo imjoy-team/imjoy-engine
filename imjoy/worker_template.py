@@ -30,19 +30,8 @@ try:
 except ImportError:
     import Queue as queue
 
-logging.basicConfig(stream=sys.stdout)
-logger = logging.getLogger("plugin")
-logger.setLevel(logging.INFO)
-# import logging
-# logging.basicConfig(level=logging.DEBUG)
 ARRAY_CHUNK = 1000000
-
-if "" not in sys.path:
-    sys.path.insert(0, "")
-
-imjoy_path = os.path.dirname(os.path.normpath(__file__))
-if imjoy_path not in sys.path:
-    sys.path.insert(0, imjoy_path)
+logger = logging.getLogger("plugin")
 
 
 def kill(proc_pid):
@@ -567,6 +556,16 @@ def main():
     parser.add_argument("--debug", action="store_true", help="debug mode")
 
     opt = parser.parse_args()
+
+    if "" not in sys.path:
+        sys.path.insert(0, "")
+
+    imjoy_path = os.path.dirname(os.path.normpath(__file__))
+    if imjoy_path not in sys.path:
+        sys.path.insert(0, imjoy_path)
+
+    logging.basicConfig(stream=sys.stdout)
+    logger.setLevel(logging.INFO)
     if opt.debug:
         logger.setLevel(logging.DEBUG)
 
