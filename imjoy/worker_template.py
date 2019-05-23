@@ -217,9 +217,9 @@ class PluginConnection:
                         break
                 if interfaceFuncName is None:
                     cid = self.store.put(val)
-                    vObj = {"__jailed_type__": "callback", "__value__": "f", "num": cid}
+                    v_obj = {"__jailed_type__": "callback", "__value__": "f", "num": cid}
                 else:
-                    vObj = {
+                    v_obj = {
                         "__jailed_type__": "interface",
                         "__value__": interfaceFuncName,
                     }
@@ -251,25 +251,25 @@ class PluginConnection:
                         v_bytes.append(vb[i * ARRAY_CHUNK : (i + 1) * ARRAY_CHUNK])
                 else:
                     v_bytes = vb
-                vObj = {
+                v_obj = {
                     "__jailed_type__": "ndarray",
                     "__value__": v_bytes,
                     "__shape__": val.shape,
                     "__dtype__": str(val.dtype),
                 }
             elif type(val) is dict or type(val) is list:
-                vObj = self._encode(val)
+                v_obj = self._encode(val)
             elif not isinstance(val, basestring) and type(val) is bytes:
-                vObj = val.decode()  # covert python3 bytes to str
+                v_obj = val.decode()  # covert python3 bytes to str
             elif isinstance(val, Exception):
-                vObj = {"__jailed_type__": "error", "__value__": str(val)}
+                v_obj = {"__jailed_type__": "error", "__value__": str(val)}
             else:
-                vObj = {"__jailed_type__": "argument", "__value__": val}
+                v_obj = {"__jailed_type__": "argument", "__value__": val}
 
             if isarray:
-                b_object.append(vObj)
+                b_object.append(v_obj)
             else:
-                b_object[key] = vObj
+                b_object[key] = v_obj
 
         return b_object
 
