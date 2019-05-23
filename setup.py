@@ -21,7 +21,7 @@ try:
         )
         cout, err = process.communicate()
         conda_prefix = json.loads(cout.decode("ascii"))["conda_prefix"]
-        print("Found conda environment: " + conda_prefix)
+        print("Found conda environment: {}".format(conda_prefix))
         os.environ["PATH"] = (
             os.path.join(conda_prefix, "Library", "bin")
             + os.pathsep
@@ -31,7 +31,7 @@ except OSError:
     if sys.version_info > (3, 0):
         print(
             "WARNING: you are running ImJoy without conda, "
-            "you may have problem with some plugins."
+            "you may have problem with some plugins"
         )
     else:
         sys.exit(
@@ -53,12 +53,12 @@ if sys.version_info > (3, 0):
         "pyyaml",
         "gputil",
     ]
-    print("Trying to install psutil with pip...")
+    print("Trying to install psutil with pip")
     ret = subprocess.Popen(
         ["pip", "install", "psutil"], env=os.environ.copy(), shell=False
     ).wait()
     if ret != 0:
-        print("Trying to install psutil with conda...")
+        print("Trying to install psutil with conda")
         ret2 = subprocess.Popen(
             ["conda", "install", "-y", "psutil"], env=os.environ.copy()
         ).wait()

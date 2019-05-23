@@ -24,20 +24,23 @@ def setup_app(eng, app):
 
 def run_app(eng, app):
     """Run the app."""
+    logger = eng.logger
     try:
         web.run_app(app, host=eng.opt.host, port=int(eng.opt.port))
     except OSError as exc:
         if exc.errno in {48}:
-            print(
-                "ERROR: Failed to open port {}, "
+            logger.error(
+                "Failed to open port %s, "
                 "please try to terminate the process which is using that port, "
-                "or restart your computer.".format(eng.opt.port)
+                "or restart your computer.",
+                eng.opt.port,
             )
 
 
 def setup_router(eng, app):
     """Set up router."""
     # pylint: disable=unused-argument
+    logger = eng.logger
     if eng.opt.serve and os.path.exists(
         os.path.join(eng.opt.WEB_APP_DIR, "index.html")
     ):
@@ -59,7 +62,9 @@ def setup_router(eng, app):
             raise web.HTTPFound(location="https://imjoy.io/docs")
 
         app.router.add_get("/docs", docs_handler, name="docs")
-        print("A local version of Imjoy web app is available at " + eng.opt.base_url)
+        logger.info(
+            "A local version of Imjoy web app is available at %s", eng.opt.base_url
+        )
     else:
 
         async def index(request):
@@ -162,7 +167,7 @@ async def upload_file(request):
         field = None
         while True:
             part = await reader.next()
-            print(part, part.filename)
+            logger.debug("Reading part %s of %s", part, part.filename)
             if part.filename is None:
                 continue
             field = part
@@ -183,7 +188,7 @@ async def upload_file(request):
         if os.path.exists(path) and not fileInfo.get("overwrite", False):
             return web.Response(body="File {} already exists.".format(path), status=404)
 
-        logger.info("uploading file to %s", path)
+        logger.info("Uploading file to %s", path)
         directory, _ = os.path.split(path)
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -196,15 +201,12 @@ async def upload_file(request):
                 fil.write(chunk)
         fileInfo["size"] = size
         fileInfo["path"] = path
-        logger.info("file saved to %s (size %d)", path, size)
+        logger.info("File saved to %s (size %d)", path, size)
         return web.json_response(fileInfo)
 
     except Exception as exc:  # pylint: disable=broad-except
-        print(traceback.format_exc())
-        logger.error("failed to upload file error: %s", str(exc))
-        return web.Response(
-            body="Failed to upload, error: {}".format(str(exc)), status=404
-        )
+        logger.error("Failed to upload file, error: %s", exc)
+        return web.Response(body=f"Failed to upload, error: {exc}", status=404)
 
 
 async def download_file(request):
@@ -310,20 +312,20 @@ async def download_file(request):
 async def on_startup(app):
     """Run on server start."""
     eng = app[ENG]
-    print("ImJoy Python Plugin Engine (version {})".format(__version__))
+    logger = eng.logger
+    logger.info("ImJoy Python Plugin Engine (version %s)", __version__)
 
     if eng.opt.serve:
-        print(
-            "You can access your local ImJoy web app through "
-            + eng.opt.base_url
-            + " , imjoy!"
+        logger.info(
+            "You can access your local ImJoy web app through %s , imjoy!",
+            eng.opt.base_url,
         )
     else:
-        print(
+        logger.info(
             "Please go to https://imjoy.io/#/app "
             "with your web browser (Chrome or FireFox)"
         )
-    print("Connection Token: " + eng.opt.token)
+    logger.info("Connection token: %s", eng.opt.token)
     sys.stdout.flush()
 
 
@@ -331,30 +333,26 @@ async def on_shutdown(app):
     """Run on server shut down."""
     eng = app[ENG]
     logger = eng.logger
-    print("Shutting down...")
-    logger.info("Shutting down the plugin engine...")
+    logger.info("Shutting down the plugin engine")
     stopped = threading.Event()
 
     def loop():  # executed in another thread
         for i in range(5):
-            print("Exiting: " + str(5 - i), flush=True)
+            logger.info("Exiting: %s", 5 - i)
             time.sleep(0.5)
             if stopped.is_set():
                 break
-        print("Force shutting down now!", flush=True)
-        logger.debug("Plugin engine is killed.")
+        logger.debug("Plugin engine is killed")
         killProcess(logger, os.getpid())
-        # os._exit(1)
 
     t = threading.Thread(target=loop)
     t.daemon = True  # stop if the program exits
     t.start()
 
-    print("Shutting down the plugins...", flush=True)
-    # stopped.set()
-    logger.info("Plugin engine exited.")
+    # stopped.set()  # TODO: Should we uncomment this?
+    logger.info("Plugin engine exited")
     pid_file = os.path.join(eng.opt.WORKSPACE_DIR, ".pid")
     try:
         os.remove(pid_file)
     except Exception:  # pylint: disable=broad-except
-        logger.info("Failed to remove the pid file.")
+        logger.info("Failed to remove the pid file")

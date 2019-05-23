@@ -144,7 +144,7 @@ class Promise(object):
             if self._catch_handler:
                 self._catch_handler(e)
             elif not self._finally_handler:
-                print("Uncaught Exception: " + str(e))
+                print("Uncaught Exception: {}".format(e))
         finally:
             if self._finally_handler:
                 self._finally_handler()
@@ -155,7 +155,7 @@ class Promise(object):
             if self._catch_handler:
                 self._catch_handler(error)
             elif not self._finally_handler:
-                print("Uncaught Exception: " + str(error))
+                print("Uncaught Exception: {}".format(error))
         finally:
             if self._finally_handler:
                 self._finally_handler()
