@@ -173,7 +173,7 @@ class PluginConnection:
         if type(a_object) is tuple:
             a_object = list(a_object)
         isarray = type(a_object) is list
-        bObject = [] if isarray else {}
+        b_object = [] if isarray else {}
         # skip if already encoded
         if (
             type(a_object) is dict
@@ -193,7 +193,7 @@ class PluginConnection:
             for k in a_object.keys():
                 v = a_object[k]
                 if callable(v):
-                    bObject[k] = {
+                    b_object[k] = {
                         "__jailed_type__": "plugin_interface",
                         "__plugin_id__": a_object["__id__"],
                         "__value__": k,
@@ -201,7 +201,7 @@ class PluginConnection:
                     }
                     encoded_interface[k] = v
             self.plugin_interfaces[a_object["__id__"]] = encoded_interface
-            return bObject
+            return b_object
 
         keys = range(len(a_object)) if isarray else a_object.keys()
         for k in keys:
@@ -268,11 +268,11 @@ class PluginConnection:
                 vObj = {"__jailed_type__": "argument", "__value__": v}
 
             if isarray:
-                bObject.append(vObj)
+                b_object.append(vObj)
             else:
-                bObject[k] = vObj
+                b_object[k] = vObj
 
-        return bObject
+        return b_object
 
     def _decode(self, a_object, callbackId, withPromise):
         """Decode object."""
@@ -280,17 +280,17 @@ class PluginConnection:
             return a_object
         if "__jailed_type__" in a_object and "__value__" in a_object:
             if a_object["__jailed_type__"] == "callback":
-                bObject = self._genRemoteCallback(
+                b_object = self._genRemoteCallback(
                     callbackId, a_object["num"], withPromise
                 )
             elif a_object["__jailed_type__"] == "interface":
                 name = a_object["__value__"]
                 if name in self._remote:
-                    bObject = self._remote[name]
+                    b_object = self._remote[name]
                 else:
-                    bObject = self._genRemoteMethod(name)
+                    b_object = self._genRemoteMethod(name)
             elif a_object["__jailed_type__"] == "plugin_interface":
-                bObject = self._genRemoteMethod(
+                b_object = self._genRemoteMethod(
                     a_object["__value__"], a_object["__plugin_id__"]
                 )
             elif a_object["__jailed_type__"] == "ndarray":
@@ -311,35 +311,35 @@ class PluginConnection:
                             type(a_object["__value__"]),
                             a_object["__value__"],
                         )
-                    bObject = np.frombuffer(
+                    b_object = np.frombuffer(
                         a_object["__value__"], dtype=a_object["__dtype__"]
                     ).reshape(tuple(a_object["__shape__"]))
                 except Exception as exc:
                     logger.debug("Error in converting: %s", exc)
-                    bObject = a_object
+                    b_object = a_object
                     raise exc
             elif a_object["__jailed_type__"] == "error":
-                bObject = Exception(a_object["__value__"])
+                b_object = Exception(a_object["__value__"])
             elif a_object["__jailed_type__"] == "argument":
-                bObject = a_object["__value__"]
+                b_object = a_object["__value__"]
             else:
-                bObject = a_object["__value__"]
-            return bObject
+                b_object = a_object["__value__"]
+            return b_object
         else:
             if isinstance(a_object, tuple):
                 a_object = list(a_object)
             isarray = isinstance(a_object, list)
-            bObject = [] if isarray else dotdict()
+            b_object = [] if isarray else dotdict()
             keys = range(len(a_object)) if isarray else a_object.keys()
             for k in keys:
                 if isarray or k in a_object:
                     v = a_object[k]
                     if isinstance(v, dict) or isinstance(v, list):
                         if isarray:
-                            bObject.append(self._decode(v, callbackId, withPromise))
+                            b_object.append(self._decode(v, callbackId, withPromise))
                         else:
-                            bObject[k] = self._decode(v, callbackId, withPromise)
-            return bObject
+                            b_object[k] = self._decode(v, callbackId, withPromise)
+            return b_object
 
     def _wrap(self, args):
         """Wrap arguments."""
