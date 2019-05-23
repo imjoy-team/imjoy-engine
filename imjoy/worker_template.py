@@ -355,7 +355,7 @@ class PluginConnection:
         result = self._decode(args["args"], args["callbackId"], with_promise)
         return result
 
-    def setInterface(self, api):
+    def set_interface(self, api):
         """Set interface."""
         if isinstance(api, dict):
             api = {a: api[a] for a in api.keys() if not a.startswith("_")}
@@ -500,7 +500,7 @@ class PluginConnection:
 
     def _set_local_api(self, _remote):
         """Set local API."""
-        _remote["export"] = self.setInterface
+        _remote["export"] = self.set_interface
         _remote["utils"] = API_UTILS
         _remote["WORK_DIR"] = self.work_dir
 
