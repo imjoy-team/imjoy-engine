@@ -70,7 +70,7 @@ def register_services(engine, register_event_handler):
 
 
 @sio_on("connect", namespace=NAME_SPACE)
-def connect(engine, sid, environ):
+def connect(engine, sid, _):
     """Connect client."""
     logger = engine.logger
     logger.info("Connect %s", sid)
@@ -129,7 +129,9 @@ async def on_start_terminal(engine, sid, kwargs):
                 return {
                     "success": True,
                     "exists": True,
-                    "message": f"Welcome to ImJoy Plugin Engine Terminal (v{__version__}).",
+                    "message": (
+                        f"Welcome to ImJoy Plugin Engine Terminal (v{__version__})."
+                    ),
                 }
 
         if sys.platform == "linux" or sys.platform == "linux2":
@@ -338,7 +340,7 @@ async def on_init_plugin(engine, sid, kwargs):
         engine.conn.register_event_handler(message_from_plugin)
 
         @sio_on("message_to_plugin_" + secret_key, namespace=NAME_SPACE)
-        async def message_to_plugin(engine, sid, kwargs):
+        async def message_to_plugin(engine, _, kwargs):
             if kwargs["type"] == "message":
                 await engine.conn.sio.emit("to_plugin_" + secret_key, kwargs["data"])
             logger.debug("Message to plugin %s", secret_key)
@@ -363,7 +365,7 @@ async def on_init_plugin(engine, sid, kwargs):
             )
             asyncio.run_coroutine_threadsafe(coro, eloop).result()
 
-        def logging_callback(msg, type="info"):
+        def logging_callback(msg, type="info"):  # pylint: disable=redefined-builtin
             if msg == "":
                 return
             coro = engine.conn.sio.emit(
@@ -373,11 +375,7 @@ async def on_init_plugin(engine, sid, kwargs):
             asyncio.run_coroutine_threadsafe(coro, eloop).result()
 
         args = '{} "{}" --id="{}" --server={} --secret="{}"'.format(
-            cmd,
-            TEMPLATE_SCRIPT,
-            pid,
-            "http://127.0.0.1:" + engine.opt.port,
-            secret_key,
+            cmd, TEMPLATE_SCRIPT, pid, "http://127.0.0.1:" + engine.opt.port, secret_key
         )
         task_thread = threading.Thread(
             target=launch_plugin,
@@ -446,7 +444,7 @@ async def on_kill_plugin(engine, sid, kwargs):
             obj = {"force_kill": True, "pid": pid}
             plugins[pid]["killing"] = True
 
-            def exited(result):
+            def exited(_):
                 obj["force_kill"] = False
                 logger.info("Plugin %s exited normally", pid)
                 # kill the plugin now
@@ -499,53 +497,53 @@ async def on_register_client(engine, sid, kwargs):
             )
             sys.exit(100)
         return {"success": False}
+
+    conn_data.attempt_count = 0
+    if add_client_session(engine, session_id, client_id, sid, base_url, workspace):
+        confirmation = True
+        message = (
+            "Another ImJoy session is connected to this Plugin Engine({}), "
+            "allow a new session to connect?".format(base_url)
+        )
     else:
-        conn_data.attempt_count = 0
-        if add_client_session(engine, session_id, client_id, sid, base_url, workspace):
-            confirmation = True
-            message = (
-                "Another ImJoy session is connected to this Plugin Engine({}), "
-                "allow a new session to connect?".format(base_url)
-            )
-        else:
-            confirmation = False
-            message = None
+        confirmation = False
+        message = None
 
-        logger.info("Register client: %s", kwargs)
+    logger.info("Register client: %s", kwargs)
 
-        engine_info = {"api_version": API_VERSION, "version": __version__}
-        engine_info["platform"] = {
-            "uname": ", ".join(platform.uname()),
-            "machine": platform.machine(),
-            "system": platform.system(),
-            "processor": platform.processor(),
-            "node": platform.node(),
-        }
+    engine_info = {"api_version": API_VERSION, "version": __version__}
+    engine_info["platform"] = {
+        "uname": ", ".join(platform.uname()),
+        "machine": platform.machine(),
+        "system": platform.system(),
+        "processor": platform.processor(),
+        "node": platform.node(),
+    }
 
-        try:
-            gpus = GPUtil.getGPUs()
-            engine_info["GPUs"] = [
-                {
-                    "name": gpu.name,
-                    "id": gpu.id,
-                    "memory_total": gpu.memoryTotal,
-                    "memory_util": gpu.memoryUtil,
-                    "memoryUsed": gpu.memoryUsed,
-                    "driver": gpu.driver,
-                    "temperature": gpu.temperature,
-                    "load": gpu.load,
-                }
-                for gpu in gpus
-            ]
-        except Exception:  # pylint: disable=broad-except
-            logger.error("Failed to get GPU information with GPUtil")
+    try:
+        gpus = GPUtil.getGPUs()
+        engine_info["GPUs"] = [
+            {
+                "name": gpu.name,
+                "id": gpu.id,
+                "memory_total": gpu.memoryTotal,
+                "memory_util": gpu.memoryUtil,
+                "memoryUsed": gpu.memoryUsed,
+                "driver": gpu.driver,
+                "temperature": gpu.temperature,
+                "load": gpu.load,
+            }
+            for gpu in gpus
+        ]
+    except Exception:  # pylint: disable=broad-except
+        logger.error("Failed to get GPU information with GPUtil")
 
-        return {
-            "success": True,
-            "confirmation": confirmation,
-            "message": message,
-            "engine_info": engine_info,
-        }
+    return {
+        "success": True,
+        "confirmation": confirmation,
+        "message": message,
+        "engine_info": engine_info,
+    }
 
 
 @sio_on("list_dir", namespace=NAME_SPACE)
@@ -698,18 +696,17 @@ async def on_get_file_url(engine, sid, kwargs):
     file_info["name"] = name
     if path in generated_url_files:
         return {"success": True, "url": generated_url_files[path]}
+    urlid = str(uuid.uuid4())
+    generated_urls[urlid] = file_info
+    base_url = kwargs.get("base_url", registered_sessions[sid]["base_url"])
+    if kwargs.get("password"):
+        file_info["password"] = kwargs["password"]
+        generated_url_files[path] = "{}/file/{}@{}/{}".format(
+            base_url, urlid, file_info["password"], name
+        )
     else:
-        urlid = str(uuid.uuid4())
-        generated_urls[urlid] = file_info
-        base_url = kwargs.get("base_url", registered_sessions[sid]["base_url"])
-        if kwargs.get("password"):
-            file_info["password"] = kwargs["password"]
-            generated_url_files[path] = "{}/file/{}@{}/{}".format(
-                base_url, urlid, file_info["password"], name
-            )
-        else:
-            generated_url_files[path] = "{}/file/{}/{}".format(base_url, urlid, name)
-        return {"success": True, "url": generated_url_files[path]}
+        generated_url_files[path] = "{}/file/{}/{}".format(base_url, urlid, name)
+    return {"success": True, "url": generated_url_files[path]}
 
 
 @sio_on("get_file_path", namespace=NAME_SPACE)
@@ -728,12 +725,11 @@ async def on_get_file_path(engine, sid, kwargs):
     if urlid in generated_urls:
         file_info = generated_urls[urlid]
         return {"success": True, "path": file_info["path"]}
-    else:
-        return {"success": False, "error": "url not found."}
+    return {"success": False, "error": "url not found."}
 
 
 @sio_on("get_engine_status", namespace=NAME_SPACE)
-async def on_get_engine_status(engine, sid, kwargs):
+async def on_get_engine_status(engine, sid, _):
     """Return engine status."""
     logger = engine.logger
     plugins = engine.store.plugins
@@ -785,15 +781,14 @@ async def on_kill_plugin_process(engine, sid, kwargs):
         logger.info("Killing all the plugins")
         await kill_all_plugins(engine, sid)
         return {"success": True}
-    else:
-        try:
-            kill_process(logger, int(kwargs["pid"]))
-            return {"success": True}
-        except Exception:  # pylint: disable=broad-except
-            return {
-                "success": False,
-                "error": "Failed to kill plugin process: #" + str(kwargs["pid"]),
-            }
+    try:
+        kill_process(logger, int(kwargs["pid"]))
+        return {"success": True}
+    except Exception:  # pylint: disable=broad-except
+        return {
+            "success": False,
+            "error": "Failed to kill plugin process: #" + str(kwargs["pid"]),
+        }
 
     psutil = get_psutil()
     if not psutil:
