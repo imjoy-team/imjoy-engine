@@ -105,7 +105,7 @@ class PluginConnection:
 
         self.local = {}
         _remote = dotdict()
-        self._setLocalAPI(_remote)
+        self._set_local_api(_remote)
         self.interface = {}
         self.plugin_interfaces = {}
         self.remote_set = False
@@ -495,10 +495,10 @@ class PluginConnection:
                 else:
                     _remote[name] = self._genRemoteMethod(name)
 
-        self._setLocalAPI(_remote)
+        self._set_local_api(_remote)
         return _remote
 
-    def _setLocalAPI(self, _remote):
+    def _set_local_api(self, _remote):
         """Set local API."""
         _remote["export"] = self.setInterface
         _remote["utils"] = API_UTILS
