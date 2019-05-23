@@ -551,7 +551,8 @@ class PluginConnection:
         sys.stdout.flush()
 
 
-if __name__ == "__main__":
+def main():
+    """Run script."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--id", type=str, required=True, help="plugin id")
     parser.add_argument("--secret", type=str, required=True, help="plugin secret")
@@ -586,3 +587,7 @@ if __name__ == "__main__":
         worker=task_worker,
     )
     pc.wait_forever()
+
+
+if __name__ == "__main__":
+    main()
