@@ -190,34 +190,33 @@ class PluginConnection:
             and a_object["__jailed_type__"] == "plugin_api"
         ):
             encoded_interface = {}
-            for k in a_object.keys():
-                v = a_object[k]
-                if callable(v):
-                    b_object[k] = {
+            for key, val in a_object.items():
+                if callable(val):
+                    b_object[key] = {
                         "__jailed_type__": "plugin_interface",
                         "__plugin_id__": a_object["__id__"],
-                        "__value__": k,
+                        "__value__": key,
                         "num": None,
                     }
-                    encoded_interface[k] = v
+                    encoded_interface[key] = val
             self.plugin_interfaces[a_object["__id__"]] = encoded_interface
             return b_object
 
         keys = range(len(a_object)) if isarray else a_object.keys()
-        for k in keys:
-            v = a_object[k]
+        for key in keys:
+            val = a_object[key]
             try:
                 basestring
             except NameError:
                 basestring = str
-            if callable(v):
+            if callable(val):
                 interfaceFuncName = None
                 for name in self.interface:
-                    if self.interface[name] == v:
+                    if self.interface[name] == val:
                         interfaceFuncName = name
                         break
                 if interfaceFuncName is None:
-                    cid = self.store.put(v)
+                    cid = self.store.put(val)
                     vObj = {"__jailed_type__": "callback", "__value__": "f", "num": cid}
                 else:
                     vObj = {
@@ -242,9 +241,9 @@ class PluginConnection:
             # ) {
             # }
             elif "np" in self.local and isinstance(
-                v, (self.local["np"].ndarray, self.local["np"].generic)
+                val, (self.local["np"].ndarray, self.local["np"].generic)
             ):
-                vb = bytearray(v.tobytes())
+                vb = bytearray(val.tobytes())
                 if len(vb) > ARRAY_CHUNK:
                     vl = int(math.ceil(1.0 * len(vb) / ARRAY_CHUNK))
                     v_bytes = []
@@ -255,22 +254,22 @@ class PluginConnection:
                 vObj = {
                     "__jailed_type__": "ndarray",
                     "__value__": v_bytes,
-                    "__shape__": v.shape,
-                    "__dtype__": str(v.dtype),
+                    "__shape__": val.shape,
+                    "__dtype__": str(val.dtype),
                 }
-            elif type(v) is dict or type(v) is list:
-                vObj = self._encode(v)
-            elif not isinstance(v, basestring) and type(v) is bytes:
-                vObj = v.decode()  # covert python3 bytes to str
-            elif isinstance(v, Exception):
-                vObj = {"__jailed_type__": "error", "__value__": str(v)}
+            elif type(val) is dict or type(val) is list:
+                vObj = self._encode(val)
+            elif not isinstance(val, basestring) and type(val) is bytes:
+                vObj = val.decode()  # covert python3 bytes to str
+            elif isinstance(val, Exception):
+                vObj = {"__jailed_type__": "error", "__value__": str(val)}
             else:
-                vObj = {"__jailed_type__": "argument", "__value__": v}
+                vObj = {"__jailed_type__": "argument", "__value__": val}
 
             if isarray:
                 b_object.append(vObj)
             else:
-                b_object[k] = vObj
+                b_object[key] = vObj
 
         return b_object
 
@@ -331,14 +330,14 @@ class PluginConnection:
             isarray = isinstance(a_object, list)
             b_object = [] if isarray else dotdict()
             keys = range(len(a_object)) if isarray else a_object.keys()
-            for k in keys:
-                if isarray or k in a_object:
-                    v = a_object[k]
-                    if isinstance(v, dict) or isinstance(v, list):
+            for key in keys:
+                if isarray or key in a_object:
+                    val = a_object[key]
+                    if isinstance(val, dict) or isinstance(val, list):
                         if isarray:
-                            b_object.append(self._decode(v, callbackId, with_promise))
+                            b_object.append(self._decode(val, callbackId, with_promise))
                         else:
-                            b_object[k] = self._decode(v, callbackId, with_promise)
+                            b_object[key] = self._decode(val, callbackId, with_promise)
             return b_object
 
     def _wrap(self, args):
