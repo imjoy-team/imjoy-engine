@@ -2,14 +2,12 @@
 import asyncio
 import datetime
 import os
-import shutil
 import subprocess
 import sys
 import time
 import traceback
 
 import GPUtil
-
 from imjoy.const import (
     DEFAULT_REQUIREMENTS_PY2,
     DEFAULT_REQUIREMENTS_PY3,
@@ -17,7 +15,15 @@ from imjoy.const import (
     REQ_PSUTIL,
     REQ_PSUTIL_CONDA,
 )
-from imjoy.helper import killProcess, parseRequirements, parseEnv
+from imjoy.helper import (
+    apply_conda_activate,
+    install_reqs,
+    killProcess,
+    parseEnv,
+    parse_requirements,
+    run_commands,
+    run_process,
+)
 from imjoy.util import console_to_str, parseRepos
 
 
@@ -204,7 +210,7 @@ def launch_plugin(
     eng,
     stop_callback,
     logging_callback,
-    pid,
+    plugin_id,
     pname,
     tag,
     env,
@@ -218,15 +224,16 @@ def launch_plugin(
     """Launch plugin."""
     logger = eng.logger
     opt = eng.opt
-    plugins = eng.store.plugins
     if abort.is_set():
         logger.info("plugin aborting...")
         logging_callback("plugin aborting...")
         return False
-    virtual_env_name = None
+    venv_name = None
+    progress = 0
     try:
         repos = parseRepos(requirements, work_dir)
-        logging_callback(2, type="progress")
+        progress = 5
+        logging_callback(progress, type="progress")
         for k, r in enumerate(repos):
             try:
                 print("Cloning repo " + r["url"] + " to " + r["repo_dir"])
@@ -234,7 +241,7 @@ def launch_plugin(
                 if os.path.exists(r["repo_dir"]):
                     assert os.path.isdir(r["repo_dir"])
                     cmd = "git pull --all"
-                    runCmd(eng, cmd.split(" "), cwd=r["repo_dir"], plugin_id=pid)
+                    runCmd(eng, cmd.split(" "), cwd=r["repo_dir"], plugin_id=plugin_id)
                 else:
                     cmd = (
                         "git clone --progress --depth=1 "
@@ -242,8 +249,9 @@ def launch_plugin(
                         + " "
                         + r["repo_dir"]
                     )
-                    runCmd(eng, cmd.split(" "), cwd=work_dir, plugin_id=pid)
-                logging_callback(k * 5, type="progress")
+                    runCmd(eng, cmd.split(" "), cwd=work_dir, plugin_id=plugin_id)
+                progress += int(20 / len(repos))
+                logging_callback(progress, type="progress")
             except Exception as ex:  # pylint: disable=broad-except
                 logging_callback(
                     "Failed to obtain the git repo: " + str(ex), type="error"
@@ -251,181 +259,118 @@ def launch_plugin(
 
         default_virtual_env = "{}-{}".format(pname, tag) if tag != "" else pname
         default_virtual_env = default_virtual_env.replace(" ", "_")
-        virtual_env_name, envs, is_py2 = parseEnv(
-            eng, env, work_dir, default_virtual_env
-        )
+        venv_name, envs, is_py2 = parseEnv(eng, env, work_dir, default_virtual_env)
         environment_variables = {}
         default_requirements = (
             DEFAULT_REQUIREMENTS_PY2 if is_py2 else DEFAULT_REQUIREMENTS_PY3
         )
-        default_requirements_cmd = parseRequirements(
+        default_reqs_cmds = parse_requirements(
             default_requirements, conda=opt.CONDA_AVAILABLE
         )
-        requirements_cmd = parseRequirements(
-            requirements, default_requirements_cmd, opt.CONDA_AVAILABLE
-        )
+        reqs_cmds = parse_requirements(requirements, opt.CONDA_AVAILABLE)
+        reqs_cmds += default_reqs_cmds
 
         cmd_history = eng.store.cmd_history
+        envs = envs or []
 
-        if envs is not None and len(envs) > 0:
-            for env in envs:
-                if type(env) is str:
-                    print("Running env command: " + env)
-                    logger.info("running env command: %s", env)
-                    if env not in cmd_history:
-                        logging_callback("running env command: {}".format(env))
-                        code, errors = run_process(
-                            eng, pid, env.split(), env=plugin_env, cwd=work_dir
-                        )
+        def process_start(pid=None, cmd=None):
+            """Run before process starts."""
+            if pid is not None:
+                setPluginPID(eng, plugin_id, pid)
+            if cmd is not None:
+                logger.info("Running command %s", cmd)
 
-                        if code == 0:
-                            cmd_history.append(env)
-                            logging_callback("env command executed successfully.")
+        def process_finish(cmd=None, **kwargs):
+            """Notify when an install process command has finished."""
+            logger.debug("Finished running: %s", cmd)
+            nonlocal progress
+            progress += int(70 / (len(envs) + len(reqs_cmds) + len(REQ_PSUTIL)))
+            logging_callback(progress, type="progress")
 
-                        if errors is not None:
-                            logging_callback(str(errors, "utf-8"), type="error")
-
-                        logging_callback(30, type="progress")
-                    else:
-                        logger.debug("skip command: %s", env)
-                        logging_callback("skip env command: " + env)
-
-                elif type(env) is dict:
-                    assert "type" in env
-                    if env["type"] == "gputil":
-                        # Set CUDA_DEVICE_ORDER so the IDs assigned by CUDA match those from nvidia-smi
-                        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-                        deviceIDs = GPUtil.getAvailable(**env["options"])
-                        if len(deviceIDs) <= 0:
-                            raise Exception("No GPU is available to run this plugin.")
-                        environment_variables["CUDA_VISIBLE_DEVICES"] = ",".join(
-                            [str(deviceID) for deviceID in deviceIDs]
-                        )
-                        logging_callback("GPU id assigned: " + str(deviceIDs))
-                    elif env["type"] == "variable":
-                        environment_variables.update(env["options"])
-                else:
-                    logger.debug("skip unsupported env: %s", env)
-
-                if abort.is_set():
-                    logger.info("plugin aborting...")
-                    return False
-
-        if opt.freeze:
-            print(
-                "WARNING: blocked pip command: \n{}\n"
-                "You may want to run it yourself.".format(requirements_cmd)
-            )
-            logger.warning(
-                "pip command is blocked due to `--freeze` mode: %s", requirements_cmd
-            )
-            requirements_cmd = None
-
-        if not opt.freeze and opt.CONDA_AVAILABLE and virtual_env_name is not None:
-            requirements_cmd = opt.conda_activate.format(
-                virtual_env_name + " && " + requirements_cmd
-            )
-
-        logger.info("Running requirements command: %s", requirements_cmd)
-        print("Running requirements command: ", requirements_cmd)
-        if requirements_cmd is not None and requirements_cmd not in cmd_history:
-            code, errors = run_process(
-                eng, pid, requirements_cmd, shell=True, env=plugin_env, cwd=work_dir
-            )
-            logging_callback(
-                "Running requirements subprocess(pid={}): {}".format(
-                    plugins[pid]["process_id"], requirements_cmd
-                )
-            )
-            if code != 0:
-                logging_callback(
-                    "Failed to run requirements command: {}".format(requirements_cmd),
-                    type="error",
-                )
-                if errors is not None:
-                    logging_callback(str(errors, "utf-8"), type="error")
-                git_cmd = ""
-                if shutil.which("git") is None:
-                    git_cmd += " git"
-                if shutil.which("pip") is None:
-                    git_cmd += " pip"
-                if git_cmd != "":
-                    logger.info("pip command failed, trying to install git and pip...")
-                    # try to install git and pip
-                    git_cmd = "conda install -y" + git_cmd
-                    code, _ = run_process(
-                        eng,
-                        pid,
-                        git_cmd.split(),
-                        stderr=None,
+        for env in envs:
+            if type(env) is str:
+                print("Running env command: " + env)
+                logger.info("running env command: %s", env)
+                if env not in cmd_history:
+                    logging_callback("running env command: {}".format(env))
+                    code, errors = run_process(
+                        env.split(),
+                        process_start=process_start,
+                        process_finish=process_finish,
                         env=plugin_env,
                         cwd=work_dir,
                     )
-                    if code != 0:
-                        logging_callback(
-                            "Failed to install git/pip and dependencies "
-                            "with exit code: " + str(code),
-                            type="error",
-                        )
-                        raise Exception(
-                            "Failed to install git/pip and dependencies "
-                            "with exit code: " + str(code)
-                        )
-                    else:
-                        code, errors = run_process(
-                            eng,
-                            pid,
-                            requirements_cmd,
-                            shell=True,
-                            stderr=None,
-                            env=plugin_env,
-                            cwd=work_dir,
-                        )
-                        if code != 0:
-                            logging_callback(
-                                "Failed to install dependencies with exit code: "
-                                + str(code),
-                                type="error",
-                            )
-                            raise Exception(
-                                "Failed to install dependencies with exit code: "
-                                + str(code)
-                            )
+
+                    if code == 0:
+                        cmd_history.append(env)
+                        logging_callback("env command executed successfully.")
+
+                    if errors is not None:
+                        logging_callback(str(errors, "utf-8"), type="error")
+
+                else:
+                    logger.debug("skip command: %s", env)
+                    logging_callback("skip env command: " + env)
+
+            elif type(env) is dict:
+                assert "type" in env
+                if env["type"] == "gputil":
+                    # Set CUDA_DEVICE_ORDER
+                    # so the IDs assigned by CUDA match those from nvidia-smi
+                    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+                    deviceIDs = GPUtil.getAvailable(**env["options"])
+                    if len(deviceIDs) <= 0:
+                        raise Exception("No GPU is available to run this plugin.")
+                    environment_variables["CUDA_VISIBLE_DEVICES"] = ",".join(
+                        [str(deviceID) for deviceID in deviceIDs]
+                    )
+                    logging_callback("GPU id assigned: " + str(deviceIDs))
+                elif env["type"] == "variable":
+                    environment_variables.update(env["options"])
             else:
-                cmd_history.append(requirements_cmd)
-                logging_callback("Requirements command executed successfully.")
-            logging_callback(70, type="progress")
-        else:
-            logger.debug("skip command: %s", requirements_cmd)
+                logger.debug("skip unsupported env: %s", env)
+
+            if abort.is_set():
+                logger.info("plugin aborting...")
+                return False
+
+        if opt.freeze:
+            print(
+                f"WARNING: blocked pip command: \n{reqs_cmds}\n"
+                "You may want to run it yourself."
+            )
+            logger.warning(
+                "pip command is blocked due to `--freeze` mode: %s", reqs_cmds
+            )
+            reqs_cmds = []
+
+        elif opt.CONDA_AVAILABLE and venv_name is not None:
+            reqs_cmds = apply_conda_activate(reqs_cmds, opt.conda_activate, venv_name)
+
+        install_reqs(
+            eng,
+            plugin_env,
+            work_dir,
+            reqs_cmds,
+            process_start,
+            process_finish,
+            logging_callback,
+        )
+
         if not opt.freeze:
-            psutil_cmd = parseRequirements(REQ_PSUTIL)
-            code, _ = run_process(
-                eng,
-                pid,
-                psutil_cmd,
-                shell=True,
-                stderr=None,
-                env=plugin_env,
-                cwd=work_dir,
+            psutil_cmds = parse_requirements(REQ_PSUTIL)
+            code, _ = run_commands(
+                plugin_env, work_dir, psutil_cmds, process_start, process_finish
             )
-        if (
-            not opt.freeze
-            and code
-            and opt.CONDA_AVAILABLE
-            and virtual_env_name is not None
-        ):
-            psutil_cmd = parseRequirements(REQ_PSUTIL_CONDA, conda=opt.CONDA_AVAILABLE)
-            psutil_cmd = opt.conda_activate.format(
-                "{} && {}".format(virtual_env_name, psutil_cmd)
+        if not opt.freeze and code and opt.CONDA_AVAILABLE and venv_name is not None:
+            psutil_cmds = parse_requirements(
+                REQ_PSUTIL_CONDA, conda=opt.CONDA_AVAILABLE
             )
-            code, _ = run_process(
-                eng,
-                pid,
-                psutil_cmd,
-                shell=True,
-                stderr=None,
-                env=plugin_env,
-                cwd=work_dir,
+            psutil_cmds = apply_conda_activate(
+                psutil_cmds, opt.conda_activate, venv_name
+            )
+            code, _ = run_commands(
+                plugin_env, work_dir, psutil_cmds, process_start, process_finish
             )
 
     except Exception:  # pylint: disable=broad-except
@@ -444,8 +389,8 @@ def launch_plugin(
         stop_callback(False, "Plugin process failed to start")
         return False
     # env = os.environ.copy()
-    if opt.CONDA_AVAILABLE and virtual_env_name is not None:
-        args = opt.conda_activate.format(virtual_env_name + " && " + args)
+    if opt.CONDA_AVAILABLE and venv_name is not None:
+        [args] = apply_conda_activate([args], opt.conda_activate, venv_name)
     if type(args) is str:
         args = args.split()
     if not args:
@@ -462,7 +407,8 @@ def launch_plugin(
     kwargs = {}
     if sys.platform != "win32":
         kwargs.update(preexec_fn=os.setsid)
-    logging_callback(100, type="progress")
+    progress = 100
+    logging_callback(progress, type="progress")
     try:
         _env = plugin_env.copy()
         _env.update(environment_variables)
@@ -478,11 +424,12 @@ def launch_plugin(
             **kwargs,
         )
         logging_callback("running subprocess(pid={}) with {}".format(process.pid, args))
-        setPluginPID(eng, pid, process.pid)
+        setPluginPID(eng, plugin_id, process.pid)
         # Poll process for new output until finished
         stdfn = sys.stdout.fileno()
 
-        logging_callback(0, type="progress")
+        progress = 0
+        logging_callback(progress, type="progress")
 
         while True:
             out = process.stdout.read(1)
@@ -528,21 +475,6 @@ def launch_plugin(
                 + "\nplugin process exited with code {}".format(exitCode),
             )
             return False
-
-
-def run_process(eng, plugin_id, cmd, **kwargs):
-    """Run subprocess command."""
-    shell = kwargs.pop("shell", False)
-    stderr = kwargs.pop("stderr", subprocess.PIPE)
-    process_ = subprocess.Popen(cmd, shell=shell, stderr=stderr, **kwargs)
-    setPluginPID(eng, plugin_id, process_.pid)
-    return_code = process_.wait()
-    if stderr is not None:
-        _, errors = process_.communicate()
-    else:
-        errors = None
-
-    return return_code, errors
 
 
 def runCmd(
