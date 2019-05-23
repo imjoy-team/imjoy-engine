@@ -280,7 +280,7 @@ class PluginConnection:
             return a_object
         if "__jailed_type__" in a_object and "__value__" in a_object:
             if a_object["__jailed_type__"] == "callback":
-                b_object = self._genRemoteCallback(
+                b_object = self._gen_remote_callback(
                     callbackId, a_object["num"], withPromise
                 )
             elif a_object["__jailed_type__"] == "interface":
@@ -426,7 +426,7 @@ class PluginConnection:
         remoteMethod.__remote_method = True
         return remoteMethod
 
-    def _genRemoteCallback(self, id_, argNum, withPromise):
+    def _gen_remote_callback(self, id_, argNum, withPromise):
         """Return remote callback."""
         if withPromise:
 
