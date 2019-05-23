@@ -299,7 +299,7 @@ class PluginConnection:
             elif a_object["__jailed_type__"] == "ndarray":
                 # create build array/tensor if used in the plugin
                 try:
-                    np = self.local["np"]
+                    np = self.local["np"]  # pylint: disable=invalid-name
                     if isinstance(a_object["__value__"], bytearray):
                         a_object["__value__"] = a_object["__value__"]
                     elif isinstance(a_object["__value__"], list) or isinstance(
