@@ -11,7 +11,7 @@ from imjoy.helper import kill_process
 
 def prep_env(opt, logger):
     """Prepare environment."""
-    opt.CONDA_AVAILABLE = False
+    opt.conda_available = False
     # add executable path to PATH
     os.environ["PATH"] = (
         os.path.split(sys.executable)[0] + os.pathsep + os.environ.get("PATH", "")
@@ -32,7 +32,7 @@ def prep_env(opt, logger):
                 + os.pathsep
                 + os.environ["PATH"]
             )
-        opt.CONDA_AVAILABLE = True
+        opt.conda_available = True
     except OSError:
         conda_prefix = None
         if sys.version_info < (3, 0):
@@ -45,7 +45,7 @@ def prep_env(opt, logger):
             "you may have problems with some plugins"
         )
 
-    if opt.CONDA_AVAILABLE:
+    if opt.conda_available:
         if sys.platform == "linux" or sys.platform == "linux2":
             # linux
             opt.conda_activate = (
@@ -67,7 +67,7 @@ def prep_env(opt, logger):
 
 def bootstrap(opt, logger):
     """Bootstrap the engine."""
-    if not opt.CONDA_AVAILABLE and not opt.freeze:
+    if not opt.conda_available and not opt.freeze:
         logger.warning(
             "Command `pip install` may not work, "
             "in that case you may want to add `--freeze`"
