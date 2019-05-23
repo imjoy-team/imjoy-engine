@@ -274,14 +274,14 @@ class PluginConnection:
 
         return b_object
 
-    def _decode(self, a_object, callbackId, withPromise):
+    def _decode(self, a_object, callbackId, with_promise):
         """Decode object."""
         if a_object is None:
             return a_object
         if "__jailed_type__" in a_object and "__value__" in a_object:
             if a_object["__jailed_type__"] == "callback":
                 b_object = self._gen_remote_callback(
-                    callbackId, a_object["num"], withPromise
+                    callbackId, a_object["num"], with_promise
                 )
             elif a_object["__jailed_type__"] == "interface":
                 name = a_object["__value__"]
@@ -336,9 +336,9 @@ class PluginConnection:
                     v = a_object[k]
                     if isinstance(v, dict) or isinstance(v, list):
                         if isarray:
-                            b_object.append(self._decode(v, callbackId, withPromise))
+                            b_object.append(self._decode(v, callbackId, with_promise))
                         else:
-                            b_object[k] = self._decode(v, callbackId, withPromise)
+                            b_object[k] = self._decode(v, callbackId, with_promise)
             return b_object
 
     def _wrap(self, args):
@@ -347,12 +347,12 @@ class PluginConnection:
         result = {"args": wrapped}
         return result
 
-    def unwrap(self, args, withPromise):
+    def unwrap(self, args, with_promise):
         """Unwrap arguments."""
         if "callbackId" not in args:
             args["callbackId"] = None
         # wraps each callback so that the only one could be called
-        result = self._decode(args["args"], args["callbackId"], withPromise)
+        result = self._decode(args["args"], args["callbackId"], with_promise)
         return result
 
     def setInterface(self, api):
@@ -426,9 +426,9 @@ class PluginConnection:
         remoteMethod.__remote_method = True
         return remoteMethod
 
-    def _gen_remote_callback(self, id_, arg_num, withPromise):
+    def _gen_remote_callback(self, id_, arg_num, with_promise):
         """Return remote callback."""
-        if withPromise:
+        if with_promise:
 
             def remote_callback(*arguments, **kwargs):
                 # wrap keywords to a dictionary and pass to the first argument
