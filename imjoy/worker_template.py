@@ -95,7 +95,7 @@ class PluginConnection:
         self.socket_io = socket_io
         self.init = False
         self.secret = secret
-        self.id = pid
+        self.id = pid  # pylint: disable=invalid-name
         self.daemon = daemon
 
         def emit(msg):
@@ -133,17 +133,17 @@ class PluginConnection:
         if PYTHON3:
             self.sync_q = self.queue.sync_q
             fut = self.loop.run_in_executor(None, self.socket_io.wait)
-            t = [
+            tasks = [
                 self.worker(self, self.queue.async_q, logger, self.abort)
                 for i in range(10)
             ]
-            self.loop.run_until_complete(asyncio.gather(*t))
+            self.loop.run_until_complete(asyncio.gather(*tasks))
             self.loop.run_until_complete(fut)
         else:
             self.sync_q = queue.Queue()
-            t = threading.Thread(target=self.socket_io.wait)
-            t.daemon = True
-            t.start()
+            thread = threading.Thread(target=self.socket_io.wait)
+            thread.daemon = True
+            thread.start()
             self.worker(self, self.sync_q, logger, self.abort)
 
     def default_exit(self):
