@@ -570,10 +570,10 @@ if __name__ == "__main__":
         logger.setLevel(logging.DEBUG)
 
     if PYTHON3:
-        loop = asyncio.get_event_loop()
-        q = janus.Queue(loop=loop)
+        event_loop = asyncio.get_event_loop()
+        q = janus.Queue(loop=event_loop)
     else:
-        loop = None
+        event_loop = None
         q = None
 
     pc = PluginConnection(
@@ -582,7 +582,7 @@ if __name__ == "__main__":
         server=opt.server,
         work_dir=opt.work_dir,
         queue=q,
-        loop=loop,
+        loop=event_loop,
         worker=task_worker,
     )
     pc.wait_forever()
