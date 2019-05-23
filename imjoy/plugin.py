@@ -264,7 +264,9 @@ def launch_plugin(
         default_requirements = (
             DEFAULT_REQUIREMENTS_PY2 if is_py2 else DEFAULT_REQUIREMENTS_PY3
         )
-        default_reqs_cmds = parse_requirements(default_requirements, conda=opt.CONDA_AVAILABLE)
+        default_reqs_cmds = parse_requirements(
+            default_requirements, conda=opt.CONDA_AVAILABLE
+        )
         reqs_cmds = parse_requirements(requirements, opt.CONDA_AVAILABLE)
         reqs_cmds += default_reqs_cmds
 
@@ -361,7 +363,9 @@ def launch_plugin(
                 plugin_env, work_dir, psutil_cmds, process_start, process_finish
             )
         if not opt.freeze and code and opt.CONDA_AVAILABLE and venv_name is not None:
-            psutil_cmds = parse_requirements(REQ_PSUTIL_CONDA, conda=opt.CONDA_AVAILABLE)
+            psutil_cmds = parse_requirements(
+                REQ_PSUTIL_CONDA, conda=opt.CONDA_AVAILABLE
+            )
             psutil_cmds = apply_conda_activate(
                 psutil_cmds, opt.conda_activate, venv_name
             )
