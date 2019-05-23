@@ -435,7 +435,7 @@ class PluginConnection:
                 if len(arguments) == 0 and len(kwargs) > 0:
                     arguments = [kwargs]
 
-                def p(resolve, reject):
+                def pfunc(resolve, reject):
                     resolve.__jailed_pairs__ = reject
                     reject.__jailed_pairs__ = resolve
                     self.emit(
@@ -450,9 +450,9 @@ class PluginConnection:
                     )
 
                 if PYTHON3:
-                    return FuturePromise(p, self.loop)
+                    return FuturePromise(pfunc, self.loop)
                 else:
-                    return Promise(p)
+                    return Promise(pfunc)
 
         else:
 
