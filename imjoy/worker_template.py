@@ -62,7 +62,7 @@ def ndarray(typedArray, shape, dtype):
     }
 
 
-api_utils = dotdict(
+API_UTILS = dotdict(
     ndarray=ndarray, kill=kill, debounce=debounce, set_interval=set_interval
 )
 
@@ -501,7 +501,7 @@ class PluginConnection:
     def _setLocalAPI(self, _remote):
         """Set local API."""
         _remote["export"] = self.setInterface
-        _remote["utils"] = api_utils
+        _remote["utils"] = API_UTILS
         _remote["WORK_DIR"] = self.work_dir
 
         self.local["api"] = _remote
