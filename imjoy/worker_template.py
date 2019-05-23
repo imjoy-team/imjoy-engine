@@ -572,17 +572,17 @@ def main():
 
     if PYTHON3:
         event_loop = asyncio.get_event_loop()
-        q = janus.Queue(loop=event_loop)
+        job_queue = janus.Queue(loop=event_loop)
     else:
         event_loop = None
-        q = None
+        job_queue = None
 
     pc = PluginConnection(
         opt.id,
         opt.secret,
         server=opt.server,
         work_dir=opt.work_dir,
-        job_queue=q,
+        job_queue=job_queue,
         loop=event_loop,
         worker=task_worker,
     )
