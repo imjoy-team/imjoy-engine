@@ -3,8 +3,8 @@ import inspect
 import sys
 import traceback
 
-from imjoyUtils import formatTraceback
-from imjoyUtils3 import make_coro
+from worker_utils import formatTraceback
+from worker_utils3 import make_coro
 from util import Registry
 from worker import JOB_HANDLERS
 

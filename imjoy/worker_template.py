@@ -10,17 +10,17 @@ from functools import reduce
 from types import ModuleType
 
 from imjoySocketIO_client import LoggingNamespace, SocketIO, find_callback
-from imjoyUtils import ReferenceStore, debounce, dotdict, get_psutil, setInterval
+from worker_utils import ReferenceStore, debounce, dotdict, get_psutil, setInterval
 
 if sys.version_info >= (3, 0):
     import asyncio
     import janus
-    from imjoyUtils3 import FuturePromise
+    from worker_utils3 import FuturePromise
     from worker3 import task_worker
 
     PYTHON3 = True
 else:
-    from imjoyUtils import Promise
+    from worker_utils import Promise
     from worker import task_worker
 
     PYTHON3 = False

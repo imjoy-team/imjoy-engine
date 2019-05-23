@@ -3,7 +3,7 @@ import traceback
 import sys
 import time
 
-from imjoyUtils import formatTraceback
+from worker_utils import formatTraceback
 from util import Registry
 
 try:

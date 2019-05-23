@@ -14,4 +14,4 @@ VERSION_INFO = json.loads((HERE / "VERSION").read_text())
 __version__ = VERSION_INFO["version"]
 API_VERSION = VERSION_INFO["api_version"]
 NAME_SPACE = "/"
-TEMPLATE_SCRIPT = (HERE / "imjoyWorkerTemplate.py").resolve()
+TEMPLATE_SCRIPT = (HERE / "worker_template.py").resolve()
