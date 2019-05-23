@@ -458,19 +458,14 @@ def launch_plugin(
         stop_callback(True, outputs)
         return True
 
-    logging_callback(
-        f"Plugin process exited with code {exit_code}", type="error"
-    )
+    logging_callback(f"Plugin process exited with code {exit_code}", type="error")
     logger.error(
-        "Error occured during terminating a process.\n"
-        "Command: %s\nExit code: %s",
+        "Error occured during terminating a process.\n" "Command: %s\nExit code: %s",
         args,
         exit_code,
     )
     errors = errors or ""
-    stop_callback(
-        False, f"{errors}\nPlugin process exited with code {exit_code}"
-    )
+    stop_callback(False, f"{errors}\nPlugin process exited with code {exit_code}")
     return False
 
 

@@ -255,14 +255,10 @@ async def download_file(request):  # pylint: disable=too-many-return-statements
             return web.json_response(file_list, headers=headers)
         # list the subfolder or get a file in the folder
 
-        file_path = os.path.join(
-            file_info["path"], os.sep.join(name.split("/")[1:])
-        )
+        file_path = os.path.join(file_info["path"], os.sep.join(name.split("/")[1:]))
         if not os.path.exists(file_path):
             return web.Response(
-                body="File <{file_path}> does not exist".format(
-                    file_path=file_path
-                ),
+                body="File <{file_path}> does not exist".format(file_path=file_path),
                 status=404,
             )
         if os.path.isdir(file_path):
@@ -277,9 +273,7 @@ async def download_file(request):  # pylint: disable=too-many-return-statements
             return web.json_response(file_list, headers=headers)
 
         _, file_name = os.path.split(file_path)
-        mime_type = (
-            MimeTypes().guess_type(file_name)[0] or "application/octet-stream"
-        )
+        mime_type = MimeTypes().guess_type(file_name)[0] or "application/octet-stream"
         file_size = os.path.getsize(file_path)
         headers = headers or {
             "Content-Disposition": 'inline; filename="{filename}"'.format(
@@ -289,9 +283,7 @@ async def download_file(request):  # pylint: disable=too-many-return-statements
             "Content-Length": str(file_size),
         }
         headers.update(default_headers)
-        return web.Response(
-            body=file_sender(file_path=file_path), headers=headers
-        )
+        return web.Response(body=file_sender(file_path=file_path), headers=headers)
     if file_info["type"] == "file":
         file_path = file_info["path"]
         if name != file_info["name"]:

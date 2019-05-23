@@ -336,9 +336,7 @@ class PluginConnection:
                 val = a_object[key]
                 if isinstance(val, (dict, list)):
                     if isarray:
-                        b_object.append(
-                            self._decode(val, callback_id, with_promise)
-                        )
+                        b_object.append(self._decode(val, callback_id, with_promise))
                     else:
                         b_object[key] = self._decode(val, callback_id, with_promise)
         return b_object
