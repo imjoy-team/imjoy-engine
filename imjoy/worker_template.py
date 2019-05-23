@@ -273,14 +273,14 @@ class PluginConnection:
 
         return b_object
 
-    def _decode(self, a_object, callbackId, with_promise):
+    def _decode(self, a_object, callback_id, with_promise):
         """Decode object."""
         if a_object is None:
             return a_object
         if "__jailed_type__" in a_object and "__value__" in a_object:
             if a_object["__jailed_type__"] == "callback":
                 b_object = self._gen_remote_callback(
-                    callbackId, a_object["num"], with_promise
+                    callback_id, a_object["num"], with_promise
                 )
             elif a_object["__jailed_type__"] == "interface":
                 name = a_object["__value__"]
@@ -335,9 +335,9 @@ class PluginConnection:
                     val = a_object[key]
                     if isinstance(val, dict) or isinstance(val, list):
                         if isarray:
-                            b_object.append(self._decode(val, callbackId, with_promise))
+                            b_object.append(self._decode(val, callback_id, with_promise))
                         else:
-                            b_object[key] = self._decode(val, callbackId, with_promise)
+                            b_object[key] = self._decode(val, callback_id, with_promise)
             return b_object
 
     def _wrap(self, args):
