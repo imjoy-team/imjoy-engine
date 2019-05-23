@@ -46,17 +46,17 @@ def kill(proc_pid):
     process.kill()
 
 
-def ndarray(typedArray, shape, dtype):
+def ndarray(typed_array, shape, dtype):
     """Return a ndarray."""
-    _dtype = type(typedArray)
+    _dtype = type(typed_array)
     if dtype and dtype != _dtype:
         raise Exception(
             "dtype doesn't match the type of the array: " + _dtype + " != " + dtype
         )
-    shape = shape or (len(typedArray),)
+    shape = shape or (len(typed_array),)
     return {
         "__jailed_type__": "ndarray",
-        "__value__": typedArray,
+        "__value__": typed_array,
         "__shape__": shape,
         "__dtype__": _dtype,
     }
