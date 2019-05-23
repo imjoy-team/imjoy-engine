@@ -43,8 +43,8 @@ def resume_plugin_session(engine, pid, session_id, plugin_signature):
         plugin_info = plugin_signatures[plugin_signature]
         logger.info("Resuming plugin %s", pid)
         return plugin_info
-    else:
-        return None
+
+    return None
 
 
 def add_client_session(engine, session_id, client_id, sid, base_url, workspace):
@@ -81,7 +81,7 @@ def disconnect_client_session(engine, sid):
         del registered_sessions[sid]
         if client_id in clients and sid in clients[client_id]:
             clients[client_id].remove(sid)
-            if len(clients[client_id]) == 0:
+            if not clients[client_id]:
                 del clients[client_id]
         if session_id in plugin_sessions:
             for plugin in plugin_sessions[session_id]:
@@ -203,7 +203,7 @@ async def force_kill_timeout(engine, timeout, obj):
         logger.warning("Timeout, force quitting %s", pid)
         kill_plugin(engine, pid)
     finally:
-        return
+        return  # TODO: What is the idea behind the return inside finally?
 
 
 def launch_plugin(
@@ -282,20 +282,20 @@ def launch_plugin(
             if cmd is not None:
                 logger.info("Running command %s", cmd)
 
-        def process_finish(cmd=None, **kwargs):
+        def process_finish(pid=None, cmd=None):
             """Notify when an install process command has finished."""
-            logger.debug("Finished running: %s", cmd)
+            logger.debug("Finished running (pid=%s): %s", pid, cmd)
             nonlocal progress
             progress += int(70 / (len(envs) + len(reqs_cmds) + len(REQ_PSUTIL)))
             logging_callback(progress, type="progress")
 
-        for env in envs:
-            if isinstance(env, str):
-                if env not in cmd_history:
-                    logger.info("Running env command: %s", env)
-                    logging_callback(f"Running env command: {env}")
+        for _env in envs:
+            if isinstance(_env, str):
+                if _env not in cmd_history:
+                    logger.info("Running env command: %s", _env)
+                    logging_callback(f"Running env command: {_env}")
                     code, errors = run_process(
-                        env.split(),
+                        _env.split(),
                         process_start=process_start,
                         process_finish=process_finish,
                         env=plugin_env,
@@ -303,33 +303,33 @@ def launch_plugin(
                     )
 
                     if code == 0:
-                        cmd_history.append(env)
+                        cmd_history.append(_env)
                         logging_callback("Successful execution of env command")
 
                     if errors is not None:
                         logging_callback(str(errors, "utf-8"), type="error")
 
                 else:
-                    logger.debug("Skip env command: %s", env)
-                    logging_callback(f"Skip env command: {env}")
+                    logger.debug("Skip env command: %s", _env)
+                    logging_callback(f"Skip env command: {_env}")
 
-            elif isinstance(env, dict):
-                assert "type" in env
-                if env["type"] == "gputil":
+            elif isinstance(_env, dict):
+                assert "type" in _env
+                if _env["type"] == "gputil":
                     # Set CUDA_DEVICE_ORDER
                     # so the IDs assigned by CUDA match those from nvidia-smi
                     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-                    device_ids = GPUtil.getAvailable(**env["options"])
-                    if len(device_ids) <= 0:
+                    device_ids = GPUtil.getAvailable(**_env["options"])
+                    if not device_ids:
                         raise Exception("No GPU is available to run this plugin.")
                     environment_variables["CUDA_VISIBLE_DEVICES"] = ",".join(
                         [str(device_id) for device_id in device_ids]
                     )
                     logging_callback(f"GPU id assigned: {device_ids}")
-                elif env["type"] == "variable":
-                    environment_variables.update(env["options"])
+                elif _env["type"] == "variable":
+                    environment_variables.update(_env["options"])
             else:
-                logger.debug("Skip unsupported env: %s", env)
+                logger.debug("Skip unsupported env: %s", _env)
 
             if abort.is_set():
                 logger.info("Plugin aborting")
@@ -453,26 +453,25 @@ def launch_plugin(
         logger.error(traceback.format_exc())
         outputs, errors = "", str(exc)
         exit_code = 100
-    finally:
-        if exit_code == 0:
-            logging_callback(f"Plugin process exited with code {exit_code}")
-            stop_callback(True, outputs)
-            return True
-        else:
-            logging_callback(
-                f"Plugin process exited with code {exit_code}", type="error"
-            )
-            logger.error(
-                "Error occured during terminating a process.\n"
-                "Command: %s\nExit code: %s",
-                args,
-                exit_code,
-            )
-            errors = errors or ""
-            stop_callback(
-                False, f"{errors}\nPlugin process exited with code {exit_code}"
-            )
-            return False
+    if exit_code == 0:
+        logging_callback(f"Plugin process exited with code {exit_code}")
+        stop_callback(True, outputs)
+        return True
+
+    logging_callback(
+        f"Plugin process exited with code {exit_code}", type="error"
+    )
+    logger.error(
+        "Error occured during terminating a process.\n"
+        "Command: %s\nExit code: %s",
+        args,
+        exit_code,
+    )
+    errors = errors or ""
+    stop_callback(
+        False, f"{errors}\nPlugin process exited with code {exit_code}"
+    )
+    return False
 
 
 def run_cmd(
@@ -480,7 +479,6 @@ def run_cmd(
     cmd,
     shell=False,
     cwd=None,
-    log_in_real_time=True,
     check_returncode=True,
     callback=None,
     plugin_id=None,
