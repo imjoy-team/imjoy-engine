@@ -210,18 +210,22 @@ class PluginConnection:
             except NameError:
                 basestring = str
             if callable(val):
-                interfaceFuncName = None
+                interface_func_name = None
                 for name in self.interface:
                     if self.interface[name] == val:
-                        interfaceFuncName = name
+                        interface_func_name = name
                         break
-                if interfaceFuncName is None:
+                if interface_func_name is None:
                     cid = self.store.put(val)
-                    v_obj = {"__jailed_type__": "callback", "__value__": "f", "num": cid}
+                    v_obj = {
+                        "__jailed_type__": "callback",
+                        "__value__": "f",
+                        "num": cid,
+                    }
                 else:
                     v_obj = {
                         "__jailed_type__": "interface",
-                        "__value__": interfaceFuncName,
+                        "__value__": interface_func_name,
                     }
 
             # send objects supported by structure clone algorithm
@@ -335,7 +339,9 @@ class PluginConnection:
                     val = a_object[key]
                     if isinstance(val, dict) or isinstance(val, list):
                         if isarray:
-                            b_object.append(self._decode(val, callback_id, with_promise))
+                            b_object.append(
+                                self._decode(val, callback_id, with_promise)
+                            )
                         else:
                             b_object[key] = self._decode(val, callback_id, with_promise)
             return b_object
