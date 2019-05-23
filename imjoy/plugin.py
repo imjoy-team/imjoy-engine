@@ -284,7 +284,7 @@ def launch_plugin(
             """Notify when an install process command has finished."""
             logger.debug("Finished running: %s", cmd)
             nonlocal progress
-            progress += int(65 / (len(envs) + len(reqs_cmds)))
+            progress += int(70 / (len(envs) + len(reqs_cmds) + len(REQ_PSUTIL)))
             logging_callback(progress, type="progress")
 
         for env in envs:
