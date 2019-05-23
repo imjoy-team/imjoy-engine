@@ -243,14 +243,14 @@ class PluginConnection:
             elif "np" in self.local and isinstance(
                 val, (self.local["np"].ndarray, self.local["np"].generic)
             ):
-                vb = bytearray(val.tobytes())
-                if len(vb) > ARRAY_CHUNK:
-                    vl = int(math.ceil(1.0 * len(vb) / ARRAY_CHUNK))
+                v_byte = bytearray(val.tobytes())
+                if len(v_byte) > ARRAY_CHUNK:
+                    vl = int(math.ceil(1.0 * len(v_byte) / ARRAY_CHUNK))
                     v_bytes = []
                     for i in range(vl):
-                        v_bytes.append(vb[i * ARRAY_CHUNK : (i + 1) * ARRAY_CHUNK])
+                        v_bytes.append(v_byte[i * ARRAY_CHUNK : (i + 1) * ARRAY_CHUNK])
                 else:
-                    v_bytes = vb
+                    v_bytes = v_byte
                 v_obj = {
                     "__jailed_type__": "ndarray",
                     "__value__": v_bytes,
