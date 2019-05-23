@@ -577,7 +577,7 @@ def main():
         event_loop = None
         job_queue = None
 
-    pc = PluginConnection(
+    plugin_conn = PluginConnection(
         opt.id,
         opt.secret,
         server=opt.server,
@@ -586,7 +586,7 @@ def main():
         loop=event_loop,
         worker=task_worker,
     )
-    pc.wait_forever()
+    plugin_conn.wait_forever()
 
 
 if __name__ == "__main__":
