@@ -534,8 +534,8 @@ class PluginConnection:
                 logger.debug("Skip execution")
                 self.emit({"type": "executeSuccess"})
         elif data["type"] == "message":
-            d = data["data"]
-            self.sync_q.put(d)
+            _data = data["data"]
+            self.sync_q.put(_data)
             logger.debug("Added task to the queue")
         sys.stdout.flush()
 
