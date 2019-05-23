@@ -426,7 +426,7 @@ class PluginConnection:
         remoteMethod.__remote_method = True
         return remoteMethod
 
-    def _gen_remote_callback(self, id_, argNum, withPromise):
+    def _gen_remote_callback(self, id_, arg_num, withPromise):
         """Return remote callback."""
         if withPromise:
 
@@ -442,7 +442,7 @@ class PluginConnection:
                         {
                             "type": "callback",
                             "id": id_,
-                            "num": argNum,
+                            "num": arg_num,
                             # 'pid'  : self.id,
                             "args": self._wrap(arguments),
                             "promise": self._wrap([resolve, reject]),
@@ -464,7 +464,7 @@ class PluginConnection:
                     {
                         "type": "callback",
                         "id": id_,
-                        "num": argNum,
+                        "num": arg_num,
                         # 'pid'  : self.id,
                         "args": self._wrap(arguments),
                     }
