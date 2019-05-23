@@ -372,13 +372,12 @@ async def on_init_plugin(engine, sid, kwargs):
             )
             asyncio.run_coroutine_threadsafe(coro, eloop).result()
 
-        args = '{} "{}" --id="{}" --server={} --secret="{}" --namespace={}'.format(
+        args = '{} "{}" --id="{}" --server={} --secret="{}"'.format(
             cmd,
             TEMPLATE_SCRIPT,
             pid,
             "http://127.0.0.1:" + engine.opt.port,
             secret_key,
-            NAME_SPACE,
         )
         task_thread = threading.Thread(
             target=launch_plugin,
