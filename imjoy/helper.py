@@ -274,7 +274,7 @@ def parse_env(eng, env, work_dir, default_env_name):
                     "You should provide an environment file via `conda env create -f`"
                 )
 
-    if not venv_name.strip():
+    if not venv_name or not venv_name.strip():
         venv_name = None
 
     return venv_name, envs, is_py2
