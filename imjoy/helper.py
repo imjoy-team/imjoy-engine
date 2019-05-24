@@ -217,46 +217,45 @@ def run_process(cmd, process_start=None, process_finish=None, **kwargs):
     return return_code, errors
 
 
-def parse_env(eng, env, work_dir, default_env_name):
+def parse_env(eng, envs, work_dir, default_env_name):
     """Parse environment."""
     venv_name = None
-    envs = []
     is_py2 = False
     logger = eng.logger
     opt = eng.opt
 
-    if isinstance(env, str):
-        env = env.strip()
+    if isinstance(envs, str):
+        envs = envs.strip()
 
-    if not env:
+    if not envs:
         if opt.freeze or not opt.CONDA_AVAILABLE:
             logger.warning(
                 "env command is blocked because conda is not available "
                 "or in `--freeze` mode: %s",
-                env,
+                envs,
             )
-        return venv_name, envs, is_py2
+        return venv_name, [], is_py2
 
-    if not isinstance(env, list):
-        envs = [env]
-    for i, _env in enumerate(envs):
-        if "conda create" in _env:
-            if "python=2" in _env:
+    if not isinstance(envs, list):
+        envs = [envs]
+    for i, env in enumerate(envs):
+        if "conda create" in env:
+            if "python=2" in env:
                 is_py2 = True
-            parms = shlex.split(_env)
+            parms = shlex.split(env)
             if "-n" in parms:
                 venv_name = parms[parms.index("-n") + 1]
             elif "--name" in parms:
                 venv_name = parms[parms.index("--name") + 1]
             else:
                 venv_name = default_env_name
-                envs[i] = _env.replace("conda create", "conda create -n " + venv_name)
+                envs[i] = env.replace("conda create", "conda create -n " + venv_name)
 
             if "-y" not in parms:
-                envs[i] = _env.replace("conda create", "conda create -y")
+                envs[i] = env.replace("conda create", "conda create -y")
 
-        if "conda env create" in _env:
-            parms = shlex.split(_env)
+        if "conda env create" in env:
+            parms = shlex.split(env)
             if "-f" in parms:
                 try:
                     env_file = Path(work_dir) / parms[parms.index("-f") + 1]
