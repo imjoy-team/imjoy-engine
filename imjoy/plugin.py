@@ -27,12 +27,12 @@ from imjoy.helper import (
 from imjoy.util import console_to_str, parse_repos
 
 
-def resume_plugin_session(eng, pid, session_id, plugin_signature):
+def resume_plugin_session(engine, pid, session_id, plugin_signature):
     """Resume plugin session."""
-    logger = eng.logger
-    plugins = eng.store.plugins
-    plugin_sessions = eng.store.plugin_sessions
-    plugin_signatures = eng.store.plugin_signatures
+    logger = engine.logger
+    plugins = engine.store.plugins
+    plugin_sessions = engine.store.plugin_sessions
+    plugin_signatures = engine.store.plugin_signatures
     if pid in plugins:
         if session_id in plugin_sessions:
             plugin_sessions[session_id].append(plugins[pid])
@@ -47,11 +47,11 @@ def resume_plugin_session(eng, pid, session_id, plugin_signature):
         return None
 
 
-def add_client_session(eng, session_id, client_id, sid, base_url, workspace):
+def add_client_session(engine, session_id, client_id, sid, base_url, workspace):
     """Add client session."""
-    logger = eng.logger
-    clients = eng.store.clients
-    registered_sessions = eng.store.registered_sessions
+    logger = engine.logger
+    clients = engine.store.clients
+    registered_sessions = engine.store.registered_sessions
     if client_id in clients:
         clients[client_id].append(sid)
         client_connected = True
@@ -68,12 +68,12 @@ def add_client_session(eng, session_id, client_id, sid, base_url, workspace):
     return client_connected
 
 
-def disconnect_client_session(eng, sid):
+def disconnect_client_session(engine, sid):
     """Disconnect client session."""
-    logger = eng.logger
-    clients = eng.store.clients
-    plugin_sessions = eng.store.plugin_sessions
-    registered_sessions = eng.store.registered_sessions
+    logger = engine.logger
+    clients = engine.store.clients
+    plugin_sessions = engine.store.plugin_sessions
+    registered_sessions = engine.store.registered_sessions
     if sid in registered_sessions:
         logger.info("Disconnecting client session %s", sid)
         obj = registered_sessions[sid]
@@ -86,16 +86,16 @@ def disconnect_client_session(eng, sid):
         if session_id in plugin_sessions:
             for plugin in plugin_sessions[session_id]:
                 if "allow-detach" not in plugin["flags"]:
-                    kill_plugin(eng, plugin["id"])
+                    kill_plugin(engine, plugin["id"])
             del plugin_sessions[session_id]
 
 
-def add_plugin(eng, plugin_info, sid=None):
+def add_plugin(engine, plugin_info, sid=None):
     """Add plugin."""
-    plugins = eng.store.plugins
-    plugin_sessions = eng.store.plugin_sessions
-    plugin_sids = eng.store.plugin_sids
-    plugin_signatures = eng.store.plugin_signatures
+    plugins = engine.store.plugins
+    plugin_sessions = engine.store.plugin_sessions
+    plugin_sids = engine.store.plugin_sids
+    plugin_signatures = engine.store.plugin_signatures
     pid = plugin_info["id"]
     session_id = plugin_info["session_id"]
     plugin_signatures[plugin_info["signature"]] = plugin_info
@@ -112,13 +112,13 @@ def add_plugin(eng, plugin_info, sid=None):
         plugin_info["sid"] = sid
 
 
-def disconnect_plugin(eng, sid):
+def disconnect_plugin(engine, sid):
     """Disconnect plugin."""
-    logger = eng.logger
-    plugins = eng.store.plugins
-    plugin_sessions = eng.store.plugin_sessions
-    plugin_sids = eng.store.plugin_sids
-    plugin_signatures = eng.store.plugin_signatures
+    logger = engine.logger
+    plugins = engine.store.plugins
+    plugin_sessions = engine.store.plugin_sessions
+    plugin_sids = engine.store.plugin_sids
+    plugin_signatures = engine.store.plugin_signatures
     if sid in plugin_sids:
         logger.info("Disconnecting plugin session %s", sid)
         pid = plugin_sids[sid]["id"]
@@ -139,21 +139,21 @@ def disconnect_plugin(eng, sid):
             if exist:
                 logger.info("Cleaning up plugin session %s", session_id)
                 plugin_sessions[session_id].remove(exist)
-                kill_plugin(eng, exist["id"])
+                kill_plugin(engine, exist["id"])
 
 
-def set_plugin_pid(eng, plugin_id, pid):
+def set_plugin_pid(engine, plugin_id, pid):
     """Set plugin pid."""
-    plugins = eng.store.plugins
+    plugins = engine.store.plugins
     plugins[plugin_id]["process_id"] = pid
 
 
-def kill_plugin(eng, pid):
+def kill_plugin(engine, pid):
     """Kill plugin."""
-    logger = eng.logger
-    plugins = eng.store.plugins
-    plugin_sids = eng.store.plugin_sids
-    plugin_signatures = eng.store.plugin_signatures
+    logger = engine.logger
+    plugins = engine.store.plugins
+    plugin_sids = engine.store.plugin_sids
+    plugin_signatures = engine.store.plugin_signatures
     if pid in plugins:
         try:
             plugins[pid]["abort"].set()
@@ -175,11 +175,11 @@ def kill_plugin(eng, pid):
         del plugins[pid]
 
 
-async def kill_all_plugins(eng, ssid):
+async def kill_all_plugins(engine, ssid):
     """Kill all plugins."""
-    logger = eng.logger
-    on_kill_plugin = eng.conn.sio.handlers[NAME_SPACE]["kill_plugin"]
-    plugin_sids = eng.store.plugin_sids
+    logger = engine.logger
+    on_kill_plugin = engine.conn.sio.handlers[NAME_SPACE]["kill_plugin"]
+    plugin_sids = engine.store.plugin_sids
     tasks = []
     for sid in list(plugin_sids.keys()):
         try:
@@ -190,9 +190,9 @@ async def kill_all_plugins(eng, ssid):
     return asyncio.gather(*tasks)
 
 
-async def force_kill_timeout(eng, timeout, obj):
+async def force_kill_timeout(engine, timeout, obj):
     """Force kill plugin after timeout."""
-    logger = eng.logger
+    logger = engine.logger
     pid = obj["pid"]
     for _ in range(int(timeout * 10)):
         if obj["force_kill"]:
@@ -201,13 +201,13 @@ async def force_kill_timeout(eng, timeout, obj):
             return
     try:
         logger.warning("Timeout, force quitting %s", pid)
-        kill_plugin(eng, pid)
+        kill_plugin(engine, pid)
     finally:
         return
 
 
 def launch_plugin(
-    eng,
+    engine,
     stop_callback,
     logging_callback,
     plugin_id,
@@ -222,8 +222,8 @@ def launch_plugin(
     plugin_env,
 ):
     """Launch plugin."""
-    logger = eng.logger
-    opt = eng.opt
+    logger = engine.logger
+    opt = engine.opt
     if abort.is_set():
         logger.info("Plugin aborting")
         logging_callback("Plugin aborting")
@@ -242,7 +242,10 @@ def launch_plugin(
                     assert os.path.isdir(repo["repo_dir"])
                     cmd = "git pull --all"
                     run_cmd(
-                        eng, cmd.split(" "), cwd=repo["repo_dir"], plugin_id=plugin_id
+                        engine,
+                        cmd.split(" "),
+                        cwd=repo["repo_dir"],
+                        plugin_id=plugin_id,
                     )
                 else:
                     cmd = (
@@ -251,7 +254,7 @@ def launch_plugin(
                         + " "
                         + repo["repo_dir"]
                     )
-                    run_cmd(eng, cmd.split(" "), cwd=work_dir, plugin_id=plugin_id)
+                    run_cmd(engine, cmd.split(" "), cwd=work_dir, plugin_id=plugin_id)
                 progress += int(20 / len(repos))
                 logging_callback(progress, type="progress")
             except Exception as exc:  # pylint: disable=broad-except
@@ -259,7 +262,7 @@ def launch_plugin(
 
         default_virtual_env = "{}-{}".format(pname, tag) if tag != "" else pname
         default_virtual_env = default_virtual_env.replace(" ", "_")
-        venv_name, envs, is_py2 = parse_env(eng, env, work_dir, default_virtual_env)
+        venv_name, envs, is_py2 = parse_env(engine, env, work_dir, default_virtual_env)
         environment_variables = {}
         default_requirements = (
             DEFAULT_REQUIREMENTS_PY2 if is_py2 else DEFAULT_REQUIREMENTS_PY3
@@ -270,12 +273,12 @@ def launch_plugin(
         reqs_cmds = parse_requirements(requirements, opt.CONDA_AVAILABLE)
         reqs_cmds += default_reqs_cmds
 
-        cmd_history = eng.store.cmd_history
+        cmd_history = engine.store.cmd_history
 
         def process_start(pid=None, cmd=None):
             """Run before process starts."""
             if pid is not None:
-                set_plugin_pid(eng, plugin_id, pid)
+                set_plugin_pid(engine, plugin_id, pid)
             if cmd is not None:
                 logger.info("Running command %s", cmd)
 
@@ -342,7 +345,7 @@ def launch_plugin(
             reqs_cmds = apply_conda_activate(reqs_cmds, opt.conda_activate, venv_name)
 
         install_reqs(
-            eng,
+            engine,
             plugin_env,
             work_dir,
             reqs_cmds,
@@ -420,7 +423,7 @@ def launch_plugin(
             **kwargs,
         )
         logging_callback(f"Running subprocess (pid={process.pid}) with {args}")
-        set_plugin_pid(eng, plugin_id, process.pid)
+        set_plugin_pid(engine, plugin_id, process.pid)
         # Poll process for new output until finished
         stdfn = sys.stdout.fileno()
 
@@ -473,7 +476,7 @@ def launch_plugin(
 
 
 def run_cmd(
-    eng,
+    engine,
     cmd,
     shell=False,
     cwd=None,
@@ -496,7 +499,7 @@ def run_cmd(
         cwd=cwd,
     )
     if plugin_id is not None:
-        set_plugin_pid(eng, plugin_id, proc.pid)
+        set_plugin_pid(engine, plugin_id, proc.pid)
 
     all_output = []
     code = None

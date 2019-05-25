@@ -36,9 +36,9 @@ def main():
     setup_logging(opt, logger)
     opt = prep_env(opt, logger)
     opt = bootstrap(opt, logger)
-    eng = Engine(opt, logger)
-    eng.setup()
-    eng.start()
+    engine = Engine(opt, logger)
+    engine.setup()
+    engine.start()
 
 
 if __name__ == "__main__":

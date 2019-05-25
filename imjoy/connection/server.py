@@ -8,51 +8,53 @@ from mimetypes import MimeTypes
 import aiohttp_cors
 from aiohttp import web
 
-from imjoy.const import ENG, __version__
+from imjoy.const import ENGINE, __version__
 from imjoy.helper import kill_process, scandir
 from imjoy.util.aiohttp import file_sender
 
 
-def setup_app(eng, app):
+def setup_app(engine, app):
     """Set up app."""
-    setup_router(eng, app)
+    setup_router(engine, app)
     setup_cors(app)
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
 
 
-def run_app(eng, app):
+def run_app(engine, app):
     """Run the app."""
-    logger = eng.logger
+    logger = engine.logger
     try:
-        web.run_app(app, host=eng.opt.host, port=int(eng.opt.port))
+        web.run_app(app, host=engine.opt.host, port=int(engine.opt.port))
     except OSError as exc:
         if exc.errno in {48}:
             logger.error(
                 "Failed to open port %s, "
                 "please try to terminate the process which is using that port, "
                 "or restart your computer.",
-                eng.opt.port,
+                engine.opt.port,
             )
 
 
-def setup_router(eng, app):
+def setup_router(engine, app):
     """Set up router."""
     # pylint: disable=unused-argument
-    logger = eng.logger
-    if eng.opt.serve and os.path.exists(
-        os.path.join(eng.opt.WEB_APP_DIR, "index.html")
+    logger = engine.logger
+    if engine.opt.serve and os.path.exists(
+        os.path.join(engine.opt.WEB_APP_DIR, "index.html")
     ):
 
         async def index(request):
             """Serve the client-side application."""
             with open(
-                os.path.join(eng.opt.WEB_APP_DIR, "index.html"), "r", encoding="utf-8"
+                os.path.join(engine.opt.WEB_APP_DIR, "index.html"),
+                "r",
+                encoding="utf-8",
             ) as fil:
                 return web.Response(text=fil.read(), content_type="text/html")
 
         app.router.add_static(
-            "/static", path=str(os.path.join(eng.opt.WEB_APP_DIR, "static"))
+            "/static", path=str(os.path.join(engine.opt.WEB_APP_DIR, "static"))
         )
         # app.router.add_static('/docs/', path=str(os.path.join(WEB_APP_DIR, 'docs')))
 
@@ -62,7 +64,7 @@ def setup_router(eng, app):
 
         app.router.add_get("/docs", docs_handler, name="docs")
         logger.info(
-            "A local version of Imjoy web app is available at %s", eng.opt.base_url
+            "A local version of Imjoy web app is available at %s", engine.opt.base_url
         )
     else:
 
@@ -100,7 +102,7 @@ def setup_cors(app):
 
 async def about(request):
     """Return about text."""
-    eng = request.app[ENG]
+    engine = request.app[ENGINE]
     params = request.rel_url.query
     if "token" in params:
         body = (
@@ -119,10 +121,10 @@ async def about(request):
             "with the link below: </p>"
         )
 
-        if eng.opt.serve:
+        if engine.opt.serve:
             body += (
                 '<p><a href="'
-                + eng.opt.base_url
+                + engine.opt.base_url
                 + "/#/app?token="
                 + params["token"]
                 + '">Open ImJoy App</a></p>'
@@ -135,9 +137,11 @@ async def about(request):
             )
 
     else:
-        if eng.opt.serve:
+        if engine.opt.serve:
             body = (
-                '<H1><a href="' + eng.opt.base_url + '/#/app">Open ImJoy App</a></H1>'
+                '<H1><a href="'
+                + engine.opt.base_url
+                + '/#/app">Open ImJoy App</a></H1>'
             )
         else:
             body = '<H1><a href="https://imjoy.io/#/app">Open ImJoy App</a></H1>'
@@ -153,9 +157,9 @@ async def about(request):
 
 async def upload_file(request):
     """Upload file."""
-    eng = request.app[ENG]
-    logger = eng.logger
-    request_upload_files = eng.store.request_upload_files
+    engine = request.app[ENGINE]
+    logger = engine.logger
+    request_upload_files = engine.store.request_upload_files
     urlid = request.match_info["urlid"]  # Could be a HUGE file
     if urlid not in request_upload_files:
         raise web.HTTPForbidden(text="Invalid URL")
@@ -182,7 +186,7 @@ async def upload_file(request):
         if "dir" in file_info:
             path = os.path.join(file_info["dir"], path)
         else:
-            path = os.path.join(eng.opt.WORKSPACE_DIR, file_info["workspace"], path)
+            path = os.path.join(engine.opt.WORKSPACE_DIR, file_info["workspace"], path)
 
         if os.path.exists(path) and not file_info.get("overwrite", False):
             return web.Response(body="File {} already exists.".format(path), status=404)
@@ -210,8 +214,8 @@ async def upload_file(request):
 
 async def download_file(request):
     """Download file."""
-    eng = request.app[ENG]
-    generated_urls = eng.store.generated_urls
+    engine = request.app[ENGINE]
+    generated_urls = engine.store.generated_urls
     urlid = request.match_info["urlid"]  # Could be a HUGE file
     name = request.match_info["name"]
     if urlid not in generated_urls:
@@ -312,28 +316,28 @@ async def download_file(request):
 
 async def on_startup(app):
     """Run on server start."""
-    eng = app[ENG]
-    logger = eng.logger
+    engine = app[ENGINE]
+    logger = engine.logger
     logger.info("ImJoy Python Plugin Engine (version %s)", __version__)
 
-    if eng.opt.serve:
+    if engine.opt.serve:
         logger.info(
             "You can access your local ImJoy web app through %s , imjoy!",
-            eng.opt.base_url,
+            engine.opt.base_url,
         )
     else:
         logger.info(
             "Please go to https://imjoy.io/#/app "
             "with your web browser (Chrome or FireFox)"
         )
-    logger.info("Connection token: %s", eng.opt.token)
+    logger.info("Connection token: %s", engine.opt.token)
     sys.stdout.flush()
 
 
 async def on_shutdown(app):
     """Run on server shut down."""
-    eng = app[ENG]
-    logger = eng.logger
+    engine = app[ENGINE]
+    logger = engine.logger
     logger.info("Shutting down the plugin engine")
     stopped = threading.Event()
 
@@ -352,7 +356,7 @@ async def on_shutdown(app):
 
     # stopped.set()  # TODO: Should we uncomment this?
     logger.info("Plugin engine exited")
-    pid_file = os.path.join(eng.opt.WORKSPACE_DIR, ".pid")
+    pid_file = os.path.join(engine.opt.WORKSPACE_DIR, ".pid")
     try:
         os.remove(pid_file)
     except Exception:  # pylint: disable=broad-except

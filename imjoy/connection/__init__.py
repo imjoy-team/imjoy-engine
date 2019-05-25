@@ -5,27 +5,27 @@ from functools import partial
 import socketio
 from aiohttp import web
 
-from imjoy.const import ENG
+from imjoy.const import ENGINE
 from imjoy.helper import dotdict
 from .decorator import partial_coro
 from .handler import register_services
 from .server import setup_app, run_app
 
 
-def create_connection_manager(eng):
+def create_connection_manager(engine):
     """Create a socketio connection and return the connection instance."""
     # An event handler can be found like this:
     # handler = sio.handlers[namespace][event]
     # ALLOWED_ORIGINS = [opt.base_url, 'http://imjoy.io', 'https://imjoy.io']
     sio = socketio.AsyncServer()
     app = web.Application()
-    app[ENG] = eng
+    app[ENGINE] = engine
     sio.attach(app)
-    setup_app(eng, app)
-    return ConnectionManager(eng, app, sio)
+    setup_app(engine, app)
+    return ConnectionManager(engine, app, sio)
 
 
-def register_event_handler(eng, event, handler=None, namespace=None):
+def register_event_handler(engine, event, handler=None, namespace=None):
     """Register a socketio event handler."""
     # pylint: disable=protected-access
     if handler is None:
@@ -33,10 +33,10 @@ def register_event_handler(eng, event, handler=None, namespace=None):
         event = handler._ws_event
         namespace = handler._ws_namespace
     if asyncio.iscoroutinefunction(handler):
-        injected_handler = partial_coro(handler, eng)
+        injected_handler = partial_coro(handler, engine)
     else:
-        injected_handler = partial(handler, eng)
-    eng.conn.sio.on(event, handler=injected_handler, namespace=namespace)
+        injected_handler = partial(handler, engine)
+    engine.conn.sio.on(event, handler=injected_handler, namespace=namespace)
 
 
 class ConnectionManager:
@@ -44,9 +44,9 @@ class ConnectionManager:
 
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, eng, app, sio):
+    def __init__(self, engine, app, sio):
         """Set up connection instance attributes."""
-        self.eng = eng
+        self.engine = engine
         self.app = app
         self.sio = sio
         self.store = dotdict()
@@ -75,12 +75,12 @@ class ConnectionManager:
     def start(self):
         """Start the connection."""
         self._register_services()
-        run_app(self.eng, self.app)
+        run_app(self.engine, self.app)
 
     def register_event_handler(self, event, handler=None, namespace=None):
         """Register a socketio event handler."""
-        register_event_handler(self.eng, event, handler=handler, namespace=namespace)
+        register_event_handler(self.engine, event, handler=handler, namespace=namespace)
 
     def _register_services(self):
         """Register event handlers for internal services."""
-        register_services(self.eng, register_event_handler)
+        register_services(self.engine, register_event_handler)

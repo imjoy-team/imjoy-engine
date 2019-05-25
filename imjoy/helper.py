@@ -106,11 +106,11 @@ def apply_conda_activate(reqs_cmds, conda_activate, venv_name):
 
 
 def install_reqs(
-    eng, env, work_dir, reqs_cmds, process_start, process_finish, logging_callback
+    engine, env, work_dir, reqs_cmds, process_start, process_finish, logging_callback
 ):
     """Install requirements including fallback handling."""
-    logger = eng.logger
-    cmd_history = eng.store.cmd_history
+    logger = engine.logger
+    cmd_history = engine.store.cmd_history
     commands = []
     code = 0
     error = None
@@ -147,7 +147,7 @@ def install_reqs(
     if errors is not None:
         logging_callback(str(errors, "utf-8"), type="error")
 
-    if not eng.opt.CONDA_AVAILABLE:
+    if not engine.opt.CONDA_AVAILABLE:
         fail_install()
 
     git_cmd = ""
@@ -217,12 +217,12 @@ def run_process(cmd, process_start=None, process_finish=None, **kwargs):
     return return_code, errors
 
 
-def parse_env(eng, envs, work_dir, default_env_name):
+def parse_env(engine, envs, work_dir, default_env_name):
     """Parse environment."""
     venv_name = None
     is_py2 = False
-    logger = eng.logger
-    opt = eng.opt
+    logger = engine.logger
+    opt = engine.opt
 
     if isinstance(envs, str):
         envs = envs.strip()
