@@ -3,13 +3,11 @@ import asyncio
 from functools import partial
 
 import socketio
-from aiohttp import web
 
-from imjoy.const import ENGINE
 from imjoy.helper import dotdict
 from .decorator import partial_coro
 from .handler import register_services
-from .server import setup_app, run_app
+from .server import create_app, run_app
 
 
 def create_connection_manager(engine):
@@ -18,10 +16,8 @@ def create_connection_manager(engine):
     # handler = sio.handlers[namespace][event]
     # ALLOWED_ORIGINS = [opt.base_url, 'http://imjoy.io', 'https://imjoy.io']
     sio = socketio.AsyncServer()
-    app = web.Application()
-    app[ENGINE] = engine
+    app = create_app(engine)
     sio.attach(app)
-    setup_app(engine, app)
     return ConnectionManager(engine, app, sio)
 
 
