@@ -38,8 +38,6 @@ def register_event_handler(engine, event, handler=None, namespace=None):
 class ConnectionManager:
     """Represent a connection manager for socketio event handler and session data."""
 
-    # pylint: disable=too-few-public-methods
-
     def __init__(self, engine, app, sio):
         """Set up connection instance attributes."""
         self.engine = engine
