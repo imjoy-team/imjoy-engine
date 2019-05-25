@@ -12,8 +12,6 @@ from .server import create_app, run_app
 
 def create_connection_manager(engine):
     """Create a socketio connection and return the connection instance."""
-    # An event handler can be found like this:
-    # handler = sio.handlers[namespace][event]
     # ALLOWED_ORIGINS = [opt.base_url, 'http://imjoy.io', 'https://imjoy.io']
     sio = socketio.AsyncServer()
     app = create_app(engine)
@@ -23,6 +21,8 @@ def create_connection_manager(engine):
 
 def register_event_handler(engine, event, handler=None, namespace=None):
     """Register a socketio event handler."""
+    # An event handler can be found like this:
+    # handler = sio.handlers[namespace][event]
     # pylint: disable=protected-access
     if handler is None:
         handler = event
