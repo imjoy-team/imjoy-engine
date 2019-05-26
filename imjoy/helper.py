@@ -310,4 +310,4 @@ def setup_logging(opt, logger):
     if opt.debug:
         logger.setLevel(logging.DEBUG)
     else:
-        logger.setLevel(logging.ERROR)
+        logger.setLevel(logging.INFO)
