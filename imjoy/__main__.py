@@ -74,6 +74,7 @@ def main():
             "websocket-client-py3",
             "aiohttp",
             "git+https://github.com/oeway/ImJoy-Engine#egg=imjoy",
+            "gputil",
             "psutil",
             "numpy",
         ]
