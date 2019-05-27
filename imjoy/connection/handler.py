@@ -17,17 +17,17 @@ from urllib.parse import urlparse
 import GPUtil
 
 from imjoy.const import API_VERSION, NAME_SPACE, TEMPLATE_SCRIPT, __version__
-from imjoy.helper import get_psutil, killProcess, scandir
+from imjoy.helper import get_psutil, kill_process, scandir
 from imjoy.plugin import (
-    addClientSession,
-    addPlugin,
-    disconnectClientSession,
-    disconnectPlugin,
+    add_client_session,
+    add_plugin,
+    disconnect_client_session,
+    disconnect_plugin,
     force_kill_timeout,
-    killAllPlugins,
-    killPlugin,
+    kill_all_plugins,
+    kill_plugin,
     launch_plugin,
-    resumePluginSession,
+    resume_plugin_session,
 )
 
 from .decorator import ws_handler as sio_on
@@ -42,43 +42,43 @@ else:
 MAX_ATTEMPTS = 1000
 
 
-def register_services(eng, register_event_handler):
+def register_services(engine, register_event_handler):
     """Register services running by the engine."""
     # basic engine service
-    register_event_handler(eng, connect)
-    register_event_handler(eng, disconnect)
-    register_event_handler(eng, on_reset_engine)
-    register_event_handler(eng, on_get_engine_status)
+    register_event_handler(engine, connect)
+    register_event_handler(engine, disconnect)
+    register_event_handler(engine, on_reset_engine)
+    register_event_handler(engine, on_get_engine_status)
 
     # plugin service
-    register_event_handler(eng, on_register_client)
-    register_event_handler(eng, on_init_plugin)
-    register_event_handler(eng, on_kill_plugin)
-    register_event_handler(eng, on_kill_plugin_process)
+    register_event_handler(engine, on_register_client)
+    register_event_handler(engine, on_init_plugin)
+    register_event_handler(engine, on_kill_plugin)
+    register_event_handler(engine, on_kill_plugin_process)
 
     # file server
-    register_event_handler(eng, on_list_dir)
-    register_event_handler(eng, on_get_file_url)
-    register_event_handler(eng, on_get_file_path)
-    register_event_handler(eng, on_remove_files)
-    register_event_handler(eng, on_request_upload_url)
+    register_event_handler(engine, on_list_dir)
+    register_event_handler(engine, on_get_file_url)
+    register_event_handler(engine, on_get_file_path)
+    register_event_handler(engine, on_remove_files)
+    register_event_handler(engine, on_request_upload_url)
 
     # terminal
-    register_event_handler(eng, on_start_terminal)
-    register_event_handler(eng, on_terminal_input)
-    register_event_handler(eng, on_terminal_window_resize)
+    register_event_handler(engine, on_start_terminal)
+    register_event_handler(engine, on_terminal_input)
+    register_event_handler(engine, on_terminal_window_resize)
 
 
 @sio_on("connect", namespace=NAME_SPACE)
-def connect(eng, sid, environ):
+def connect(engine, sid, environ):
     """Connect client."""
-    logger = eng.logger
+    logger = engine.logger
     logger.info("Connect %s", sid)
 
 
-async def read_and_forward_terminal_output(eng):
+async def read_and_forward_terminal_output(engine):
     """Read from terminal and forward to the client."""
-    terminal_session = eng.store.terminal_session
+    terminal_session = engine.store.terminal_session
     max_read_bytes = 1024 * 20
     try:
         terminal_session["output_monitor_running"] = True
@@ -92,19 +92,21 @@ async def read_and_forward_terminal_output(eng):
                 if data_ready:
                     output = os.read(terminal_session["fd"], max_read_bytes).decode()
                     if output:
-                        await eng.conn.sio.emit("terminal_output", {"output": output})
+                        await engine.conn.sio.emit(
+                            "terminal_output", {"output": output}
+                        )
     finally:
         terminal_session["output_monitor_running"] = False
 
 
 @sio_on("start_terminal", namespace=NAME_SPACE)
-async def on_start_terminal(eng, sid, kwargs):
+async def on_start_terminal(engine, sid, kwargs):
     """Handle new terminal client connected."""
     if sys.platform == "win32":
         return {"success": False, "error": "Terminal is not available on Windows yet."}
-    logger = eng.logger
-    registered_sessions = eng.store.registered_sessions
-    terminal_session = eng.store.terminal_session
+    logger = engine.logger
+    registered_sessions = engine.store.registered_sessions
+    terminal_session = engine.store.terminal_session
     try:
         if sid not in registered_sessions:
             logger.debug("Client %s is not registered", sid)
@@ -169,7 +171,8 @@ async def on_start_terminal(eng, sid, kwargs):
                 or not terminal_session["output_monitor_running"]
             ):
                 asyncio.ensure_future(
-                    read_and_forward_terminal_output(eng), loop=asyncio.get_event_loop()
+                    read_and_forward_terminal_output(engine),
+                    loop=asyncio.get_event_loop(),
                 )
 
         return {
@@ -181,14 +184,14 @@ async def on_start_terminal(eng, sid, kwargs):
 
 
 @sio_on("terminal_input", namespace=NAME_SPACE)
-async def on_terminal_input(eng, sid, data):
+async def on_terminal_input(engine, sid, data):
     """Write to the terminal as if you are typing in a real terminal."""
     if sys.platform == "win32":
         return "Terminal is not available on Windows yet."
 
-    logger = eng.logger
-    registered_sessions = eng.store.registered_sessions
-    terminal_session = eng.store.terminal_session
+    logger = engine.logger
+    registered_sessions = engine.store.registered_sessions
+    terminal_session = engine.store.terminal_session
     if sid not in registered_sessions:
         return
     try:
@@ -210,11 +213,11 @@ def set_winsize(fdesc, row, col, xpix=0, ypix=0):
 
 
 @sio_on("terminal_window_resize", namespace=NAME_SPACE)
-async def on_terminal_window_resize(eng, sid, data):
+async def on_terminal_window_resize(engine, sid, data):
     """Resize terminal window."""
-    logger = eng.logger
-    registered_sessions = eng.store.registered_sessions
-    terminal_session = eng.store.terminal_session
+    logger = engine.logger
+    registered_sessions = engine.store.registered_sessions
+    terminal_session = engine.store.terminal_session
     if sid not in registered_sessions:
         return
     try:
@@ -226,10 +229,10 @@ async def on_terminal_window_resize(eng, sid, data):
 
 
 @sio_on("init_plugin", namespace=NAME_SPACE)
-async def on_init_plugin(eng, sid, kwargs):
+async def on_init_plugin(engine, sid, kwargs):
     """Initialize plugin."""
-    logger = eng.logger
-    registered_sessions = eng.store.registered_sessions
+    logger = engine.logger
+    registered_sessions = engine.store.registered_sessions
     try:
         if sid in registered_sessions:
             obj = registered_sessions[sid]
@@ -246,7 +249,7 @@ async def on_init_plugin(eng, sid, kwargs):
         tag = config.get("tag", "")
         requirements = config.get("requirements", []) or []
         workspace = config.get("workspace", "default")
-        work_dir = os.path.join(eng.opt.WORKSPACE_DIR, workspace)
+        work_dir = os.path.join(engine.opt.WORKSPACE_DIR, workspace)
         if not os.path.exists(work_dir):
             os.makedirs(work_dir)
         plugin_env = os.environ.copy()
@@ -270,7 +273,9 @@ async def on_init_plugin(eng, sid, kwargs):
             resume = False
 
         if resume:
-            plugin_info = resumePluginSession(eng, pid, session_id, plugin_signature)
+            plugin_info = resume_plugin_session(
+                engine, pid, session_id, plugin_signature
+            )
             if plugin_info is not None:
                 if "aborting" in plugin_info:
                     logger.info("Waiting for plugin %s to abort", plugin_info["id"])
@@ -291,10 +296,10 @@ async def on_init_plugin(eng, sid, kwargs):
                     plugin_signature,
                 )
 
-        secretKey = str(uuid.uuid4())
+        secret_key = str(uuid.uuid4())
         abort = threading.Event()
         plugin_info = {
-            "secret": secretKey,
+            "secret": secret_key,
             "id": pid,
             "abort": abort,
             "flags": flags,
@@ -306,10 +311,10 @@ async def on_init_plugin(eng, sid, kwargs):
             "process_id": None,
         }
         logger.info("Add plugin: %s", plugin_info)
-        addPlugin(eng, plugin_info)
+        add_plugin(engine, plugin_info)
 
-        @sio_on("from_plugin_" + secretKey, namespace=NAME_SPACE)
-        async def message_from_plugin(eng, sid, kwargs):
+        @sio_on("from_plugin_" + secret_key, namespace=NAME_SPACE)
+        async def message_from_plugin(engine, sid, kwargs):
             if kwargs["type"] in [
                 "initialized",
                 "importSuccess",
@@ -317,28 +322,28 @@ async def on_init_plugin(eng, sid, kwargs):
                 "executeSuccess",
                 "executeFailure",
             ]:
-                await eng.conn.sio.emit("message_from_plugin_" + secretKey, kwargs)
+                await engine.conn.sio.emit("message_from_plugin_" + secret_key, kwargs)
                 logger.debug("Message from %s", pid)
                 if kwargs["type"] == "initialized":
-                    addPlugin(eng, plugin_info, sid)
+                    add_plugin(engine, plugin_info, sid)
                 elif kwargs["type"] == "executeFailure":
                     logger.info("Killing plugin %s due to exeuction failure", pid)
-                    killPlugin(eng, pid)
+                    kill_plugin(engine, pid)
             else:
-                await eng.conn.sio.emit(
-                    "message_from_plugin_" + secretKey,
+                await engine.conn.sio.emit(
+                    "message_from_plugin_" + secret_key,
                     {"type": "message", "data": kwargs},
                 )
 
-        eng.conn.register_event_handler(message_from_plugin)
+        engine.conn.register_event_handler(message_from_plugin)
 
-        @sio_on("message_to_plugin_" + secretKey, namespace=NAME_SPACE)
-        async def message_to_plugin(eng, sid, kwargs):
+        @sio_on("message_to_plugin_" + secret_key, namespace=NAME_SPACE)
+        async def message_to_plugin(engine, sid, kwargs):
             if kwargs["type"] == "message":
-                await eng.conn.sio.emit("to_plugin_" + secretKey, kwargs["data"])
-            logger.debug("Message to plugin %s", secretKey)
+                await engine.conn.sio.emit("to_plugin_" + secret_key, kwargs["data"])
+            logger.debug("Message to plugin %s", secret_key)
 
-        eng.conn.register_event_handler(message_to_plugin)
+        engine.conn.register_event_handler(message_to_plugin)
 
         eloop = asyncio.get_event_loop()
 
@@ -349,8 +354,8 @@ async def on_init_plugin(eng, sid, kwargs):
             logger.info(
                 "Disconnecting from plugin (success: %s, message: %s)", success, message
             )
-            coro = eng.conn.sio.emit(
-                "message_from_plugin_" + secretKey,
+            coro = engine.conn.sio.emit(
+                "message_from_plugin_" + secret_key,
                 {
                     "type": "disconnected",
                     "details": {"success": success, "message": message},
@@ -361,8 +366,8 @@ async def on_init_plugin(eng, sid, kwargs):
         def logging_callback(msg, type="info"):
             if msg == "":
                 return
-            coro = eng.conn.sio.emit(
-                "message_from_plugin_" + secretKey,
+            coro = engine.conn.sio.emit(
+                "message_from_plugin_" + secret_key,
                 {"type": "logging", "details": {"value": msg, "type": type}},
             )
             asyncio.run_coroutine_threadsafe(coro, eloop).result()
@@ -371,14 +376,14 @@ async def on_init_plugin(eng, sid, kwargs):
             cmd,
             TEMPLATE_SCRIPT,
             pid,
-            "http://127.0.0.1:" + eng.opt.port,
-            secretKey,
+            "http://127.0.0.1:" + engine.opt.port,
+            secret_key,
             NAME_SPACE,
         )
-        taskThread = threading.Thread(
+        task_thread = threading.Thread(
             target=launch_plugin,
             args=[
-                eng,
+                engine,
                 stop_callback,
                 logging_callback,
                 pid,
@@ -393,12 +398,12 @@ async def on_init_plugin(eng, sid, kwargs):
                 plugin_env,
             ],
         )
-        taskThread.daemon = True
-        taskThread.start()
+        task_thread.daemon = True
+        task_thread.start()
         return {
             "success": True,
             "initialized": False,
-            "secret": secretKey,
+            "secret": secret_key,
             "work_dir": os.path.abspath(work_dir),
         }
 
@@ -409,28 +414,28 @@ async def on_init_plugin(eng, sid, kwargs):
 
 
 @sio_on("reset_engine", namespace=NAME_SPACE)
-async def on_reset_engine(eng, sid, kwargs):
+async def on_reset_engine(engine, sid, kwargs):
     """Reset engine."""
-    logger = eng.logger
-    registered_sessions = eng.store.registered_sessions
+    logger = engine.logger
+    registered_sessions = engine.store.registered_sessions
     logger.info("Kill plugin: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered"}
 
-    await killAllPlugins(eng, sid)
+    await kill_all_plugins(engine, sid)
 
-    eng.conn.reset_store(reset_clients=False)
+    engine.conn.reset_store(reset_clients=False)
 
     return {"success": True}
 
 
 @sio_on("kill_plugin", namespace=NAME_SPACE)
-async def on_kill_plugin(eng, sid, kwargs):
+async def on_kill_plugin(engine, sid, kwargs):
     """Kill plugin."""
-    logger = eng.logger
-    plugins = eng.store.plugins
-    registered_sessions = eng.store.registered_sessions
+    logger = engine.logger
+    plugins = engine.store.plugins
+    registered_sessions = engine.store.registered_sessions
     logger.info("Kill plugin: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("Client %s is not registered", sid)
@@ -446,35 +451,35 @@ async def on_kill_plugin(eng, sid, kwargs):
                 obj["force_kill"] = False
                 logger.info("Plugin %s exited normally", pid)
                 # kill the plugin now
-                killPlugin(eng, pid)
+                kill_plugin(engine, pid)
 
-            await eng.conn.sio.emit(
+            await engine.conn.sio.emit(
                 "to_plugin_" + plugins[pid]["secret"],
                 {"type": "disconnect"},
                 callback=exited,
             )
-            await force_kill_timeout(eng, eng.opt.force_quit_timeout, obj)
+            await force_kill_timeout(engine, engine.opt.force_quit_timeout, obj)
     return {"success": True}
 
 
 @sio_on("register_client", namespace=NAME_SPACE)
-async def on_register_client(eng, sid, kwargs):
+async def on_register_client(engine, sid, kwargs):
     """Register client."""
-    logger = eng.logger
-    conn_data = eng.store
+    logger = engine.logger
+    conn_data = engine.store
     client_id = kwargs.get("id", str(uuid.uuid4()))
     workspace = kwargs.get("workspace", "default")
     session_id = kwargs.get("session_id", str(uuid.uuid4()))
-    base_url = kwargs.get("base_url", eng.opt.base_url)
+    base_url = kwargs.get("base_url", engine.opt.base_url)
     if base_url.endswith("/"):
         base_url = base_url[:-1]
 
     token = kwargs.get("token")
-    if token != eng.opt.token:
-        logger.debug("Token mismatch: %s != %s", token, eng.opt.token)
-        if eng.opt.engine_container_token is not None:
-            await eng.conn.sio.emit(
-                "message_to_container_" + eng.opt.engine_container_token,
+    if token != engine.opt.token:
+        logger.debug("Token mismatch: %s != %s", token, engine.opt.token)
+        if engine.opt.engine_container_token is not None:
+            await engine.conn.sio.emit(
+                "message_to_container_" + engine.opt.engine_container_token,
                 {
                     "type": "popup_token",
                     "client_id": client_id,
@@ -497,7 +502,7 @@ async def on_register_client(eng, sid, kwargs):
         return {"success": False}
     else:
         conn_data.attempt_count = 0
-        if addClientSession(eng, session_id, client_id, sid, base_url, workspace):
+        if add_client_session(engine, session_id, client_id, sid, base_url, workspace):
             confirmation = True
             message = (
                 "Another ImJoy session is connected to this Plugin Engine({}), "
@@ -519,7 +524,7 @@ async def on_register_client(eng, sid, kwargs):
         }
 
         try:
-            GPUs = GPUtil.getGPUs()
+            gpus = GPUtil.getGPUs()
             engine_info["GPUs"] = [
                 {
                     "name": gpu.name,
@@ -531,9 +536,9 @@ async def on_register_client(eng, sid, kwargs):
                     "temperature": gpu.temperature,
                     "load": gpu.load,
                 }
-                for gpu in GPUs
+                for gpu in gpus
             ]
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             logger.error("Failed to get GPU information with GPUtil")
 
         return {
@@ -545,17 +550,17 @@ async def on_register_client(eng, sid, kwargs):
 
 
 @sio_on("list_dir", namespace=NAME_SPACE)
-async def on_list_dir(eng, sid, kwargs):
+async def on_list_dir(engine, sid, kwargs):
     """List files in directory."""
-    logger = eng.logger
-    registered_sessions = eng.store.registered_sessions
+    logger = engine.logger
+    registered_sessions = engine.store.registered_sessions
     if sid not in registered_sessions:
         logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered."}
 
     try:
         workspace_dir = os.path.join(
-            eng.opt.WORKSPACE_DIR, registered_sessions[sid]["workspace"]
+            engine.opt.WORKSPACE_DIR, registered_sessions[sid]["workspace"]
         )
 
         path = kwargs.get("path", workspace_dir)
@@ -582,16 +587,16 @@ async def on_list_dir(eng, sid, kwargs):
 
 
 @sio_on("remove_files", namespace=NAME_SPACE)
-async def on_remove_files(eng, sid, kwargs):
+async def on_remove_files(engine, sid, kwargs):
     """Remove files."""
-    logger = eng.logger
-    registered_sessions = eng.store.registered_sessions
+    logger = engine.logger
+    registered_sessions = engine.store.registered_sessions
     if sid not in registered_sessions:
         logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered."}
     logger.info("Removing files: %s", kwargs)
     workspace_dir = os.path.join(
-        eng.opt.WORKSPACE_DIR, registered_sessions[sid]["workspace"]
+        engine.opt.WORKSPACE_DIR, registered_sessions[sid]["workspace"]
     )
     path = kwargs.get("path", workspace_dir)
     if not os.path.isabs(path):
@@ -625,56 +630,56 @@ async def on_remove_files(eng, sid, kwargs):
 
 
 @sio_on("request_upload_url", namespace=NAME_SPACE)
-async def on_request_upload_url(eng, sid, kwargs):
+async def on_request_upload_url(engine, sid, kwargs):
     """Request upload url."""
-    logger = eng.logger
-    registered_sessions = eng.store.registered_sessions
-    requestUploadFiles = eng.store.requestUploadFiles
-    requestUrls = eng.store.requestUrls
+    logger = engine.logger
+    registered_sessions = engine.store.registered_sessions
+    request_upload_files = engine.store.request_upload_files
+    request_urls = engine.store.request_urls
     logger.info("Requesting file upload url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered"}
 
     urlid = str(uuid.uuid4())
-    fileInfo = {
+    file_info = {
         "id": urlid,
         "overwrite": kwargs.get("overwrite", False),
         "workspace": registered_sessions[sid]["workspace"],
     }
     if "path" in kwargs:
-        fileInfo["path"] = kwargs["path"]
+        file_info["path"] = kwargs["path"]
 
     if "dir" in kwargs:
         path = os.path.expanduser(kwargs["dir"])
         if not os.path.isabs(path):
-            path = os.path.join(eng.opt.WORKSPACE_DIR, fileInfo["workspace"], path)
-        fileInfo["dir"] = path
+            path = os.path.join(engine.opt.WORKSPACE_DIR, file_info["workspace"], path)
+        file_info["dir"] = path
 
-    if "path" in fileInfo:
-        path = fileInfo["path"]
-        if "dir" in fileInfo:
-            path = os.path.join(fileInfo["dir"], path)
+    if "path" in file_info:
+        path = file_info["path"]
+        if "dir" in file_info:
+            path = os.path.join(file_info["dir"], path)
         else:
-            path = os.path.join(eng.opt.WORKSPACE_DIR, fileInfo["workspace"], path)
+            path = os.path.join(engine.opt.WORKSPACE_DIR, file_info["workspace"], path)
 
         if os.path.exists(path) and not kwargs.get("overwrite", False):
             return {"success": False, "error": "file already exist."}
 
     base_url = kwargs.get("base_url", registered_sessions[sid]["base_url"])
     url = "{}/upload/{}".format(base_url, urlid)
-    requestUrls[url] = fileInfo
-    requestUploadFiles[urlid] = fileInfo
+    request_urls[url] = file_info
+    request_upload_files[urlid] = file_info
     return {"success": True, "id": urlid, "url": url}
 
 
 @sio_on("get_file_url", namespace=NAME_SPACE)
-async def on_get_file_url(eng, sid, kwargs):
+async def on_get_file_url(engine, sid, kwargs):
     """Return file url."""
-    logger = eng.logger
-    generatedUrlFiles = eng.store.generatedUrlFiles
-    generatedUrls = eng.store.generatedUrls
-    registered_sessions = eng.store.registered_sessions
+    logger = engine.logger
+    generated_url_files = engine.store.generated_url_files
+    generated_urls = engine.store.generated_urls
+    registered_sessions = engine.store.registered_sessions
     logger.info("Generating file url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("Client %s is not registered", sid)
@@ -683,37 +688,37 @@ async def on_get_file_url(eng, sid, kwargs):
     path = os.path.abspath(os.path.expanduser(kwargs["path"]))
     if not os.path.exists(path):
         return {"success": False, "error": "file does not exist."}
-    fileInfo = {"path": path}
+    file_info = {"path": path}
     if os.path.isdir(path):
-        fileInfo["type"] = "dir"
+        file_info["type"] = "dir"
     else:
-        fileInfo["type"] = "file"
+        file_info["type"] = "file"
     if kwargs.get("headers"):
-        fileInfo["headers"] = kwargs["headers"]
+        file_info["headers"] = kwargs["headers"]
     _, name = os.path.split(path)
-    fileInfo["name"] = name
-    if path in generatedUrlFiles:
-        return {"success": True, "url": generatedUrlFiles[path]}
+    file_info["name"] = name
+    if path in generated_url_files:
+        return {"success": True, "url": generated_url_files[path]}
     else:
         urlid = str(uuid.uuid4())
-        generatedUrls[urlid] = fileInfo
+        generated_urls[urlid] = file_info
         base_url = kwargs.get("base_url", registered_sessions[sid]["base_url"])
         if kwargs.get("password"):
-            fileInfo["password"] = kwargs["password"]
-            generatedUrlFiles[path] = "{}/file/{}@{}/{}".format(
-                base_url, urlid, fileInfo["password"], name
+            file_info["password"] = kwargs["password"]
+            generated_url_files[path] = "{}/file/{}@{}/{}".format(
+                base_url, urlid, file_info["password"], name
             )
         else:
-            generatedUrlFiles[path] = "{}/file/{}/{}".format(base_url, urlid, name)
-        return {"success": True, "url": generatedUrlFiles[path]}
+            generated_url_files[path] = "{}/file/{}/{}".format(base_url, urlid, name)
+        return {"success": True, "url": generated_url_files[path]}
 
 
 @sio_on("get_file_path", namespace=NAME_SPACE)
-async def on_get_file_path(eng, sid, kwargs):
+async def on_get_file_path(engine, sid, kwargs):
     """Return file path."""
-    logger = eng.logger
-    generatedUrls = eng.store.generatedUrls
-    registered_sessions = eng.store.registered_sessions
+    logger = engine.logger
+    generated_urls = engine.store.generated_urls
+    registered_sessions = engine.store.registered_sessions
     logger.info("Generating file url: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("Client %s is not registered", sid)
@@ -721,19 +726,19 @@ async def on_get_file_path(eng, sid, kwargs):
 
     url = kwargs["url"]
     urlid = urlparse(url).path.replace("/file/", "")
-    if urlid in generatedUrls:
-        fileInfo = generatedUrls[urlid]
-        return {"success": True, "path": fileInfo["path"]}
+    if urlid in generated_urls:
+        file_info = generated_urls[urlid]
+        return {"success": True, "path": file_info["path"]}
     else:
         return {"success": False, "error": "url not found."}
 
 
 @sio_on("get_engine_status", namespace=NAME_SPACE)
-async def on_get_engine_status(eng, sid, kwargs):
+async def on_get_engine_status(engine, sid, kwargs):
     """Return engine status."""
-    logger = eng.logger
-    plugins = eng.store.plugins
-    registered_sessions = eng.store.registered_sessions
+    logger = engine.logger
+    plugins = engine.store.plugins
+    registered_sessions = engine.store.registered_sessions
     if sid not in registered_sessions:
         logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -743,10 +748,9 @@ async def on_get_engine_status(eng, sid, kwargs):
     current_process = psutil.Process()
     children = current_process.children(recursive=True)
     pid_dict = {}
-    for i in plugins:
-        p = plugins[i]
-        if p["process_id"] is not None:
-            pid_dict[p["process_id"]] = p
+    for plugin in plugins.values():
+        if plugin["process_id"] is not None:
+            pid_dict[plugin["process_id"]] = plugin
 
     procs = []
     for proc in children:
@@ -765,11 +769,11 @@ async def on_get_engine_status(eng, sid, kwargs):
 
 
 @sio_on("kill_plugin_process", namespace=NAME_SPACE)
-async def on_kill_plugin_process(eng, sid, kwargs):
+async def on_kill_plugin_process(engine, sid, kwargs):
     """Kill plugin process."""
-    logger = eng.logger
-    plugins = eng.store.plugins
-    registered_sessions = eng.store.registered_sessions
+    logger = engine.logger
+    plugins = engine.store.plugins
+    registered_sessions = engine.store.registered_sessions
     if sid not in registered_sessions:
         logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered."}
@@ -780,11 +784,11 @@ async def on_kill_plugin_process(eng, sid, kwargs):
         }
     if kwargs["all"]:
         logger.info("Killing all the plugins")
-        await killAllPlugins(eng, sid)
+        await kill_all_plugins(engine, sid)
         return {"success": True}
     else:
         try:
-            killProcess(logger, int(kwargs["pid"]))
+            kill_process(logger, int(kwargs["pid"]))
             return {"success": True}
         except Exception:  # pylint: disable=broad-except
             return {
@@ -802,17 +806,16 @@ async def on_kill_plugin_process(eng, sid, kwargs):
         if proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE:
             pids.append(proc.pid)
     # remove plugin if the corresponding process does not exist any more
-    for i in list(plugins.keys()):
-        p = plugins[i]
-        if p["process_id"] not in pids:
-            p["process_id"] = None
-            killPlugin(eng, p["id"])
+    for plugin in plugins.values():
+        if plugin["process_id"] not in pids:
+            plugin["process_id"] = None
+            kill_plugin(engine, plugin["id"])
 
 
 @sio_on("disconnect", namespace=NAME_SPACE)
-async def disconnect(eng, sid):
+async def disconnect(engine, sid):
     """Disconnect client."""
-    logger = eng.logger
-    disconnectClientSession(eng, sid)
-    disconnectPlugin(eng, sid)
+    logger = engine.logger
+    disconnect_client_session(engine, sid)
+    disconnect_plugin(engine, sid)
     logger.info("Disconnect %s", sid)

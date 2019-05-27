@@ -33,18 +33,18 @@ class Registry(dict):
         return decorator
 
 
-def parseRepos(requirements, work_dir):
+def parse_repos(requirements, work_dir):
     """Return a list of repositories from a list of requirements."""
     repos = []
     if type(requirements) is list:
-        requirements = [str(r) for r in requirements]
-        for r in requirements:
-            if ":" in r:
-                rs = r.split(":")
-                tp, libs = rs[0], ":".join(rs[1:])
-                tp, libs = tp.strip(), libs.strip()
+        requirements = [str(req) for req in requirements]
+        for req in requirements:
+            if ":" in req:
+                req_parts = req.split(":")
+                typ, libs = req_parts[0], ":".join(req_parts[1:])
+                typ, libs = typ.strip(), libs.strip()
                 libs = [l.strip() for l in libs.split(" ") if l.strip() != ""]
-                if tp == "repo" and len(libs) > 0:
+                if typ == "repo" and len(libs) > 0:
                     name = libs[0].split("/")[-1].replace(".git", "")
                     repo = {
                         "url": libs[0],
@@ -56,11 +56,11 @@ def parseRepos(requirements, work_dir):
     return repos
 
 
-def console_to_str(s):
+def console_to_str(string_):
     """From pypa/pip project, pip.backwardwardcompat. License MIT."""
     try:
-        return s.decode(sys.__stdout__.encoding)
+        return string_.decode(sys.__stdout__.encoding)
     except UnicodeDecodeError:
-        return s.decode("utf_8")
+        return string_.decode("utf_8")
     except AttributeError:  # for tests, #13
-        return s
+        return string_
