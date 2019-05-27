@@ -46,5 +46,18 @@ async def client(event_loop):
 
 
 @pytest.mark.asyncio
-async def test_plugin_init(client):
-    await client.init_plugin(test_plugin_config)
+@pytest.fixture(scope="module")
+async def init_plugin(client, event_loop):
+    pid = await client.init_plugin(test_plugin_config)
+    initialized = event_loop.create_future()
+    client.on_plugin_message(pid, "initialized", initialized)
+    await initialized
+    return {"id": pid}
+
+
+@pytest.mark.asyncio
+async def test_plugin_execute(client, init_plugin, event_loop):
+    pid = init_plugin["id"]
+    executed = event_loop.create_future()
+    await client.execute(pid, {"type": "script", "content": "print('hello')"}, executed)
+    await executed
