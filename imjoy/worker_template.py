@@ -78,10 +78,8 @@ class PluginConnection:
         job_queue=None,
         loop=None,
         worker=None,
-        namespace="/",
         work_dir=None,
         daemon=False,
-        api=None,
     ):
         """Set up connection."""
         if work_dir is None or work_dir == "" or work_dir == ".":
@@ -104,8 +102,8 @@ class PluginConnection:
         self.emit = emit
 
         self.local = {}
-        _remote = dotdict()
-        self._set_local_api(_remote)
+        self._remote = dotdict()
+        self._set_local_api(self._remote)
         self.interface = {}
         self.plugin_interfaces = {}
         self.remote_set = False
@@ -127,6 +125,7 @@ class PluginConnection:
         socket_io.on("disconnect", on_disconnect)
         self.abort = threading.Event()
         self.worker = worker
+        self.sync_q = None
 
     def wait_forever(self):
         """Wait forever."""
@@ -326,23 +325,21 @@ class PluginConnection:
             else:
                 b_object = a_object["__value__"]
             return b_object
-        else:
-            if isinstance(a_object, tuple):
-                a_object = list(a_object)
-            isarray = isinstance(a_object, list)
-            b_object = [] if isarray else dotdict()
-            keys = range(len(a_object)) if isarray else a_object.keys()
-            for key in keys:
-                if isarray or key in a_object:
-                    val = a_object[key]
-                    if isinstance(val, (dict, list)):
-                        if isarray:
-                            b_object.append(
-                                self._decode(val, callback_id, with_promise)
-                            )
-                        else:
-                            b_object[key] = self._decode(val, callback_id, with_promise)
-            return b_object
+
+        if isinstance(a_object, tuple):
+            a_object = list(a_object)
+        isarray = isinstance(a_object, list)
+        b_object = [] if isarray else dotdict()
+        keys = range(len(a_object)) if isarray else a_object.keys()
+        for key in keys:
+            if isarray or key in a_object:
+                val = a_object[key]
+                if isinstance(val, (dict, list)):
+                    if isarray:
+                        b_object.append(self._decode(val, callback_id, with_promise))
+                    else:
+                        b_object[key] = self._decode(val, callback_id, with_promise)
+        return b_object
 
     def _wrap(self, args):
         """Wrap arguments."""
@@ -405,8 +402,9 @@ class PluginConnection:
         """Return remote method."""
 
         def remote_method(*arguments, **kwargs):
+            """Run remote method."""
             # wrap keywords to a dictionary and pass to the first argument
-            if len(arguments) == 0 and len(kwargs) > 0:
+            if not arguments and kwargs:
                 arguments = [kwargs]
 
             def pfunc(resolve, reject):
@@ -423,8 +421,7 @@ class PluginConnection:
 
             if PYTHON3:
                 return FuturePromise(pfunc, self.loop)
-            else:
-                return Promise(pfunc)
+            return Promise(pfunc)
 
         remote_method.__remote_method = True
         return remote_method
@@ -435,7 +432,7 @@ class PluginConnection:
 
             def remote_callback(*arguments, **kwargs):
                 # wrap keywords to a dictionary and pass to the first argument
-                if len(arguments) == 0 and len(kwargs) > 0:
+                if not arguments and kwargs:
                     arguments = [kwargs]
 
                 def pfunc(resolve, reject):
@@ -454,16 +451,15 @@ class PluginConnection:
 
                 if PYTHON3:
                     return FuturePromise(pfunc, self.loop)
-                else:
-                    return Promise(pfunc)
+                return Promise(pfunc)
 
         else:
 
             def remote_callback(*arguments, **kwargs):
                 # wrap keywords to a dictionary and pass to the first argument
-                if len(arguments) == 0 and len(kwargs) > 0:
+                if not arguments and kwargs:
                     arguments = [kwargs]
-                ret = self.emit(
+                self.emit(
                     {
                         "type": "callback",
                         "id": id_,
@@ -472,14 +468,13 @@ class PluginConnection:
                         "args": self._wrap(arguments),
                     }
                 )
-                return ret
 
         return remote_callback
 
     def set_remote(self, api):
         """Set remote."""
         _remote = dotdict()
-        for i in range(len(api)):
+        for i, _ in enumerate(api):
             if isinstance(api[i], dict) and "name" in api[i]:
                 name = api[i]["name"]
                 data = api[i].get("data", None)
@@ -550,7 +545,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--id", type=str, required=True, help="plugin id")
     parser.add_argument("--secret", type=str, required=True, help="plugin secret")
-    parser.add_argument("--namespace", type=str, default="/", help="socketio namespace")
     parser.add_argument(
         "--work_dir", type=str, default=".", help="plugin working directory"
     )
@@ -584,11 +578,12 @@ def main():
     plugin_conn = PluginConnection(
         opt.id,
         opt.secret,
-        server=opt.server,
-        work_dir=opt.work_dir,
+        opt.server,
         job_queue=job_queue,
         loop=event_loop,
         worker=task_worker,
+        work_dir=opt.work_dir,
+        daemon=opt.daemon,
     )
     plugin_conn.wait_forever()
 

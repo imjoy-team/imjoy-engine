@@ -215,7 +215,7 @@ async def upload_file(request):
         return web.Response(body=f"Failed to upload, error: {exc}", status=404)
 
 
-async def download_file(request):
+async def download_file(request):  # pylint: disable=too-many-return-statements
     """Download file."""
     engine = request.app[ENGINE]
     generated_urls = engine.store.generated_urls
@@ -244,55 +244,47 @@ async def download_file(request):
                     ),
                     status=404,
                 )
-            else:
-                file_list = scandir(folder_path, "file", False)
-                headers = headers or {
-                    "Content-Disposition": 'inline; filename="{filename}"'.format(
-                        filename=name
-                    )
-                }
-                headers.update(default_headers)
-                return web.json_response(file_list, headers=headers)
+
+            file_list = scandir(folder_path, "file", False)
+            headers = headers or {
+                "Content-Disposition": 'inline; filename="{filename}"'.format(
+                    filename=name
+                )
+            }
+            headers.update(default_headers)
+            return web.json_response(file_list, headers=headers)
         # list the subfolder or get a file in the folder
-        else:
-            file_path = os.path.join(
-                file_info["path"], os.sep.join(name.split("/")[1:])
+
+        file_path = os.path.join(file_info["path"], os.sep.join(name.split("/")[1:]))
+        if not os.path.exists(file_path):
+            return web.Response(
+                body="File <{file_path}> does not exist".format(file_path=file_path),
+                status=404,
             )
-            if not os.path.exists(file_path):
-                return web.Response(
-                    body="File <{file_path}> does not exist".format(
-                        file_path=file_path
-                    ),
-                    status=404,
+        if os.path.isdir(file_path):
+            _, folder_name = os.path.split(file_path)
+            file_list = scandir(file_path, "file", False)
+            headers = headers or {
+                "Content-Disposition": 'inline; filename="{filename}"'.format(
+                    filename=folder_name
                 )
-            if os.path.isdir(file_path):
-                _, folder_name = os.path.split(file_path)
-                file_list = scandir(file_path, "file", False)
-                headers = headers or {
-                    "Content-Disposition": 'inline; filename="{filename}"'.format(
-                        filename=folder_name
-                    )
-                }
-                headers.update(default_headers)
-                return web.json_response(file_list, headers=headers)
-            else:
-                _, file_name = os.path.split(file_path)
-                mime_type = (
-                    MimeTypes().guess_type(file_name)[0] or "application/octet-stream"
-                )
-                file_size = os.path.getsize(file_path)
-                headers = headers or {
-                    "Content-Disposition": 'inline; filename="{filename}"'.format(
-                        filename=file_name
-                    ),
-                    "Content-Type": mime_type,
-                    "Content-Length": str(file_size),
-                }
-                headers.update(default_headers)
-                return web.Response(
-                    body=file_sender(file_path=file_path), headers=headers
-                )
-    elif file_info["type"] == "file":
+            }
+            headers.update(default_headers)
+            return web.json_response(file_list, headers=headers)
+
+        _, file_name = os.path.split(file_path)
+        mime_type = MimeTypes().guess_type(file_name)[0] or "application/octet-stream"
+        file_size = os.path.getsize(file_path)
+        headers = headers or {
+            "Content-Disposition": 'inline; filename="{filename}"'.format(
+                filename=file_name
+            ),
+            "Content-Type": mime_type,
+            "Content-Length": str(file_size),
+        }
+        headers.update(default_headers)
+        return web.Response(body=file_sender(file_path=file_path), headers=headers)
+    if file_info["type"] == "file":
         file_path = file_info["path"]
         if name != file_info["name"]:
             raise web.HTTPForbidden(text="File name does not match server record!")
@@ -313,8 +305,8 @@ async def download_file(request):
         }
         headers.update(default_headers)
         return web.Response(body=file_sender(file_path=file_path), headers=headers)
-    else:
-        raise web.HTTPForbidden(text="Unsupported file type: " + file_info["type"])
+
+    raise web.HTTPForbidden(text="Unsupported file type: " + file_info["type"])
 
 
 async def on_startup(app):

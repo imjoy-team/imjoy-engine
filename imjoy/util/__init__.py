@@ -44,7 +44,7 @@ def parse_repos(requirements, work_dir):
                 typ, libs = req_parts[0], ":".join(req_parts[1:])
                 typ, libs = typ.strip(), libs.strip()
                 libs = [l.strip() for l in libs.split(" ") if l.strip() != ""]
-                if typ == "repo" and len(libs) > 0:
+                if typ == "repo" and libs:
                     name = libs[0].split("/")[-1].replace(".git", "")
                     repo = {
                         "url": libs[0],

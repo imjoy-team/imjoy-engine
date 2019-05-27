@@ -28,7 +28,7 @@ class Engine:
         self.conn.start()
 
 
-def main():
+def run():
     """Run app."""
     logging.basicConfig(stream=sys.stdout)
     logger = logging.getLogger("ImJoyPluginEngine")
@@ -42,4 +42,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run()

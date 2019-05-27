@@ -14,16 +14,16 @@ def main():
     opt = parse_cmd_line()
     if opt.dev:
         print("Running ImJoy Plugin Engine in development mode")
-        from .engine import main
+        from .engine import run
 
-        main()
+        run()
         return
 
     # add executable path to PATH
     os.environ["PATH"] = (
         os.path.split(sys.executable)[0] + os.pathsep + os.environ.get("PATH", "")
     )
-    CONDA_AVAILABLE = False
+    conda_available = False
     try:
         # for fixing CondaHTTPError:
         # https://github.com/conda/conda/issues/6064#issuecomment-458389796
@@ -33,7 +33,7 @@ def main():
         cout, _ = process.communicate()
         conda_prefix = json.loads(cout.decode("ascii"))["conda_prefix"]
         print("Found conda environment: {}".format(conda_prefix))
-        CONDA_AVAILABLE = True
+        conda_available = True
         if os.name == "nt":
             os.environ["PATH"] = (
                 os.path.join(conda_prefix, "Library", "bin")
@@ -62,9 +62,9 @@ def main():
 
         # reload to use the new version
         importlib.reload(imjoy)
-        from imjoy.engine import main
+        from imjoy.engine import run
 
-        main()
+        run()
     else:
         # running in python 2
         print("ImJoy needs to run in Python 3.6+, bootstrapping with conda")
@@ -95,7 +95,7 @@ def main():
         requirements = imjoy_requirements
         pip_cmd = "pip install -U " + " ".join(requirements)
 
-        if CONDA_AVAILABLE:
+        if conda_available:
             if sys.platform == "linux" or sys.platform == "linux2":
                 # linux
                 conda_activate = (
@@ -132,11 +132,10 @@ def main():
                         "Failed to install git/pip and dependencies "
                         "with exit code: {}".format(ret)
                     )
-                else:
-                    ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
-                    if ret != 0:
-                        print("ImJoy failed with exit code: {}".format(ret))
-                        sys.exit(2)
+                ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
+                if ret != 0:
+                    print("ImJoy failed with exit code: {}".format(ret))
+                    sys.exit(2)
 
 
 if __name__ == "__main__":
