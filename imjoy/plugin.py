@@ -290,7 +290,7 @@ def launch_plugin(
             logging_callback(progress, type="progress")
 
         for env in envs:
-            if type(env) is str:
+            if isinstance(env, str):
                 if env not in cmd_history:
                     logger.info("Running env command: %s", env)
                     logging_callback(f"Running env command: {env}")
@@ -313,7 +313,7 @@ def launch_plugin(
                     logger.debug("Skip env command: %s", env)
                     logging_callback(f"Skip env command: {env}")
 
-            elif type(env) is dict:
+            elif isinstance(env, dict):
                 assert "type" in env
                 if env["type"] == "gputil":
                     # Set CUDA_DEVICE_ORDER
@@ -390,7 +390,7 @@ def launch_plugin(
     # env = os.environ.copy()
     if opt.CONDA_AVAILABLE and venv_name is not None:
         [args] = apply_conda_activate([args], opt.conda_activate, venv_name)
-    if type(args) is str:
+    if isinstance(args, str):
         args = args.split()
     if not args:
         args = []
