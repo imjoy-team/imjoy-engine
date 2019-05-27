@@ -13,12 +13,15 @@ from imjoy.helper import kill_process, scandir
 from imjoy.util.aiohttp import file_sender
 
 
-def setup_app(engine, app):
-    """Set up app."""
+def create_app(engine):
+    """Create and return aiohttp webserver app."""
+    app = web.Application()
+    app[ENGINE] = engine
     setup_router(engine, app)
     setup_cors(app)
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
+    return app
 
 
 def run_app(engine, app):
