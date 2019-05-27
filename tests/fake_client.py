@@ -7,6 +7,9 @@ import logging
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("fake_client")
 
+NAME_SPACE = "/"
+
+
 class FakeClient:
     def __init__(self, url, client_id, session_id, token, loop=None):
         self.engine_info = None
@@ -18,11 +21,13 @@ class FakeClient:
             self.loop = asyncio.get_event_loop()
         else:
             self.loop = loop
-    
+
     async def emit(self, channel, data):
         fut = self.loop.create_future()
+
         def callback(ret):
             fut.set_result(ret)
+
         await self.sio.emit(channel, data, namespace=NAME_SPACE, callback=callback)
         return await fut
 
@@ -37,8 +42,8 @@ class FakeClient:
 
         @sio.on("disconnect")
         async def on_disconnect():
-            fut.set_exception(Exception('client disconnected'))
-    
+            fut.set_exception(Exception("client disconnected"))
+
         await sio.connect(self.url)
         return await fut
 
@@ -50,7 +55,7 @@ class FakeClient:
                 "token": self.token,
                 "base_url": self.url,
                 "session_id": self.session_id,
-            }
+            },
         )
         if "success" in ret and ret["success"]:
             self.engine_info = ret["engine_info"]
@@ -59,8 +64,7 @@ class FakeClient:
 
     async def init_plugin(self, plugin_config):
         ret = await self.emit(
-            "init_plugin",
-            {"id": "test_plugin", "config": plugin_config},
+            "init_plugin", {"id": "test_plugin", "config": plugin_config}
         )
         assert ret["success"] == True
         secret = ret["secret"]
@@ -75,20 +79,20 @@ class FakeClient:
             msg_type = msg["type"]
             if msg_type == "initialized":
                 initialized.set_result(True)
+
         return await initialized
 
     async def run(self, plugin_config):
         await self.connect()
         await self.register_client()
         await self.init_plugin(plugin_config)
-        
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import uuid
 
     WORKSPACE_DIR = os.path.expanduser("~/ImJoyWorkspace")
-    NAME_SPACE = "/"
+
     URL = "http://localhost:9527"
 
     with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as f:
