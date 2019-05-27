@@ -464,7 +464,7 @@ async def on_register_client(engine, sid, kwargs):
     """Register client."""
     logger = engine.logger
     conn_data = engine.store
-    logger.info("register client: %s", kwargs)
+    logger.info("Register client: %s", kwargs)
     client_id = kwargs.get("id", str(uuid.uuid4()))
     workspace = kwargs.get("workspace", "default")
     session_id = kwargs.get("session_id", str(uuid.uuid4()))
