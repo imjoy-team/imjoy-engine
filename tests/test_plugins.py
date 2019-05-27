@@ -33,16 +33,18 @@ def event_loop():
 
 
 @pytest.fixture(scope="module")
-def client(event_loop):
+@pytest.mark.asyncio
+async def client(event_loop):
     with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as f:
         token = f.read()
     client_id = str(uuid.uuid4())
     session_id = str(uuid.uuid4())
-    return FakeClient(URL, client_id, session_id, token, event_loop)
+    client = FakeClient(URL, client_id, session_id, token, event_loop)
+    await client.connect()
+    await client.register_client()
+    return client
 
 
 @pytest.mark.asyncio
 async def test_plugin_init(client):
-    await client.connect()
-    await client.register_client()
     await client.init_plugin(test_plugin_config)
