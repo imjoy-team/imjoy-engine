@@ -3,30 +3,26 @@ import asyncio
 from functools import partial
 
 import socketio
-from aiohttp import web
 
-from imjoy.const import ENGINE
 from imjoy.helper import dotdict
 from .decorator import partial_coro
 from .handler import register_services
-from .server import setup_app, run_app
+from .server import create_app, run_app
 
 
 def create_connection_manager(engine):
     """Create a socketio connection and return the connection instance."""
-    # An event handler can be found like this:
-    # handler = sio.handlers[namespace][event]
     # ALLOWED_ORIGINS = [opt.base_url, 'http://imjoy.io', 'https://imjoy.io']
     sio = socketio.AsyncServer()
-    app = web.Application()
-    app[ENGINE] = engine
+    app = create_app(engine)
     sio.attach(app)
-    setup_app(engine, app)
     return ConnectionManager(engine, app, sio)
 
 
 def register_event_handler(engine, event, handler=None, namespace=None):
     """Register a socketio event handler."""
+    # An event handler can be found like this:
+    # handler = sio.handlers[namespace][event]
     # pylint: disable=protected-access
     if handler is None:
         handler = event
@@ -41,8 +37,6 @@ def register_event_handler(engine, event, handler=None, namespace=None):
 
 class ConnectionManager:
     """Represent a connection manager for socketio event handler and session data."""
-
-    # pylint: disable=too-few-public-methods
 
     def __init__(self, engine, app, sio):
         """Set up connection instance attributes."""
