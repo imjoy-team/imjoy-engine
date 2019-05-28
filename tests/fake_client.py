@@ -84,7 +84,7 @@ class FakeClient:
 
         @self.sio.on("message_from_plugin_" + secret)
         async def on_message(msg):  # pylint:disable=unused-variable
-            _LOGGER.info("message from plugin: %s", msg)
+            _LOGGER.info("Message from plugin: %s", msg)
             self.message_handler(pid, msg)
 
         self._plugin_message_handler[pid] = []
