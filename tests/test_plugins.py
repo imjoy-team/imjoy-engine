@@ -30,7 +30,7 @@ TEST_PLUGIN_CONFIG = {
 }
 
 
-@pytest.fixture(scope="module", name="client")
+@pytest.fixture(name="client")
 async def mock_client(event_loop):
     """Provide a mock client."""
     with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as fil:
@@ -43,7 +43,7 @@ async def mock_client(event_loop):
     return client
 
 
-@pytest.fixture(scope="module", name="init_plugin")
+@pytest.fixture(name="init_plugin")
 async def setup_init_plugin(client, event_loop):
     """Initialize the plugin."""
     pid = await client.init_plugin(TEST_PLUGIN_CONFIG)
