@@ -1,5 +1,4 @@
 """Test plugin engine api."""
-import asyncio
 import os
 import uuid
 
@@ -28,9 +27,9 @@ TEST_PLUGIN_CONFIG = {
 }
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", name="client")
 @pytest.mark.asyncio
-async def client(event_loop):
+async def mock_client(event_loop):
     """Provide a mock client."""
     with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as fil:
         token = fil.read()
@@ -43,8 +42,8 @@ async def client(event_loop):
 
 
 @pytest.mark.asyncio
-@pytest.fixture(scope="module")
-async def init_plugin(client, event_loop):
+@pytest.fixture(scope="module", name="init_plugin")
+async def setup_init_plugin(client, event_loop):
     """Initialize the plugin."""
     pid = await client.init_plugin(TEST_PLUGIN_CONFIG)
     initialized = event_loop.create_future()
