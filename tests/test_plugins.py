@@ -6,6 +6,9 @@ import pytest
 
 from .fake_client import FakeClient
 
+# All test coroutines will be treated as marked.
+pytestmark = pytest.mark.asyncio  # pylint: disable=invalid-name
+
 WORKSPACE_DIR = os.path.expanduser("~/ImJoyWorkspace")
 URL = "http://localhost:9527"
 
@@ -28,7 +31,6 @@ TEST_PLUGIN_CONFIG = {
 
 
 @pytest.fixture(scope="module", name="client")
-@pytest.mark.asyncio
 async def mock_client(event_loop):
     """Provide a mock client."""
     with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as fil:
@@ -41,7 +43,6 @@ async def mock_client(event_loop):
     return client
 
 
-@pytest.mark.asyncio
 @pytest.fixture(scope="module", name="init_plugin")
 async def setup_init_plugin(client, event_loop):
     """Initialize the plugin."""
@@ -52,7 +53,6 @@ async def setup_init_plugin(client, event_loop):
     return {"id": pid}
 
 
-@pytest.mark.asyncio
 async def test_plugin_execute(client, init_plugin, event_loop):
     """Test plugin execute."""
     pid = init_plugin["id"]
