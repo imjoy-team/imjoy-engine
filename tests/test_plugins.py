@@ -1,3 +1,4 @@
+"""Test plugin engine api."""
 import os
 import pytest
 import asyncio
@@ -35,6 +36,7 @@ def event_loop():
 @pytest.fixture(scope="module")
 @pytest.mark.asyncio
 async def client(event_loop):
+    """Provide a mock client."""
     with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as f:
         token = f.read()
     client_id = str(uuid.uuid4())
@@ -48,6 +50,7 @@ async def client(event_loop):
 @pytest.mark.asyncio
 @pytest.fixture(scope="module")
 async def init_plugin(client, event_loop):
+    """Initialize the plugin."""
     pid = await client.init_plugin(test_plugin_config)
     initialized = event_loop.create_future()
     client.on_plugin_message(pid, "initialized", initialized)
@@ -57,6 +60,7 @@ async def init_plugin(client, event_loop):
 
 @pytest.mark.asyncio
 async def test_plugin_execute(client, init_plugin, event_loop):
+    """Test plugin execute."""
     pid = init_plugin["id"]
     executed = event_loop.create_future()
     await client.execute(pid, {"type": "script", "content": "print('hello')"}, executed)

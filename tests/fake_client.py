@@ -1,3 +1,4 @@
+"""Provide a mock client."""
 import os
 import sys
 import asyncio
@@ -14,7 +15,10 @@ NAME_SPACE = "/"
 
 
 class FakeClient:
+    """Represent a mock client."""
+
     def __init__(self, url, client_id, session_id, token, loop=None):
+        """Set up client instance."""
         self.engine_info = None
         self.url = url
         self.client_id = client_id
@@ -28,6 +32,7 @@ class FakeClient:
             self.loop = loop
 
     async def emit(self, channel, data):
+        """Emit a message."""
         fut = self.loop.create_future()
 
         def callback(ret=None):
@@ -37,6 +42,7 @@ class FakeClient:
         return await fut
 
     async def connect(self):
+        """Connect to the server."""
         sio = socketio.AsyncClient()
         self.sio = sio
         fut = self.loop.create_future()
@@ -53,6 +59,7 @@ class FakeClient:
         return await fut
 
     async def register_client(self):
+        """Register the client."""
         ret = await self.emit(
             "register_client",
             {
@@ -70,6 +77,7 @@ class FakeClient:
         self._secrets = {}
 
     async def init_plugin(self, plugin_config):
+        """Initialize the plugin."""
         pid = plugin_config["name"] + "_" + str(uuid.uuid4())
         ret = await self.emit("init_plugin", {"id": pid, "config": plugin_config})
         assert ret["success"] == True
@@ -87,17 +95,20 @@ class FakeClient:
         return pid
 
     async def emit_plugin_message(self, pid, data):
+        """Emit plugin message."""
         secret = self._secrets[pid]
         await self.emit(
             "message_to_plugin_" + secret, {"type": "message", "data": data}
         )
 
     def on_plugin_message(self, pid, message_type, callback_or_future):
+        """Add a new plugin message."""
         self._plugin_message_handler[pid].append(
             {"type": message_type, "callback_or_future": callback_or_future}
         )
 
     async def execute(self, pid, code, future):
+        """Execute plugin code."""
         # self.on_plugin_message(pid, "executeSuccess", future)
         def resolve(ret):
             future.set_result(ret)
@@ -110,6 +121,7 @@ class FakeClient:
         await self.emit_plugin_message(pid, {"type": "execute", "code": code})
 
     def message_handler(self, pid, msg):
+        """Handle plugin message."""
         msg_type = msg["type"]
         handlers = self._plugin_message_handler[pid]
         for handler in handlers:
@@ -121,6 +133,7 @@ class FakeClient:
                     callback_or_future(msg)
 
     async def run(self, plugin_config):
+        """Run the client."""
         await self.connect()
         await self.register_client()
         pid = await self.init_plugin(plugin_config)
