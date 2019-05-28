@@ -28,13 +28,6 @@ TEST_PLUGIN_CONFIG = {
 }
 
 
-@pytest.yield_fixture(scope="module")
-def event_loop():
-    loop = asyncio.get_event_loop()
-    yield loop
-    loop.close()
-
-
 @pytest.fixture(scope="module")
 @pytest.mark.asyncio
 async def client(event_loop):
