@@ -50,11 +50,11 @@ class FakeClient:
         fut = self.loop.create_future()
 
         @sio.on("connect")
-        async def on_connect():
+        async def on_connect():  # pylint:disable=unused-variable
             fut.set_result(True)
 
         @sio.on("disconnect")
-        async def on_disconnect():
+        async def on_disconnect():  # pylint:disable=unused-variable
             fut.set_exception(Exception("client disconnected"))
 
         await sio.connect(self.url)
@@ -84,11 +84,9 @@ class FakeClient:
         ret = await self.emit("init_plugin", {"id": pid, "config": plugin_config})
         assert ret["success"] is True
         secret = ret["secret"]
-        work_dir = ret["work_dir"]
-        resumed = ret.get("resumed")
 
         @self.sio.on("message_from_plugin_" + secret)
-        async def on_message(msg):
+        async def on_message(msg):  # pylint:disable=unused-variable
             _LOGGER.info("message from plugin: %s", msg)
             self.message_handler(pid, msg)
 
@@ -111,11 +109,11 @@ class FakeClient:
 
     async def execute(self, pid, code, future):
         """Execute plugin code."""
-        # self.on_plugin_message(pid, "executeSuccess", future)
+
         def resolve(ret):
             future.set_result(ret)
 
-        def reject(ret):
+        def reject(_):
             future.set_exception(Exception("executeFailure"))
 
         self.on_plugin_message(pid, "executeSuccess", resolve)
@@ -144,13 +142,14 @@ class FakeClient:
         await initialized
 
 
-if __name__ == "__main__":
-    WORKSPACE_DIR = os.path.expanduser("~/ImJoyWorkspace")
+def main():
+    """Run main."""
+    workspace_dir = os.path.expanduser("~/ImJoyWorkspace")
 
-    URL = "http://localhost:9527"
+    url = "http://localhost:9527"
 
-    with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as f:
-        token = f.read()
+    with open(os.path.join(workspace_dir, ".token"), "r") as fil:
+        token = fil.read()
 
     client_id = str(uuid.uuid4())
     session_id = str(uuid.uuid4())
@@ -172,5 +171,9 @@ if __name__ == "__main__":
         "dependencies": [],
     }
     loop = asyncio.get_event_loop()
-    client = FakeClient(URL, client_id, session_id, token, loop)
+    client = FakeClient(url, client_id, session_id, token, loop)
     loop.run_until_complete(client.run(test_plugin_config))
+
+
+if __name__ == "__main__":
+    main()
