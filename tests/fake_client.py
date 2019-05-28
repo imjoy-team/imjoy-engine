@@ -8,9 +8,9 @@ import uuid
 import socketio
 
 logging.basicConfig(stream=sys.stdout)
-logger = logging.getLogger("fake_client")
+_LOGGER = logging.getLogger(__name__)
 
-logger.setLevel(logging.INFO)
+_LOGGER.setLevel(logging.INFO)
 
 NAME_SPACE = "/"
 
@@ -21,6 +21,7 @@ class FakeClient:
     def __init__(self, url, client_id, session_id, token, loop=None):
         """Set up client instance."""
         self.engine_info = None
+        self.sio = None
         self.url = url
         self.client_id = client_id
         self.session_id = session_id
@@ -73,7 +74,7 @@ class FakeClient:
         if "success" in ret and ret["success"]:
             self.engine_info = ret["engine_info"]
         else:
-            logger.error("Failed to register")
+            _LOGGER.error("Failed to register")
         self._plugin_message_handler = {}
         self._secrets = {}
 
@@ -81,14 +82,14 @@ class FakeClient:
         """Initialize the plugin."""
         pid = plugin_config["name"] + "_" + str(uuid.uuid4())
         ret = await self.emit("init_plugin", {"id": pid, "config": plugin_config})
-        assert ret["success"] == True
+        assert ret["success"] is True
         secret = ret["secret"]
         work_dir = ret["work_dir"]
         resumed = ret.get("resumed")
 
         @self.sio.on("message_from_plugin_" + secret)
         async def on_message(msg):
-            logger.info("message from plugin: %s", msg)
+            _LOGGER.info("message from plugin: %s", msg)
             self.message_handler(pid, msg)
 
         self._plugin_message_handler[pid] = []
@@ -144,8 +145,6 @@ class FakeClient:
 
 
 if __name__ == "__main__":
-    import uuid
-
     WORKSPACE_DIR = os.path.expanduser("~/ImJoyWorkspace")
 
     URL = "http://localhost:9527"

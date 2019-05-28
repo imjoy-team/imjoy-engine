@@ -10,7 +10,7 @@ from .fake_client import FakeClient
 WORKSPACE_DIR = os.path.expanduser("~/ImJoyWorkspace")
 URL = "http://localhost:9527"
 
-test_plugin_config = {
+TEST_PLUGIN_CONFIG = {
     "name": "test-plugin",
     "type": "native-python",
     "version": "0.1.12",
@@ -39,8 +39,8 @@ def event_loop():
 @pytest.mark.asyncio
 async def client(event_loop):
     """Provide a mock client."""
-    with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as f:
-        token = f.read()
+    with open(os.path.join(WORKSPACE_DIR, ".token"), "r") as fil:
+        token = fil.read()
     client_id = str(uuid.uuid4())
     session_id = str(uuid.uuid4())
     client = FakeClient(URL, client_id, session_id, token, event_loop)
@@ -53,7 +53,7 @@ async def client(event_loop):
 @pytest.fixture(scope="module")
 async def init_plugin(client, event_loop):
     """Initialize the plugin."""
-    pid = await client.init_plugin(test_plugin_config)
+    pid = await client.init_plugin(TEST_PLUGIN_CONFIG)
     initialized = event_loop.create_future()
     client.on_plugin_message(pid, "initialized", initialized)
     await initialized
