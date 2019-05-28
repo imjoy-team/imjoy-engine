@@ -26,12 +26,9 @@ class FakeClient:
         self.client_id = client_id
         self.session_id = session_id
         self.token = token
-        self._plugin_message_handler = None
-        self._secrets = None
-        if loop is None:
-            self.loop = asyncio.get_event_loop()
-        else:
-            self.loop = loop
+        self._plugin_message_handler = {}
+        self._secrets = {}
+        self.loop = loop or asyncio.get_event_loop()
 
     async def emit(self, channel, data):
         """Emit a message."""
