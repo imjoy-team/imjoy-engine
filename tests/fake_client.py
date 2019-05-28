@@ -1,10 +1,11 @@
 """Provide a mock client."""
+import asyncio
+import logging
 import os
 import sys
-import asyncio
-import socketio
-import logging
 import uuid
+
+import socketio
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("fake_client")
