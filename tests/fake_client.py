@@ -30,6 +30,12 @@ class FakeClient:
         self._secrets = {}
         self.loop = loop or asyncio.get_event_loop()
 
+    def __repr__(self):
+        """Return the client representation."""
+        return ("<FakeClient("
+                f"url={self.url}, client_id={self.client_id}, "
+                f"session_id={self.session_id}, token={self.token})>")
+
     async def emit(self, channel, data):
         """Emit a message."""
         fut = self.loop.create_future()
