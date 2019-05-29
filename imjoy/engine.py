@@ -18,6 +18,10 @@ class Engine:
         self.conn = None
         self.store = None
 
+    def __repr__(self):
+        """Return the engine representation."""
+        return f"<Engine(opt={self.opt})>"
+
     def setup(self):
         """Set up the engine."""
         self.conn = create_connection_manager(self)
