@@ -22,14 +22,23 @@ class Engine:
         """Set up the engine."""
         self.conn = create_connection_manager(self)
         self.store = self.conn.store
+        self.conn.setup()
 
     def start(self):
         """Start the engine."""
         self.conn.start()
 
+    async def async_start(self):
+        """Start the engine asynchronously."""
+        await self.conn.async_start()
+
+    async def async_stop(self):
+        """Stop the engine."""
+        await self.conn.async_stop()
+
 
 def run():
-    """Run app."""
+    """Run the engine."""
     logging.basicConfig(stream=sys.stdout)
     logger = logging.getLogger("ImJoyPluginEngine")
     opt = parse_cmd_line()

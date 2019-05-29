@@ -7,6 +7,7 @@ DEFAULT_REQUIREMENTS_PY3 = [*DEFAULT_REQUIREMENTS_PY2, "janus"]
 REQ_PSUTIL = ["psutil"]
 REQ_PSUTIL_CONDA = ["conda:psutil"]
 ENGINE = "imjoy_engine"
+APP_RUNNER = "imjoy_app_runner"
 # read version information from file
 HERE = pathlib.Path(__file__).parent
 VERSION_INFO = json.loads((HERE / "VERSION").read_text())
