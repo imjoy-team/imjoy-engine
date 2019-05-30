@@ -9,7 +9,7 @@ import uuid
 from imjoy.helper import kill_process
 
 
-def prep_env(opt, logger):
+def prepare_env(opt, logger):
     """Prepare environment."""
     opt.conda_available = False
     # add executable path to PATH
