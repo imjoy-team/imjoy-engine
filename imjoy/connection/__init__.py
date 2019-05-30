@@ -7,7 +7,7 @@ import socketio
 from imjoy.helper import dotdict
 from .decorator import partial_coro
 from .handler import register_services
-from .server import async_run_app, async_stop_app, create_app, run_app
+from .server import create_app, run_app
 
 
 def create_connection_manager(engine):
@@ -73,14 +73,6 @@ class ConnectionManager:
     def start(self):
         """Start the connection."""
         run_app(self.engine, self.app)
-
-    async def async_start(self):
-        """Start the connection asynchronously."""
-        await async_run_app(self.engine, self.app)
-
-    async def async_stop(self):
-        """Stop the connection asynchronously."""
-        await async_stop_app(self.app)
 
     def register_event_handler(self, event, handler=None, namespace=None):
         """Register a socketio event handler."""

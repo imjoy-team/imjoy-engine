@@ -43,14 +43,6 @@ class Engine:
         """Start the engine."""
         self.conn.start()
 
-    async def async_start(self):
-        """Start the engine asynchronously."""
-        await self.conn.async_start()
-
-    async def async_stop(self):
-        """Stop the engine."""
-        await self.conn.async_stop()
-
 
 def run(args=None):
     """Run the engine."""

@@ -8,7 +8,7 @@ from mimetypes import MimeTypes
 import aiohttp_cors
 from aiohttp import web
 
-from imjoy.const import APP_RUNNER, ENGINE, __version__
+from imjoy.const import ENGINE, __version__
 from imjoy.helper import kill_process, scandir
 from imjoy.util.aiohttp import file_sender
 
@@ -37,31 +37,6 @@ def run_app(engine, app):
                 "or restart your computer.",
                 engine.opt.port,
             )
-
-
-async def async_run_app(engine, app):
-    """Run the app asynchronously."""
-    logger = engine.logger
-    runner = web.AppRunner(app)
-    app[APP_RUNNER] = runner
-    await runner.setup()
-    site = web.TCPSite(runner, host=engine.opt.host, port=int(engine.opt.port))
-    try:
-        await site.start()
-    except OSError as exc:
-        if exc.errno in {48}:
-            logger.error(
-                "Failed to open port %s, "
-                "please try to terminate the process which is using that port, "
-                "or restart your computer.",
-                engine.opt.port,
-            )
-
-
-async def async_stop_app(app):
-    """Stop the app asynchronously."""
-    runner = app[APP_RUNNER]
-    await runner.cleanup()
 
 
 def setup_router(engine, app):
