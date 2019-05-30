@@ -80,4 +80,3 @@ async def test_plugin_execute(client, init_plugin, event_loop):
     await client.execute(pid, {"type": "script", "content": "print('hello')"}, executed)
     await executed
     assert executed.result() == {'type': 'executeSuccess'}
-    assert False
