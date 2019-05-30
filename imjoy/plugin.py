@@ -269,9 +269,9 @@ def launch_plugin(
             DEFAULT_REQUIREMENTS_PY2 if is_py2 else DEFAULT_REQUIREMENTS_PY3
         )
         default_reqs_cmds = parse_requirements(
-            default_requirements, conda=opt.CONDA_AVAILABLE
+            default_requirements, conda=opt.conda_available
         )
-        reqs_cmds = parse_requirements(requirements, opt.CONDA_AVAILABLE)
+        reqs_cmds = parse_requirements(requirements, opt.conda_available)
         reqs_cmds += default_reqs_cmds
 
         cmd_history = engine.store.cmd_history
@@ -342,7 +342,7 @@ def launch_plugin(
             )
             reqs_cmds = []
 
-        elif opt.CONDA_AVAILABLE and venv_name is not None:
+        elif opt.conda_available and venv_name is not None:
             reqs_cmds = apply_conda_activate(reqs_cmds, opt.conda_activate, venv_name)
 
         install_reqs(
@@ -361,10 +361,10 @@ def launch_plugin(
             code, _ = run_commands(
                 plugin_env, work_dir, psutil_cmds, process_start, process_finish
             )
-        if not opt.freeze and code and opt.CONDA_AVAILABLE and venv_name is not None:
+        if not opt.freeze and code and opt.conda_available and venv_name is not None:
             logger.info("Failed installing psutil with pip, trying conda")
             psutil_cmds = parse_requirements(
-                REQ_PSUTIL_CONDA, conda=opt.CONDA_AVAILABLE
+                REQ_PSUTIL_CONDA, conda=opt.conda_available
             )
             psutil_cmds = apply_conda_activate(
                 psutil_cmds, opt.conda_activate, venv_name
@@ -389,7 +389,7 @@ def launch_plugin(
         stop_callback(False, "Plugin process failed to start")
         return False
     # env = os.environ.copy()
-    if opt.CONDA_AVAILABLE and venv_name is not None:
+    if opt.conda_available and venv_name is not None:
         [args] = apply_conda_activate([args], opt.conda_activate, venv_name)
     if isinstance(args, str):
         args = args.split()

@@ -44,22 +44,22 @@ def setup_router(engine, app):
     # pylint: disable=unused-argument
     logger = engine.logger
     if engine.opt.serve and os.path.exists(
-        os.path.join(engine.opt.WEB_APP_DIR, "index.html")
+        os.path.join(engine.opt.web_app_dir, "index.html")
     ):
 
         async def index(request):
             """Serve the client-side application."""
             with open(
-                os.path.join(engine.opt.WEB_APP_DIR, "index.html"),
+                os.path.join(engine.opt.web_app_dir, "index.html"),
                 "r",
                 encoding="utf-8",
             ) as fil:
                 return web.Response(text=fil.read(), content_type="text/html")
 
         app.router.add_static(
-            "/static", path=str(os.path.join(engine.opt.WEB_APP_DIR, "static"))
+            "/static", path=str(os.path.join(engine.opt.web_app_dir, "static"))
         )
-        # app.router.add_static('/docs/', path=str(os.path.join(WEB_APP_DIR, 'docs')))
+        # app.router.add_static('/docs/', path=str(os.path.join(web_app_dir, 'docs')))
 
         async def docs_handler(request):
             """Handle docs."""
@@ -189,7 +189,7 @@ async def upload_file(request):
         if "dir" in file_info:
             path = os.path.join(file_info["dir"], path)
         else:
-            path = os.path.join(engine.opt.WORKSPACE_DIR, file_info["workspace"], path)
+            path = os.path.join(engine.opt.workspace_dir, file_info["workspace"], path)
 
         if os.path.exists(path) and not file_info.get("overwrite", False):
             return web.Response(body="File {} already exists.".format(path), status=404)
@@ -351,7 +351,7 @@ async def on_shutdown(app):
 
     # stopped.set()  # TODO: Should we uncomment this?
     logger.info("Plugin engine exited")
-    pid_file = os.path.join(engine.opt.WORKSPACE_DIR, ".pid")
+    pid_file = os.path.join(engine.opt.workspace_dir, ".pid")
     try:
         os.remove(pid_file)
     except Exception:  # pylint: disable=broad-except

@@ -251,7 +251,7 @@ async def on_init_plugin(engine, sid, kwargs):
         tag = config.get("tag", "")
         requirements = config.get("requirements", []) or []
         workspace = config.get("workspace", "default")
-        work_dir = os.path.join(engine.opt.WORKSPACE_DIR, workspace)
+        work_dir = os.path.join(engine.opt.workspace_dir, workspace)
         if not os.path.exists(work_dir):
             os.makedirs(work_dir)
         plugin_env = os.environ.copy()
@@ -557,7 +557,7 @@ async def on_list_dir(engine, sid, kwargs):
 
     try:
         workspace_dir = os.path.join(
-            engine.opt.WORKSPACE_DIR, registered_sessions[sid]["workspace"]
+            engine.opt.workspace_dir, registered_sessions[sid]["workspace"]
         )
 
         path = kwargs.get("path", workspace_dir)
@@ -593,7 +593,7 @@ async def on_remove_files(engine, sid, kwargs):
         return {"success": False, "error": "client has not been registered."}
     logger.info("Removing files: %s", kwargs)
     workspace_dir = os.path.join(
-        engine.opt.WORKSPACE_DIR, registered_sessions[sid]["workspace"]
+        engine.opt.workspace_dir, registered_sessions[sid]["workspace"]
     )
     path = kwargs.get("path", workspace_dir)
     if not os.path.isabs(path):
@@ -650,7 +650,7 @@ async def on_request_upload_url(engine, sid, kwargs):
     if "dir" in kwargs:
         path = os.path.expanduser(kwargs["dir"])
         if not os.path.isabs(path):
-            path = os.path.join(engine.opt.WORKSPACE_DIR, file_info["workspace"], path)
+            path = os.path.join(engine.opt.workspace_dir, file_info["workspace"], path)
         file_info["dir"] = path
 
     if "path" in file_info:
@@ -658,7 +658,7 @@ async def on_request_upload_url(engine, sid, kwargs):
         if "dir" in file_info:
             path = os.path.join(file_info["dir"], path)
         else:
-            path = os.path.join(engine.opt.WORKSPACE_DIR, file_info["workspace"], path)
+            path = os.path.join(engine.opt.workspace_dir, file_info["workspace"], path)
 
         if os.path.exists(path) and not kwargs.get("overwrite", False):
             return {"success": False, "error": "file already exist."}

@@ -147,7 +147,7 @@ def install_reqs(
     if errors is not None:
         logging_callback(str(errors, "utf-8"), type="error")
 
-    if not engine.opt.CONDA_AVAILABLE:
+    if not engine.opt.conda_available:
         fail_install()
 
     git_cmd = ""
@@ -228,7 +228,7 @@ def parse_env(engine, envs, work_dir, default_env_name):
         envs = envs.strip()
 
     if not envs:
-        if opt.freeze or not opt.CONDA_AVAILABLE:
+        if opt.freeze or not opt.conda_available:
             logger.warning(
                 "env command is blocked because conda is not available "
                 "or in `--freeze` mode: %s",
