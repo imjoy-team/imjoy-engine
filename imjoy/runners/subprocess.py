@@ -44,6 +44,8 @@ def setup_subprocess_runner(engine):
     engine.conn.register_event_handler(on_init_plugin)
     engine.conn.register_event_handler(on_kill_plugin)
     engine.conn.register_event_handler(on_kill_plugin_process)
+    engine.conn.register_event_handler(disconnect_client_session)
+    engine.conn.register_event_handler(disconnect_plugin)
 
 
 @sio_on("init_plugin", namespace=NAME_SPACE)
@@ -428,7 +430,8 @@ def add_client_session(engine, session_id, client_id, sid, base_url, workspace):
     return client_connected
 
 
-def disconnect_client_session(engine, sid):
+@sio_on("disconnect_client_session", namespace=NAME_SPACE)
+async def disconnect_client_session(engine, sid):
     """Disconnect client session."""
     logger = engine.logger
     clients = engine.store.clients
@@ -472,7 +475,8 @@ def add_plugin(engine, plugin_info, sid=None):
         plugin_info["sid"] = sid
 
 
-def disconnect_plugin(engine, sid):
+@sio_on("disconnect_plugin", namespace=NAME_SPACE)
+async def disconnect_plugin(engine, sid):
     """Disconnect plugin."""
     logger = engine.logger
     plugins = engine.store.plugins

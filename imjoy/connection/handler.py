@@ -2,8 +2,6 @@
 from imjoy.const import NAME_SPACE
 from imjoy.helper import get_psutil
 from imjoy.runners.subprocess import (
-    disconnect_client_session,
-    disconnect_plugin,
     kill_all_plugins,
 )
 
@@ -82,6 +80,9 @@ async def on_get_engine_status(engine, sid, _):
 async def disconnect(engine, sid):
     """Disconnect client."""
     logger = engine.logger
-    disconnect_client_session(engine, sid)
-    disconnect_plugin(engine, sid)
+    # services and runners can register disconnect_* handlers that will be called here
+    for event, handler in engine.conn.sio.handlers[NAME_SPACE].items():
+        if not event.startswith("disconnect_"):
+            continue
+        await handler(sid)
     logger.info("Disconnect %s", sid)
