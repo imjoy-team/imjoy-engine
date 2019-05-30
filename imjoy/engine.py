@@ -22,6 +22,17 @@ class Engine:
         """Return the engine representation."""
         return f"<Engine(opt={self.opt})>"
 
+    @classmethod
+    def create(cls, args):
+        """Prepare and and return an Engine instance."""
+        logging.basicConfig(stream=sys.stdout)
+        logger = logging.getLogger("ImJoyPluginEngine")
+        opt = parse_cmd_line(args)
+        setup_logging(opt, logger)
+        opt = prep_env(opt, logger)
+        opt = bootstrap(opt, logger)
+        return cls(opt, logger)
+
     def setup(self):
         """Set up the engine."""
         self.conn = create_connection_manager(self)
@@ -41,15 +52,9 @@ class Engine:
         await self.conn.async_stop()
 
 
-def run():
+def run(args=None):
     """Run the engine."""
-    logging.basicConfig(stream=sys.stdout)
-    logger = logging.getLogger("ImJoyPluginEngine")
-    opt = parse_cmd_line()
-    setup_logging(opt, logger)
-    opt = prep_env(opt, logger)
-    opt = bootstrap(opt, logger)
-    engine = Engine(opt, logger)
+    engine = Engine.create(args)
     engine.setup()
     engine.start()
 
