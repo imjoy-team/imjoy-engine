@@ -1,9 +1,6 @@
 """Provide socketio event handlers."""
 from imjoy.const import NAME_SPACE
 from imjoy.helper import get_psutil
-from imjoy.runners.subprocess import (
-    kill_all_plugins,
-)
 
 from .decorator import ws_handler as sio_on
 
@@ -13,7 +10,7 @@ def register_services(engine, register_event_handler):
     # basic engine service
     register_event_handler(engine, connect)
     register_event_handler(engine, disconnect)
-    register_event_handler(engine, on_reset_engine)
+    register_event_handler(engine, reset_engine)
     register_event_handler(engine, on_get_engine_status)
 
 
@@ -25,7 +22,7 @@ def connect(engine, sid, _):
 
 
 @sio_on("reset_engine", namespace=NAME_SPACE)
-async def on_reset_engine(engine, sid, kwargs):
+async def reset_engine(engine, sid, kwargs):
     """Reset engine."""
     logger = engine.logger
     registered_sessions = engine.store.registered_sessions
@@ -34,7 +31,11 @@ async def on_reset_engine(engine, sid, kwargs):
         logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered"}
 
-    await kill_all_plugins(engine, sid)
+    # services and runners can register reset_engine_* handlers that will be called here
+    for event, handler in engine.conn.sio.handlers[NAME_SPACE].items():
+        if not event.startswith("reset_engine_"):
+            continue
+        await handler(sid, kwargs)
 
     engine.conn.reset_store(reset_clients=False)
 

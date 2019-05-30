@@ -539,6 +539,12 @@ def kill_plugin(engine, pid):
         del plugins[pid]
 
 
+@sio_on("reset_engine_plugins", namespace=NAME_SPACE)
+async def reset_engine(engine, sid, _):
+    """Handle plugins when reset engine is called."""
+    await kill_all_plugins(engine, sid)
+
+
 async def kill_all_plugins(engine, sid):
     """Kill all plugins."""
     logger = engine.logger
