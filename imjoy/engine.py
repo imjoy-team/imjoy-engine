@@ -4,7 +4,7 @@ import sys
 
 from imjoy.helper import setup_logging
 from imjoy.options import parse_cmd_line
-from imjoy.env import bootstrap, prep_env
+from imjoy.env import bootstrap, prepare_env
 from imjoy.connection import create_connection_manager
 
 
@@ -29,7 +29,7 @@ class Engine:
         logger = logging.getLogger("ImJoyPluginEngine")
         opt = parse_cmd_line(args)
         setup_logging(opt, logger)
-        opt = prep_env(opt, logger)
+        opt = prepare_env(opt, logger)
         opt = bootstrap(opt, logger)
         return cls(opt, logger)
 
