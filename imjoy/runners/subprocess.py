@@ -2,21 +2,30 @@
 import asyncio
 import datetime
 import os
+import platform
 import subprocess
 import sys
+import threading
 import time
 import traceback
+import uuid
 
 import GPUtil
+
+from imjoy.connection.decorator import ws_handler as sio_on
 from imjoy.const import (
+    API_VERSION,
     DEFAULT_REQUIREMENTS_PY2,
     DEFAULT_REQUIREMENTS_PY3,
     NAME_SPACE,
     REQ_PSUTIL,
     REQ_PSUTIL_CONDA,
+    TEMPLATE_SCRIPT,
+    __version__,
 )
 from imjoy.helper import (
     apply_conda_activate,
+    get_psutil,
     install_reqs,
     kill_process,
     parse_env,
@@ -25,6 +34,357 @@ from imjoy.helper import (
     run_process,
 )
 from imjoy.util import console_to_str, parse_repos
+
+MAX_ATTEMPTS = 1000
+
+
+def setup_subprocess_runner(engine):
+    """Set up the subprocess runner."""
+    engine.conn.register_event_handler(on_register_client)
+    engine.conn.register_event_handler(on_init_plugin)
+    engine.conn.register_event_handler(on_kill_plugin)
+    engine.conn.register_event_handler(on_kill_plugin_process)
+
+
+@sio_on("init_plugin", namespace=NAME_SPACE)
+async def on_init_plugin(engine, sid, kwargs):
+    """Initialize plugin."""
+    logger = engine.logger
+    registered_sessions = engine.store.registered_sessions
+    try:
+        if sid in registered_sessions:
+            obj = registered_sessions[sid]
+            client_id, session_id = obj["client"], obj["session"]
+        else:
+            logger.debug("Client %s is not registered", sid)
+            return {"success": False}
+        pid = kwargs["id"]
+        config = kwargs.get("config", {})
+        env = config.get("env")
+        cmd = config.get("cmd", "python")
+        pname = config.get("name")
+        flags = config.get("flags", [])
+        tag = config.get("tag", "")
+        requirements = config.get("requirements", []) or []
+        workspace = config.get("workspace", "default")
+        work_dir = os.path.join(engine.opt.workspace_dir, workspace)
+        if not os.path.exists(work_dir):
+            os.makedirs(work_dir)
+        plugin_env = os.environ.copy()
+        plugin_env["WORK_DIR"] = work_dir
+        logger.info(
+            "Initialize the plugin, name=%s, id=%s, cmd=%s, workspace=%s",
+            pname,
+            pid,
+            cmd,
+            workspace,
+        )
+
+        if "single-instance" in flags:
+            plugin_signature = "{}/{}".format(pname, tag)
+            resume = True
+        elif "allow-detach" in flags:
+            plugin_signature = "{}/{}/{}/{}".format(client_id, workspace, pname, tag)
+            resume = True
+        else:
+            plugin_signature = None
+            resume = False
+
+        if resume:
+            plugin_info = resume_plugin_session(
+                engine, pid, session_id, plugin_signature
+            )
+            if plugin_info is not None:
+                if "aborting" in plugin_info:
+                    logger.info("Waiting for plugin %s to abort", plugin_info["id"])
+                    await plugin_info["aborting"]
+                else:
+                    logger.debug("Plugin already initialized: %s", pid)
+                    return {
+                        "success": True,
+                        "resumed": True,
+                        "initialized": True,
+                        "secret": plugin_info["secret"],
+                        "work_dir": os.path.abspath(work_dir),
+                    }
+            else:
+                logger.info(
+                    "Failed to resume single instance plugin: %s, %s",
+                    pid,
+                    plugin_signature,
+                )
+
+        secret_key = str(uuid.uuid4())
+        abort = threading.Event()
+        plugin_info = {
+            "secret": secret_key,
+            "id": pid,
+            "abort": abort,
+            "flags": flags,
+            "session_id": session_id,
+            "name": config["name"],
+            "type": config["type"],
+            "client_id": client_id,
+            "signature": plugin_signature,
+            "process_id": None,
+        }
+        logger.info("Add plugin: %s", plugin_info)
+        add_plugin(engine, plugin_info)
+
+        @sio_on("from_plugin_" + secret_key, namespace=NAME_SPACE)
+        async def message_from_plugin(engine, sid, kwargs):
+            if kwargs["type"] in [
+                "initialized",
+                "importSuccess",
+                "importFailure",
+                "executeSuccess",
+                "executeFailure",
+            ]:
+                await engine.conn.sio.emit("message_from_plugin_" + secret_key, kwargs)
+                logger.debug("Message from %s", pid)
+                if kwargs["type"] == "initialized":
+                    add_plugin(engine, plugin_info, sid)
+                elif kwargs["type"] == "executeFailure":
+                    logger.info("Killing plugin %s due to exeuction failure", pid)
+                    kill_plugin(engine, pid)
+            else:
+                await engine.conn.sio.emit(
+                    "message_from_plugin_" + secret_key,
+                    {"type": "message", "data": kwargs},
+                )
+
+        engine.conn.register_event_handler(message_from_plugin)
+
+        @sio_on("message_to_plugin_" + secret_key, namespace=NAME_SPACE)
+        async def message_to_plugin(engine, _, kwargs):
+            if kwargs["type"] == "message":
+                await engine.conn.sio.emit("to_plugin_" + secret_key, kwargs["data"])
+            logger.debug("Message to plugin %s", secret_key)
+
+        engine.conn.register_event_handler(message_to_plugin)
+
+        eloop = asyncio.get_event_loop()
+
+        def stop_callback(success, message):
+            if "aborting" in plugin_info:
+                plugin_info["aborting"].set_result(success)
+            message = str(message or "")
+            logger.info(
+                "Disconnecting from plugin (success: %s, message: %s)", success, message
+            )
+            coro = engine.conn.sio.emit(
+                "message_from_plugin_" + secret_key,
+                {
+                    "type": "disconnected",
+                    "details": {"success": success, "message": message},
+                },
+            )
+            asyncio.run_coroutine_threadsafe(coro, eloop).result()
+
+        def logging_callback(msg, type="info"):  # pylint: disable=redefined-builtin
+            if msg == "":
+                return
+            coro = engine.conn.sio.emit(
+                "message_from_plugin_" + secret_key,
+                {"type": "logging", "details": {"value": msg, "type": type}},
+            )
+            asyncio.run_coroutine_threadsafe(coro, eloop).result()
+
+        args = '{} "{}" --id="{}" --server={} --secret="{}"'.format(
+            cmd, TEMPLATE_SCRIPT, pid, "http://127.0.0.1:" + engine.opt.port, secret_key
+        )
+        task_thread = threading.Thread(
+            target=launch_plugin,
+            args=[
+                engine,
+                stop_callback,
+                logging_callback,
+                pid,
+                pname,
+                tag,
+                env,
+                requirements,
+                args,
+                work_dir,
+                abort,
+                pid,
+                plugin_env,
+            ],
+        )
+        task_thread.daemon = True
+        task_thread.start()
+        return {
+            "success": True,
+            "initialized": False,
+            "secret": secret_key,
+            "work_dir": os.path.abspath(work_dir),
+        }
+
+    except Exception:  # pylint: disable=broad-except
+        traceback_error = traceback.format_exc()
+        logger.error(traceback_error)
+        return {"success": False, "reason": traceback_error}
+
+
+@sio_on("register_client", namespace=NAME_SPACE)
+async def on_register_client(engine, sid, kwargs):
+    """Register client."""
+    logger = engine.logger
+    conn_data = engine.store
+    logger.info("Registering client: %s", kwargs)
+    client_id = kwargs.get("id", str(uuid.uuid4()))
+    workspace = kwargs.get("workspace", "default")
+    session_id = kwargs.get("session_id", str(uuid.uuid4()))
+    base_url = kwargs.get("base_url", engine.opt.base_url)
+    if base_url.endswith("/"):
+        base_url = base_url[:-1]
+
+    token = kwargs.get("token")
+    if token != engine.opt.token:
+        logger.debug("Token mismatch: %s != %s", token, engine.opt.token)
+        if engine.opt.engine_container_token is not None:
+            await engine.conn.sio.emit(
+                "message_to_container_" + engine.opt.engine_container_token,
+                {
+                    "type": "popup_token",
+                    "client_id": client_id,
+                    "session_id": session_id,
+                },
+            )
+        # try:
+        #     webbrowser.open(
+        #         'http://'+opt.host+':'+opt.port+'/about?token='+opt.token,
+        #         new=0, autoraise=True)
+        # except Exception as exc:
+        #     logger.error("Failed to open the browser: %s", exc)
+        conn_data.attempt_count += 1
+        if conn_data.attempt_count >= MAX_ATTEMPTS:
+            logger.info(
+                "Client exited because max attemps exceeded: %s",
+                conn_data.attempt_count,
+            )
+            sys.exit(100)
+        return {"success": False}
+
+    conn_data.attempt_count = 0
+    if add_client_session(engine, session_id, client_id, sid, base_url, workspace):
+        confirmation = True
+        message = (
+            "Another ImJoy session is connected to this Plugin Engine({}), "
+            "allow a new session to connect?".format(base_url)
+        )
+    else:
+        confirmation = False
+        message = None
+
+    engine_info = {"api_version": API_VERSION, "version": __version__}
+    engine_info["platform"] = {
+        "uname": ", ".join(platform.uname()),
+        "machine": platform.machine(),
+        "system": platform.system(),
+        "processor": platform.processor(),
+        "node": platform.node(),
+    }
+
+    try:
+        gpus = GPUtil.getGPUs()
+        engine_info["GPUs"] = [
+            {
+                "name": gpu.name,
+                "id": gpu.id,
+                "memory_total": gpu.memoryTotal,
+                "memory_util": gpu.memoryUtil,
+                "memoryUsed": gpu.memoryUsed,
+                "driver": gpu.driver,
+                "temperature": gpu.temperature,
+                "load": gpu.load,
+            }
+            for gpu in gpus
+        ]
+    except Exception:  # pylint: disable=broad-except
+        logger.error("Failed to get GPU information with GPUtil")
+
+    return {
+        "success": True,
+        "confirmation": confirmation,
+        "message": message,
+        "engine_info": engine_info,
+    }
+
+
+@sio_on("kill_plugin", namespace=NAME_SPACE)
+async def on_kill_plugin(engine, sid, kwargs):
+    """Kill plugin."""
+    logger = engine.logger
+    plugins = engine.store.plugins
+    registered_sessions = engine.store.registered_sessions
+    logger.info("Kill plugin: %s", kwargs)
+    if sid not in registered_sessions:
+        logger.debug("Client %s is not registered", sid)
+        return {"success": False, "error": "client has not been registered"}
+
+    pid = kwargs["id"]
+    if pid in plugins:
+        if "killing" not in plugins[pid]:
+            obj = {"force_kill": True, "pid": pid}
+            plugins[pid]["killing"] = True
+
+            def exited(_):
+                obj["force_kill"] = False
+                logger.info("Plugin %s exited normally", pid)
+                # kill the plugin now
+                kill_plugin(engine, pid)
+
+            await engine.conn.sio.emit(
+                "to_plugin_" + plugins[pid]["secret"],
+                {"type": "disconnect"},
+                callback=exited,
+            )
+            await force_kill_timeout(engine, engine.opt.force_quit_timeout, obj)
+    return {"success": True}
+
+
+@sio_on("kill_plugin_process", namespace=NAME_SPACE)
+async def on_kill_plugin_process(engine, sid, kwargs):
+    """Kill plugin process."""
+    logger = engine.logger
+    plugins = engine.store.plugins
+    registered_sessions = engine.store.registered_sessions
+    if sid not in registered_sessions:
+        logger.debug("Client %s is not registered", sid)
+        return {"success": False, "error": "client has not been registered."}
+    if "all" not in kwargs:
+        return {
+            "success": False,
+            "error": 'You must provide the pid of the plugin process or "all=true".',
+        }
+    if kwargs["all"]:
+        logger.info("Killing all the plugins")
+        await kill_all_plugins(engine, sid)
+        return {"success": True}
+    try:
+        kill_process(logger, int(kwargs["pid"]))
+        return {"success": True}
+    except Exception:  # pylint: disable=broad-except
+        return {
+            "success": False,
+            "error": "Failed to kill plugin process: #" + str(kwargs["pid"]),
+        }
+
+    psutil = get_psutil()
+    if not psutil:
+        return
+    current_process = psutil.Process()
+    children = current_process.children(recursive=True)
+    pids = []
+    for proc in children:
+        if proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE:
+            pids.append(proc.pid)
+    # remove plugin if the corresponding process does not exist any more
+    for plugin in plugins.values():
+        if plugin["process_id"] not in pids:
+            plugin["process_id"] = None
+            kill_plugin(engine, plugin["id"])
 
 
 def resume_plugin_session(engine, pid, session_id, plugin_signature):
@@ -178,12 +538,11 @@ def kill_plugin(engine, pid):
 async def kill_all_plugins(engine, ssid):
     """Kill all plugins."""
     logger = engine.logger
-    on_kill_plugin = engine.conn.sio.handlers[NAME_SPACE]["kill_plugin"]
     plugin_sids = engine.store.plugin_sids
     tasks = []
     for sid in list(plugin_sids.keys()):
         try:
-            await on_kill_plugin(ssid, {"id": plugin_sids[sid]["id"]})
+            await on_kill_plugin(engine, ssid, {"id": plugin_sids[sid]["id"]})
         except Exception as exc:  # pylint: disable=broad-except
             logger.error("%s", exc)
 
