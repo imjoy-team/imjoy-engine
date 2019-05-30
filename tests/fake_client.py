@@ -1,9 +1,9 @@
 """Provide a mock client."""
 import asyncio
 import logging
-import os
 import sys
 import uuid
+from pathlib import Path
 
 import socketio
 
@@ -147,12 +147,13 @@ class TestClient:
 
 def main():
     """Run main."""
-    workspace_dir = os.path.expanduser("~/ImJoyWorkspace")
+    home = Path.home()
+    workspace_dir = home / "ImJoyWorkspace"
 
     url = "http://localhost:9527"
 
-    with open(os.path.join(workspace_dir, ".token"), "r") as fil:
-        token = fil.read()
+    token_file = workspace_dir / ".token"
+    token = token_file.read_text()
 
     client_id = str(uuid.uuid4())
     session_id = str(uuid.uuid4())
