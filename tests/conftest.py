@@ -7,7 +7,7 @@ import uuid
 import pytest
 
 from tests.common import ENGINE_MODULE, TOKEN, URL
-from tests.fake_client import FakeClient
+from tests.fake_client import TestClient
 
 
 @pytest.fixture(name="engine")
@@ -29,7 +29,7 @@ async def mock_client(engine, event_loop):  # pylint: disable=unused-argument
     """Provide a mock client."""
     client_id = str(uuid.uuid4())
     session_id = str(uuid.uuid4())
-    client = FakeClient(URL, client_id, session_id, TOKEN, event_loop)
+    client = TestClient(URL, client_id, session_id, TOKEN, event_loop)
     await client.connect()
     await client.register_client()
     yield client

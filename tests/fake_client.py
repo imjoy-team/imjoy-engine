@@ -15,7 +15,7 @@ _LOGGER.setLevel(logging.INFO)
 NAME_SPACE = "/"
 
 
-class FakeClient:
+class TestClient:
     """Represent a mock client."""
 
     def __init__(self, url, client_id, session_id, token, loop=None):
@@ -32,7 +32,7 @@ class FakeClient:
 
     def __repr__(self):
         """Return the client representation."""
-        return ("<FakeClient("
+        return ("<TestClient("
                 f"url={self.url}, client_id={self.client_id}, "
                 f"session_id={self.session_id}, token={self.token})>")
 
@@ -174,7 +174,7 @@ def main():
         "dependencies": [],
     }
     loop = asyncio.get_event_loop()
-    client = FakeClient(url, client_id, session_id, token, loop)
+    client = TestClient(url, client_id, session_id, token, loop)
     loop.run_until_complete(client.run(test_plugin_config))
 
 
