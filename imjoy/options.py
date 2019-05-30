@@ -3,7 +3,7 @@ import argparse
 from imjoy.const import __version__
 
 
-def parse_cmd_line():
+def parse_cmd_line(args=None):
     """Parse the command line options."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--token", type=str, default=None, help="connection token")
@@ -53,7 +53,7 @@ def parse_cmd_line():
         "-v", "--version", action="version", version="%(prog)s " + __version__
     )
 
-    opt = parser.parse_args()
+    opt = parser.parse_args(args=args)
 
     if opt.base_url is None or opt.base_url == "":
         opt.base_url = "http://{}:{}".format(opt.host, opt.port)

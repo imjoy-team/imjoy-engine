@@ -18,25 +18,35 @@ class Engine:
         self.conn = None
         self.store = None
 
+    def __repr__(self):
+        """Return the engine representation."""
+        return f"<Engine(opt={self.opt})>"
+
+    @classmethod
+    def create(cls, args):
+        """Prepare and and return an Engine instance."""
+        logging.basicConfig(stream=sys.stdout)
+        logger = logging.getLogger("ImJoyPluginEngine")
+        opt = parse_cmd_line(args)
+        setup_logging(opt, logger)
+        opt = prep_env(opt, logger)
+        opt = bootstrap(opt, logger)
+        return cls(opt, logger)
+
     def setup(self):
         """Set up the engine."""
         self.conn = create_connection_manager(self)
         self.store = self.conn.store
+        self.conn.setup()
 
     def start(self):
         """Start the engine."""
         self.conn.start()
 
 
-def run():
-    """Run app."""
-    logging.basicConfig(stream=sys.stdout)
-    logger = logging.getLogger("ImJoyPluginEngine")
-    opt = parse_cmd_line()
-    setup_logging(opt, logger)
-    opt = prep_env(opt, logger)
-    opt = bootstrap(opt, logger)
-    engine = Engine(opt, logger)
+def run(args=None):
+    """Run the engine."""
+    engine = Engine.create(args)
     engine.setup()
     engine.start()
 

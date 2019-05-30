@@ -66,9 +66,12 @@ class ConnectionManager:
             self.store.client_sessions = {}
             self.store.registered_sessions = {}
 
+    def setup(self):
+        """Set up the connection manager."""
+        self._register_services()
+
     def start(self):
         """Start the connection."""
-        self._register_services()
         run_app(self.engine, self.app)
 
     def register_event_handler(self, event, handler=None, namespace=None):

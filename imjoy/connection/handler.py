@@ -464,6 +464,7 @@ async def on_register_client(engine, sid, kwargs):
     """Register client."""
     logger = engine.logger
     conn_data = engine.store
+    logger.info("Registering client: %s", kwargs)
     client_id = kwargs.get("id", str(uuid.uuid4()))
     workspace = kwargs.get("workspace", "default")
     session_id = kwargs.get("session_id", str(uuid.uuid4()))
@@ -508,8 +509,6 @@ async def on_register_client(engine, sid, kwargs):
     else:
         confirmation = False
         message = None
-
-    logger.info("Register client: %s", kwargs)
 
     engine_info = {"api_version": API_VERSION, "version": __version__}
     engine_info["platform"] = {
