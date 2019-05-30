@@ -18,8 +18,6 @@ ENGINE_MODULE = HERE.parent / "imjoy/engine.py"
 HOST = "localhost"
 PORT = 9527
 TOKEN = "12345678"
-WORKSPACE = "~/ImJoyWorkspace"
-WORKSPACE_DIR = Path.home() / "ImJoyWorkspace"
 URL = f"http://{HOST}:{PORT}"
 
 TEST_PLUGIN_CONFIG = {
@@ -34,8 +32,8 @@ TEST_PLUGIN_CONFIG = {
     "outputs": None,
     "flags": [],
     "icon": None,
-    "env": "conda create -n test-env python=3.6.7",
-    "requirements": "pip: numpy",
+    "env": "",
+    "requirements": "",
     "dependencies": [],
 }
 
@@ -65,25 +63,16 @@ async def mock_client(engine, event_loop):
     yield client
 
 
-async def test_debugging(engine, client):
-    """Try to figure out what is going on."""
-    print(client)
-    assert True
-    assert False
-
-
 @pytest.fixture(name="init_plugin")
 async def setup_init_plugin(client, event_loop):
     """Initialize the plugin."""
     pid = await client.init_plugin(TEST_PLUGIN_CONFIG)
     initialized = event_loop.create_future()
     client.on_plugin_message(pid, "initialized", initialized)
-    print(client)
     await initialized
     return {"id": pid}
 
 
-@pytest.mark.skip
 async def test_plugin_execute(client, init_plugin, event_loop):
     """Test plugin execute."""
     pid = init_plugin["id"]
