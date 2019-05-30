@@ -539,18 +539,15 @@ def kill_plugin(engine, pid):
         del plugins[pid]
 
 
-async def kill_all_plugins(engine, ssid):
+async def kill_all_plugins(engine, sid):
     """Kill all plugins."""
     logger = engine.logger
     plugin_sids = engine.store.plugin_sids
-    tasks = []
-    for sid in list(plugin_sids.keys()):
+    for plugin_info in plugin_sids.values():
         try:
-            await on_kill_plugin(engine, ssid, {"id": plugin_sids[sid]["id"]})
+            await on_kill_plugin(engine, sid, {"id": plugin_info["id"]})
         except Exception as exc:  # pylint: disable=broad-except
             logger.error("%s", exc)
-
-    return asyncio.gather(*tasks)
 
 
 async def force_kill_timeout(engine, timeout, obj):
