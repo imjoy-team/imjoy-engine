@@ -199,11 +199,12 @@ async def force_kill_timeout(engine, timeout, obj):
             await asyncio.sleep(0.1)
         else:
             return
+
+    logger.warning("Timeout, force quitting %s", pid)
     try:
-        logger.warning("Timeout, force quitting %s", pid)
         kill_plugin(engine, pid)
-    finally:
-        return  # TODO: What is the idea behind the return inside finally?
+    except Exception as exc:  # pylint:disable=broad-except
+        logger.error("Failed to kill plugin %s: %s", pid, exc)
 
 
 def launch_plugin(
