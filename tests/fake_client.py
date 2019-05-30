@@ -32,9 +32,11 @@ class TestClient:
 
     def __repr__(self):
         """Return the client representation."""
-        return ("<TestClient("
-                f"url={self.url}, client_id={self.client_id}, "
-                f"session_id={self.session_id}, token={self.token})>")
+        return (
+            "<TestClient("
+            f"url={self.url}, client_id={self.client_id}, "
+            f"session_id={self.session_id}, token={self.token})>"
+        )
 
     async def emit(self, channel, data):
         """Emit a message."""
