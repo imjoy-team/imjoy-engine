@@ -69,14 +69,13 @@ def main():
         # running in python 2
         print("ImJoy needs to run in Python 3.6+, bootstrapping with conda")
         imjoy_requirements = [
-            "requests",
-            "six",
-            "websocket-client-py3",
             "aiohttp",
+            "aiohttp_cors",
             "git+https://github.com/oeway/ImJoy-Engine#egg=imjoy",
             "gputil",
             "psutil",
-            "numpy",
+            "python-socketio[asyncio_client]",
+            "pyyaml",
         ]
         ret = subprocess.Popen(
             "conda create -y -n imjoy python=3.6".split(),
