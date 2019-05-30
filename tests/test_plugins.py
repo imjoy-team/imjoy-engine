@@ -45,7 +45,7 @@ def setup_engine():
     """Set up engine."""
     engine_args = f"python {ENGINE_MODULE} --debug --token {TOKEN}"
     process = subprocess.Popen(engine_args.split())
-    time.sleep(2)
+    time.sleep(2)  # This is needed to let the engine finish setup.
     yield
     process.send_signal(signal.SIGINT)
     try:
