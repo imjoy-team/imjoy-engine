@@ -149,11 +149,10 @@ def main():
     """Run main."""
     home = Path.home()
     workspace_dir = home / "ImJoyWorkspace"
-
-    url = "http://localhost:9527"
-
     token_file = workspace_dir / ".token"
     token = token_file.read_text()
+
+    url = "http://localhost:9527"
 
     client_id = str(uuid.uuid4())
     session_id = str(uuid.uuid4())
