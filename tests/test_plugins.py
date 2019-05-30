@@ -1,30 +1,25 @@
 """Test plugin engine api."""
-import logging
-import os
-import sys
+import signal
+import subprocess
+import time
 import uuid
+from pathlib import Path
 
 import pytest
 
-from imjoy.engine import Engine
-from imjoy.env import bootstrap, prep_env
-from imjoy.options import parse_cmd_line
 from .fake_client import FakeClient
-
-logging.basicConfig(stream=sys.stdout)
-_LOGGER = logging.getLogger(__name__)
-
-_LOGGER.setLevel(logging.INFO)
 
 # pylint: disable=unused-argument
 # All test coroutines will be treated as marked.
 pytestmark = pytest.mark.asyncio  # pylint: disable=invalid-name
 
+HERE = Path(__file__).parent
+ENGINE_MODULE = HERE.parent / "imjoy/engine.py"
 HOST = "localhost"
 PORT = 9527
 TOKEN = "12345678"
 WORKSPACE = "~/ImJoyWorkspace"
-WORKSPACE_DIR = os.path.expanduser("~/ImJoyWorkspace")
+WORKSPACE_DIR = Path.home() / "ImJoyWorkspace"
 URL = f"http://{HOST}:{PORT}"
 
 TEST_PLUGIN_CONFIG = {
@@ -39,25 +34,24 @@ TEST_PLUGIN_CONFIG = {
     "outputs": None,
     "flags": [],
     "icon": None,
-    # "env": "conda create -n test-env python=3.6.7",
-    # "requirements": "pip: numpy",
+    "env": "conda create -n test-env python=3.6.7",
+    "requirements": "pip: numpy",
     "dependencies": [],
 }
 
 
 @pytest.fixture(name="engine")
-async def setup_engine(event_loop):
+def setup_engine():
     """Set up engine."""
-    logger = _LOGGER
-    opt = parse_cmd_line(["--debug", "--token", TOKEN])
-    opt = prep_env(opt, logger)
-    opt = bootstrap(opt, logger)
-    engine = Engine(opt, logger)
-    engine.setup()
-    await engine.async_start()
-    print(engine)
-    yield engine
-    await engine.async_stop()
+    engine_args = f"python {ENGINE_MODULE} --debug --token {TOKEN}"
+    process = subprocess.Popen(engine_args.split())
+    time.sleep(2)
+    yield
+    process.send_signal(signal.SIGINT)
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        print("Waiting for engine exit timed out")
 
 
 @pytest.fixture(name="client")
@@ -71,10 +65,9 @@ async def mock_client(engine, event_loop):
     yield client
 
 
-async def test_debugging(engine):
+async def test_debugging(engine, client):
     """Try to figure out what is going on."""
-    print(engine)
-    # print(client)
+    print(client)
     assert True
     assert False
 
