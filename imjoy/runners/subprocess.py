@@ -550,7 +550,8 @@ async def kill_all_plugins(engine, sid):
     """Kill all plugins."""
     logger = engine.logger
     plugin_sids = engine.store.plugin_sids
-    for plugin_info in plugin_sids.values():
+    # copy dict as it will change size when killing plugins
+    for plugin_info in dict(plugin_sids).values():
         try:
             await on_kill_plugin(engine, sid, {"id": plugin_info["id"]})
         except Exception as exc:  # pylint: disable=broad-except
