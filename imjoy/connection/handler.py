@@ -26,7 +26,6 @@ async def reset_engine(engine, sid, kwargs):
     """Reset engine."""
     logger = engine.logger
     registered_sessions = engine.store.registered_sessions
-    logger.info("Kill plugin: %s", kwargs)
     if sid not in registered_sessions:
         logger.debug("Client %s is not registered", sid)
         return {"success": False, "error": "client has not been registered"}
