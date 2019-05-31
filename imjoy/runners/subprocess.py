@@ -46,6 +46,7 @@ def setup_subprocess_runner(engine):
     engine.conn.register_event_handler(on_kill_plugin_process)
     engine.conn.register_event_handler(disconnect_client_session)
     engine.conn.register_event_handler(disconnect_plugin)
+    engine.conn.register_event_handler(reset_engine_plugins)
 
 
 @sio_on("init_plugin", namespace=NAME_SPACE)
@@ -540,7 +541,7 @@ def kill_plugin(engine, pid):
 
 
 @sio_on("reset_engine_plugins", namespace=NAME_SPACE)
-async def reset_engine(engine, sid, _):
+async def reset_engine_plugins(engine, sid, _):
     """Handle plugins when reset engine is called."""
     await kill_all_plugins(engine, sid)
 
