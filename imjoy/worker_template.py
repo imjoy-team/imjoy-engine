@@ -203,7 +203,7 @@ class PluginConnection:
             elif "np" in self.local and isinstance(
                 val, (self.local["np"].ndarray, self.local["np"].generic)
             ):
-                v_byte = bytearray(val.tobytes())
+                v_byte = val.tobytes()
                 if len(v_byte) > ARRAY_CHUNK:
                     v_len = int(math.ceil(1.0 * len(v_byte) / ARRAY_CHUNK))
                     v_bytes = []
@@ -256,7 +256,7 @@ class PluginConnection:
                 # create build array/tensor if used in the plugin
                 try:
                     np = self.local["np"]  # pylint: disable=invalid-name
-                    if isinstance(a_object["__value__"], bytearray):
+                    if isinstance(a_object["__value__"], bytes):
                         a_object["__value__"] = a_object["__value__"]
                     elif isinstance(a_object["__value__"], (list, tuple)):
                         a_object["__value__"] = reduce(
