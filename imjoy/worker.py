@@ -157,7 +157,7 @@ def handle_callback(conn, job, logger):
             logger.error("Error in method %s: %s", job["num"], traceback.format_exc())
 
 
-class BaseClient:
+class BaseClient(object):  # pylint: disable=useless-object-inheritance
     """Represent a base socketio client."""
 
     queue = None
