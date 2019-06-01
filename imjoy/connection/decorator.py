@@ -1,7 +1,7 @@
 """Provide a decorator to register event handlers."""
 
 
-def ws_handler(event, namespace=None):
+def socketio_handler(event, namespace=None):
     """Register a socketio handler via decorator."""
 
     def wrapper(func):
