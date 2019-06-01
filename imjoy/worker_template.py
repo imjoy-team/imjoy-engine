@@ -64,7 +64,7 @@ class PluginConnection:
 
     # pylint:disable=too-many-instance-attributes
 
-    def __init__(self, opt):
+    def __init__(self, opt, client=None):
         """Set up connection instance."""
         self.secret = opt.secret
         self.id = opt.id  # pylint: disable=invalid-name
@@ -79,7 +79,9 @@ class PluginConnection:
         self.abort = threading.Event()
         self.work_dir = opt.work_dir
         self.opt = opt
-        if PYTHON3:
+        if client is not None:
+            self.client = client
+        elif PYTHON3:
             self.client = AsyncClient(self, self.opt)
         else:
             self.client = Client(self, self.opt)

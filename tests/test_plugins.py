@@ -25,17 +25,11 @@ TEST_PLUGIN_CONFIG = {
 @pytest.fixture(name="test_plugin")
 async def setup_test_plugin(client, event_loop):
     """Initialize the plugin."""
-    pid = await client.init_plugin(TEST_PLUGIN_CONFIG)
-    initialized = event_loop.create_future()
-    client.on_plugin_message(pid, "initialized", initialized)
-    await initialized
-    return {"id": pid}
+    plugin = await client.init_plugin(TEST_PLUGIN_CONFIG)
+    return plugin
 
 
 async def test_plugin_execute(client, test_plugin, event_loop):
     """Test plugin execute."""
-    pid = test_plugin["id"]
-    executed = event_loop.create_future()
-    await client.execute(pid, {"type": "script", "content": "print('hello')"}, executed)
-    await executed
-    assert executed.result() == {"type": "executeSuccess"}
+    result = await test_plugin.execute({"type": "script", "content": "print('hello')"})
+    assert result == {"type": "executeSuccess"}
