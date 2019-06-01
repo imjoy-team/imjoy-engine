@@ -181,9 +181,6 @@ class AsyncClient:
 
     def run_forever(self):
         """Wait forever."""
-        thread = threading.Thread(target=self.sio.wait)
-        thread.daemon = True
-        thread.start()
         self.loop.run_until_complete(
             task_worker(self.conn, self.queue.async_q, logger, self.conn.abort)
         )

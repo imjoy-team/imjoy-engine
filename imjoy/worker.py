@@ -222,7 +222,4 @@ class Client:
 
     def run_forever(self):
         """Wait forever."""
-        thread = threading.Thread(target=self.sio.wait)
-        thread.daemon = True
-        thread.start()
         task_worker(self.conn, self.queue, logger, self.conn.abort)
