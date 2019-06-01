@@ -7,7 +7,7 @@ import struct
 import subprocess
 import sys
 
-from imjoy.connection.decorator import ws_handler as sio_on
+from imjoy.connection.decorator import socketio_handler as sio_on
 from imjoy.const import NAME_SPACE, __version__
 from imjoy.helper import get_psutil
 

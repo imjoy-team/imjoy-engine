@@ -2,7 +2,7 @@
 from imjoy.const import NAME_SPACE
 from imjoy.helper import get_psutil
 
-from .decorator import ws_handler as sio_on
+from .decorator import socketio_handler as sio_on
 
 
 def register_services(engine, register_event_handler):

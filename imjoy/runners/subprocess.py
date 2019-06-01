@@ -12,7 +12,7 @@ import uuid
 
 import GPUtil
 
-from imjoy.connection.decorator import ws_handler as sio_on
+from imjoy.connection.decorator import socketio_handler as sio_on
 from imjoy.const import (
     API_VERSION,
     DEFAULT_REQUIREMENTS_PY2,
