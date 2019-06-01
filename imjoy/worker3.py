@@ -179,7 +179,7 @@ class AsyncClient:
         sys.stdout.flush()
         return None
 
-    def wait_forever(self):
+    def run_forever(self):
         """Wait forever."""
         thread = threading.Thread(target=self.sio.wait)
         thread.daemon = True

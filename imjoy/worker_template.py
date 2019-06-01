@@ -100,7 +100,7 @@ class PluginConnection:
     def start(self):
         """Start the plugin connection."""
         self.client.connect()
-        self.client.wait_forever()
+        self.client.run_forever()
 
     def default_exit(self):
         """Exit default."""
