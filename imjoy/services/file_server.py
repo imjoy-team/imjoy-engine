@@ -5,7 +5,7 @@ import sys
 import uuid
 from urllib.parse import urlparse
 
-from imjoy.connection.decorator import ws_handler as sio_on
+from imjoy.connection.decorator import socketio_handler as sio_on
 from imjoy.const import NAME_SPACE
 from imjoy.helper import scandir
 
