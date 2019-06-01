@@ -128,7 +128,7 @@ class AsyncClient(BaseClient):
         self.queue = self.janus_queue.sync_q
 
     def run_forever(self):
-        """Wait forever."""
+        """Run forever."""
         self.loop.run_until_complete(
             task_worker(self.conn, self.janus_queue.async_q, logger, self.conn.abort)
         )
