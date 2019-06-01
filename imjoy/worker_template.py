@@ -81,10 +81,8 @@ class PluginConnection:
         self.opt = opt
         if PYTHON3:
             self.client = AsyncClient(self, self.opt)
-            self.loop = self.client.loop
         else:
             self.client = Client(self, self.opt)
-            self.loop = None
         self.emit = self.client.emit
 
     def setup(self):
@@ -379,7 +377,7 @@ class PluginConnection:
                 self.emit(call_func)
 
             if PYTHON3:
-                return FuturePromise(pfunc, self.loop)
+                return FuturePromise(pfunc, self.client.socketio_loop)
             return Promise(pfunc)
 
         remote_method.__remote_method = True  # pylint: disable=protected-access
@@ -409,7 +407,7 @@ class PluginConnection:
                     )
 
                 if PYTHON3:
-                    return FuturePromise(pfunc, self.loop)
+                    return FuturePromise(pfunc, self.client.socketio_loop)
                 return Promise(pfunc)
 
         else:
