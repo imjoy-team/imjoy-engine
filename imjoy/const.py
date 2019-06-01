@@ -2,9 +2,9 @@
 import json
 import pathlib
 
-DEFAULT_REQUIREMENTS = ["numpy"]
-DEFAULT_REQUIREMENTS_PY2 = [*DEFAULT_REQUIREMENTS, "python-socketio[client]"]
-DEFAULT_REQUIREMENTS_PY3 = [*DEFAULT_REQUIREMENTS, "python-socketio[asyncio_client]"]
+DEFAULT_REQUIREMENTS = ["numpy", "python-socketio[client]"]
+DEFAULT_REQUIREMENTS_PY2 = DEFAULT_REQUIREMENTS
+DEFAULT_REQUIREMENTS_PY3 = [*DEFAULT_REQUIREMENTS, "janus"]
 REQ_PSUTIL = ["psutil"]
 REQ_PSUTIL_CONDA = ["conda:psutil"]
 ENGINE = "imjoy_engine"
