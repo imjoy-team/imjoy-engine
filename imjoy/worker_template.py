@@ -377,7 +377,7 @@ class PluginConnection:
                 self.emit(call_func)
 
             if PYTHON3:
-                return FuturePromise(pfunc, self.client.socketio_loop)
+                return FuturePromise(pfunc, self.client.loop)
             return Promise(pfunc)
 
         remote_method.__remote_method = True  # pylint: disable=protected-access
@@ -407,7 +407,7 @@ class PluginConnection:
                     )
 
                 if PYTHON3:
-                    return FuturePromise(pfunc, self.client.socketio_loop)
+                    return FuturePromise(pfunc, self.client.loop)
                 return Promise(pfunc)
 
         else:

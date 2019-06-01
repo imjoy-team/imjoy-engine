@@ -6,6 +6,7 @@ import sys
 import threading
 import traceback
 
+import janus
 import socketio
 
 from worker_utils import format_traceback
@@ -21,13 +22,12 @@ JOB_HANDLERS_PY3 = Registry()
 JOB_HANDLERS_PY3.update({name: make_coro(func) for name, func in JOB_HANDLERS.items()})
 
 
-async def task_worker(socketio_loop, conn, async_q, logger, abort=None):
+async def task_worker(conn, async_q, logger, abort=None):
     """Implement a task worker."""
     while True:
         if abort is not None and abort.is_set():
             break
-        fut = asyncio.run_coroutine_threadsafe(async_q.get(), socketio_loop) 
-        job = fut.result()
+        job = await async_q.get()
         if job is None:
             continue
         handler = JOB_HANDLERS_PY3.get(job["type"])
@@ -123,10 +123,10 @@ class AsyncClient:
     def __init__(self, conn, opt):
         """Set up client instance."""
         self.conn = conn
-        self.socketio_loop = asyncio.new_event_loop()
+        self.loop = asyncio.get_event_loop()
         self.opt = opt
-        self.queue = asyncio.Queue(loop=self.socketio_loop)
-        self.sio = socketio.AsyncClient()
+        self.queue = janus.Queue(loop=self.loop)
+        self.sio = socketio.Client()
 
     def setup(self):
         """Set up the plugin connection."""
@@ -143,22 +143,15 @@ class AsyncClient:
 
     def connect(self):
         """Connect to the socketio server."""
-        self.socketio_loop.run_until_complete(self.sio.connect(self.opt.server))
-        self.socketio_loop.run_until_complete(self.sio.emit("from_plugin_" + self.opt.secret, {"type": "initialized", "dedicatedThread": True}))
+        self.sio.connect(self.opt.server)
+        self.emit({"type": "initialized", "dedicatedThread": True})
         logger.info("Plugin %s initialized", self.opt.id)
-        sys.stdout.flush()
 
     def emit(self, msg):
         """Emit a message to the socketio server."""
-        async def emit_message():
-            try:
-                await self.sio.emit("from_plugin_" + self.opt.secret, msg)
-            except Exception as e:
-                logger.error('Failed to emit message: %s', e)
-                await self.sio.emit("from_plugin_" + self.opt.secret, {"type": "logging", "details": {"value": str(e), "type": 'error'}})
-        asyncio.run_coroutine_threadsafe(emit_message(), self.socketio_loop)
+        self.sio.emit("from_plugin_" + self.opt.secret, msg)
 
-    async def sio_plugin_message(self, *args):
+    def sio_plugin_message(self, *args):
         """Handle plugin message."""
         data = args[0]
         if data["type"] == "import":
@@ -175,32 +168,22 @@ class AsyncClient:
             return args
         elif data["type"] == "execute":
             if not self.conn.executed:
-                await self.queue.put(data)
+                self.queue.sync_q.put(data)
             else:
                 logger.debug("Skip execution")
                 self.emit({"type": "executeSuccess"})
         elif data["type"] == "message":
             _data = data["data"]
-            await self.queue.put(_data)
+            self.queue.sync_q.put(_data)
             logger.debug("Added task to the queue")
         sys.stdout.flush()
         return None
 
     def wait_forever(self):
         """Wait forever."""
-        def socketio_thread():
-            asyncio.set_event_loop(self.socketio_loop)
-            self.socketio_loop.run_until_complete(self.sio.wait())
-
-        thread = threading.Thread(target=socketio_thread)
+        thread = threading.Thread(target=self.sio.wait)
         thread.daemon = True
         thread.start()
-    
-        loop = asyncio.get_event_loop()
-        worker_tasks = [
-            task_worker(self.socketio_loop, self.conn, self.queue, logger, self.conn.abort)
-            for i in range(10)
-        ]
-        loop.run_until_complete(asyncio.gather(*worker_tasks))
-       
-
+        self.loop.run_until_complete(
+            task_worker(self.conn, self.queue.async_q, logger, self.conn.abort)
+        )
