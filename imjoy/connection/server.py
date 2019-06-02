@@ -11,7 +11,7 @@ import aiohttp_cors
 from aiohttp import web, streamer
 
 from imjoy import __version__, API_VERSION
-from imjoy.util import kill_process, scandir
+from imjoy.utils import kill_process, scandir
 
 ENGINE = "imjoy_engine"
 NAME_SPACE = "/"

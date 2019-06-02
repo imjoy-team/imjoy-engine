@@ -6,7 +6,7 @@ import subprocess
 import sys
 import uuid
 
-from imjoy.util import kill_process
+from imjoy.utils import kill_process
 
 
 def prepare_env(opt, logger):

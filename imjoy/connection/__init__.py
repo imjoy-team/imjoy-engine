@@ -4,7 +4,7 @@ from functools import partial
 
 import socketio
 
-from imjoy.util import dotdict
+from imjoy.utils import dotdict
 from .decorator import partial_coro
 from .handler import register_services
 from .server import create_app, run_app

@@ -7,10 +7,10 @@ from urllib.parse import urlparse
 
 from imjoy.connection.decorator import socketio_handler as sio_on
 from imjoy.connection.server import NAME_SPACE
-from imjoy.util import scandir
+from imjoy.utils import scandir
 
 if sys.platform == "win32":
-    from imjoy.util import get_drives
+    from imjoy.utils import get_drives
 
 
 def setup_file_server(engine):
