@@ -131,7 +131,7 @@ async def on_init_plugin(engine, sid, kwargs):
             "signature": plugin_signature,
             "process_id": None,
         }
-        logger.info("Add plugin: %s", plugin_info)
+        logger.debug("Add plugin: %s", plugin_info)
         add_plugin(engine, plugin_info)
 
         @sio_on("from_plugin_" + secret_key, namespace=NAME_SPACE)
