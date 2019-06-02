@@ -129,8 +129,8 @@ class AsyncClient(BaseClient):
 
     def run_forever(self):
         """Run forever."""
-        tasks = [
+        workers = [
             task_worker(self.conn, self.janus_queue.async_q, logger, self.conn.abort)
             for i in range(10)
         ]
-        self.loop.run_until_complete(asyncio.gather(*tasks))
+        self.loop.run_until_complete(asyncio.gather(*workers))
