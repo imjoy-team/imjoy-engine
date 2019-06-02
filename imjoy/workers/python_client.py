@@ -6,7 +6,7 @@ import time
 
 import socketio
 
-from imjoy.workers.worker_utils import format_traceback, Registry
+from imjoy.workers.utils import format_traceback, Registry
 
 try:
     import queue
@@ -16,7 +16,7 @@ except ImportError:
 # pylint: disable=unused-argument, redefined-outer-name
 
 JOB_HANDLERS = Registry()
-logger = logging.getLogger("worker")
+logger = logging.getLogger("python_client")
 
 
 def task_worker(conn, sync_q, logger, abort):

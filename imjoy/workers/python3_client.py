@@ -8,13 +8,13 @@ import traceback
 
 import janus
 
-from imjoy.workers.worker_utils import format_traceback, Registry
-from imjoy.workers.worker_utils3 import make_coro
-from imjoy.workers.worker import BaseClient, JOB_HANDLERS
+from imjoy.workers.utils import format_traceback, Registry
+from imjoy.workers.utils3 import make_coro
+from imjoy.workers.python_client import BaseClient, JOB_HANDLERS
 
 # pylint: disable=unused-argument, redefined-outer-name
 
-logger = logging.getLogger("worker3")
+logger = logging.getLogger("python3_client")
 
 JOB_HANDLERS_PY3 = Registry()
 JOB_HANDLERS_PY3.update({name: make_coro(func) for name, func in JOB_HANDLERS.items()})

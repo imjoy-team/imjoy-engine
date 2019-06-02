@@ -9,7 +9,7 @@ import threading
 from functools import reduce
 from types import ModuleType
 
-from imjoy.workers.worker_utils import (
+from imjoy.workers.utils import (
     ReferenceStore,
     debounce,
     dotdict,
@@ -18,13 +18,13 @@ from imjoy.workers.worker_utils import (
 )
 
 if sys.version_info >= (3, 0):
-    from imjoy.workers.worker_utils3 import FuturePromise
-    from imjoy.workers.worker3 import AsyncClient
+    from imjoy.workers.utils3 import FuturePromise
+    from imjoy.workers.python3_client import AsyncClient
 
     PYTHON3 = True
 else:
-    from imjoy.workers.worker_utils import Promise
-    from imjoy.workers.worker import Client
+    from imjoy.workers.utils import Promise
+    from imjoy.workers.python_client import Client
 
     PYTHON3 = False
 
