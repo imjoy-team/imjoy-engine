@@ -52,10 +52,7 @@ def main():
         # running in python 3
         print("Upgrading ImJoy Plugin Engine")
         ret = subprocess.Popen(
-            "pip install -U "
-            "git+https://github.com/oeway/ImJoy-Engine#egg=imjoy".split(),
-            env=os.environ.copy(),
-            shell=False,
+            "pip install -U imjoy".split(), env=os.environ.copy(), shell=False
         ).wait()
         if ret != 0:
             print("Failed to upgrade ImJoy Plugin Engine")
@@ -71,7 +68,7 @@ def main():
         imjoy_requirements = [
             "aiohttp",
             "aiohttp_cors",
-            "git+https://github.com/oeway/ImJoy-Engine#egg=imjoy",
+            "imjoy",
             "gputil",
             "psutil",
             "python-socketio[asyncio_client]",
