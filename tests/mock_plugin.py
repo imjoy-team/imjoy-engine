@@ -58,6 +58,7 @@ class TestPlugin:
             self.message_handler(msg)
 
     def get_api(self):
+        """return the plugin api functions."""
         return self.conn.local["api"]
 
     async def message_worker(self, async_q, abort=None):
@@ -96,10 +97,12 @@ class TestPlugin:
                 print(e)
 
     def terminate(self, msg):
+        """mark the plugin as terminated."""
         logger.info("Plugin disconnected: %s", msg)
         self.terminated = True
 
     async def init(self):
+        """initialize the plugin."""
         opt = dotdict(id=self.pid, secret=self.secret)
         self.conn = PluginConnection(opt, client=self)
         self.terminated = False
