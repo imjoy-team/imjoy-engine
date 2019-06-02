@@ -8,7 +8,7 @@ import time
 from mimetypes import MimeTypes
 
 import aiohttp_cors
-from aiohttp import web
+from aiohttp import web, streamer
 
 from imjoy import __version__, API_VERSION
 from imjoy.util import kill_process, scandir
@@ -106,6 +106,19 @@ def setup_cors(app):
     cors.add(app.router.add_route("POST", "/upload/{urlid}", upload_file))
     cors.add(app.router.add_get("/file/{urlid}/{name:.+}", download_file))
     cors.add(app.router.add_get("/file/{urlid}@{password}/{name:.+}", download_file))
+
+
+@streamer
+async def file_sender(writer, file_path=None):
+    """Read a large file chunk by chunk and send it through HTTP.
+
+    Do not read the chunks into memory.
+    """
+    with open(file_path, "rb") as f:
+        chunk = f.read(2 ** 16)
+        while chunk:
+            await writer.write(chunk)
+            chunk = f.read(2 ** 16)
 
 
 async def about(request):
