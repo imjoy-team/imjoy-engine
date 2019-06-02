@@ -61,13 +61,13 @@ async def test_plugin_execute(client, test_plugin, event_loop):
 
 
 async def test_plugin_run(client, test_plugin_executed, event_loop):
-    """Test plugin execute."""
+    """Test run function."""
     api = test_plugin_executed.get_api()
     await api.run({})
 
 
 async def test_numpy_plugin(client, test_plugin_executed, event_loop):
-    """Test plugin execute."""
+    """Test get numpy array."""
     api = test_plugin_executed.get_api()
     result = await api.get_array()
     assert np.array_equal(result["array"], np.zeros(10))
