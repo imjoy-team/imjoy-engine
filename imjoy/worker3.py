@@ -1,20 +1,14 @@
 """Provide worker functions for Python 3."""
-import asyncio
 import inspect
-import logging
 import sys
 import traceback
-
-import janus
 
 from worker_utils import format_traceback
 from worker_utils3 import make_coro
 from util import Registry
-from worker import BaseClient, JOB_HANDLERS
+from worker import JOB_HANDLERS
 
-# pylint: disable=unused-argument, redefined-outer-name
-
-logger = logging.getLogger("worker3")
+# pylint: disable=unused-argument
 
 JOB_HANDLERS_PY3 = Registry()
 JOB_HANDLERS_PY3.update({name: make_coro(func) for name, func in JOB_HANDLERS.items()})
@@ -113,22 +107,3 @@ async def handle_callback_py3(conn, job, logger):
                 await result
         except Exception:  # pylint: disable=broad-except
             logger.error("Error in method %s: %s", job["num"], traceback.format_exc())
-
-
-class AsyncClient(BaseClient):
-    """Represent an async socketio client."""
-
-    # pylint: disable=too-few-public-methods
-
-    def __init__(self, conn, opt):
-        """Set up client instance."""
-        super().__init__(conn, opt)
-        self.loop = asyncio.get_event_loop()
-        self.janus_queue = janus.Queue(loop=self.loop)
-        self.queue = self.janus_queue.sync_q
-
-    def run_forever(self):
-        """Run forever."""
-        self.loop.run_until_complete(
-            task_worker(self.conn, self.janus_queue.async_q, logger, self.conn.abort)
-        )

@@ -41,7 +41,18 @@ except OSError:
 
 requirements = []
 if sys.version_info > (3, 0):
-    requirements = ["aiohttp", "aiohttp_cors", "gputil", "python-socketio", "pyyaml"]
+    requirements = [
+        "aiohttp",
+        "aiohttp_cors",
+        "python-socketio",
+        "requests",
+        "six",
+        "websocket-client",
+        "numpy",
+        "janus",
+        "pyyaml",
+        "gputil",
+    ]
     print("Trying to install psutil with pip")
     ret = subprocess.Popen(
         ["pip", "install", "psutil"], env=os.environ.copy(), shell=False
