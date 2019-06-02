@@ -158,14 +158,15 @@ def handle_callback(conn, job, logger):
             logger.error("Error in method %s: %s", job["num"], traceback.format_exc())
 
 
-class Client:
-    """Represent a sync socketio client."""
+class BaseClient(object):  # pylint: disable=useless-object-inheritance
+    """Represent a base socketio client."""
+
+    queue = None
 
     def __init__(self, conn, opt):
         """Set up client instance."""
         self.conn = conn
         self.opt = opt
-        self.queue = queue.Queue()
         self.sio = socketio.Client()
 
     def setup(self):
@@ -221,8 +222,18 @@ class Client:
         return None
 
     def run_forever(self):
-        """Wait forever."""
-        thread = threading.Thread(target=self.sio.wait)
-        thread.daemon = True
-        thread.start()
+        """Run forever."""
+        raise NotImplementedError
+
+
+class Client(BaseClient):
+    """Represent a sync socketio client."""
+
+    def __init__(self, conn, opt):
+        """Set up client instance."""
+        super(Client, self).__init__(conn, opt)
+        self.queue = queue.Queue()
+
+    def run_forever(self):
+        """Run forever."""
         task_worker(self.conn, self.queue, logger, self.conn.abort)
