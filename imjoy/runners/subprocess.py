@@ -162,7 +162,7 @@ async def on_init_plugin(engine, sid, kwargs):
         async def message_to_plugin(engine, _, kwargs):
             if kwargs["type"] == "message":
                 await engine.conn.sio.emit("to_plugin_" + secret_key, kwargs["data"])
-            logger.debug("Message to plugin %s", secret_key)
+            logger.debug("Message to plugin %s, %s", secret_key, kwargs["data"])
 
         engine.conn.register_event_handler(message_to_plugin)
 
