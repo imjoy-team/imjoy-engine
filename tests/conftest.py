@@ -7,7 +7,7 @@ import uuid
 import pytest
 
 from tests.common import ENGINE_MODULE, TOKEN, URL
-from tests.fake_client import TestClient
+from tests.mock_client import TestClient
 
 
 @pytest.fixture(name="engine")
