@@ -10,9 +10,12 @@ from mimetypes import MimeTypes
 import aiohttp_cors
 from aiohttp import web
 
-from imjoy.engine import ENGINE, __version__, API_VERSION
+from imjoy import __version__, API_VERSION
 from imjoy.util import kill_process, scandir
 from imjoy.util.aiohttp import file_sender
+
+ENGINE = "imjoy_engine"
+NAME_SPACE = "/"
 
 
 def create_app(engine):

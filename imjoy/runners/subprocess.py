@@ -12,9 +12,9 @@ import uuid
 
 import GPUtil
 
+from imjoy import __version__, API_VERSION, HERE
 from imjoy.connection.decorator import socketio_handler as sio_on
 from imjoy.connection.server import NAME_SPACE
-from imjoy.engine import API_VERSION, __version__, HERE
 from imjoy.util import console_to_str, parse_repos, get_psutil, kill_process
 from .helper import (
     apply_conda_activate,
@@ -29,7 +29,7 @@ DEFAULT_REQUIREMENTS_PY2 = ["numpy", "python-socketio[client]"]
 DEFAULT_REQUIREMENTS_PY3 = ["numpy", "python-socketio[client]", "janus"]
 REQ_PSUTIL = ["psutil"]
 REQ_PSUTIL_CONDA = ["conda:psutil"]
-TEMPLATE_SCRIPT = (HERE / "worker_template.py").resolve()
+TEMPLATE_SCRIPT = (HERE / "workers" / "python_worker.py").resolve()
 MAX_ATTEMPTS = 1000
 
 

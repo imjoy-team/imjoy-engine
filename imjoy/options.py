@@ -1,6 +1,6 @@
 """Provide setup function to prepare the engine."""
 import argparse
-from imjoy.engine import __version__
+from imjoy import __version__
 
 
 def parse_cmd_line(args=None):

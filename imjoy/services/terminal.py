@@ -7,9 +7,9 @@ import struct
 import subprocess
 import sys
 
+from imjoy import __version__
 from imjoy.connection.decorator import socketio_handler as sio_on
 from imjoy.connection.server import NAME_SPACE
-from imjoy.engine import __version__
 from imjoy.util import get_psutil
 
 if sys.platform != "win32":
