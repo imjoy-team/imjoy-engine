@@ -15,7 +15,7 @@ RUN conda update -y conda && \
     conda update pip && \
     conda install -y python=3.6 numpy scipy git psutil && \
     pip install scikit-image Pillow && \
-    pip install git+https://github.com/oeway/ImJoy-Engine#egg=imjoy && \
+    pip install imjoy && \
     conda clean -y --tarballs
 
 ENTRYPOINT ["python", "-m", "imjoy", "--serve", "--host=0.0.0.0"]

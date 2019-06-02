@@ -34,5 +34,5 @@ if [ "$condaPath" = "" ]; then
   $HOME/ImJoyApp/bin/python -m imjoy "$@"
 else
 condaRoot=`dirname "$condaPath"`
-$condaRoot/python -m imjoy "$@" || pip install git+https://github.com/oeway/ImJoy-Engine#egg=imjoy && $condaRoot/python -m imjoy "$@"
+$condaRoot/python -m imjoy "$@" || pip install imjoy --upgrade && $condaRoot/python -m imjoy "$@"
 fi

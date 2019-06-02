@@ -13,7 +13,7 @@ CondaDeps="numpy scipy git"
 
 # Install the package from PyPi
 # Comment out next line if installing locally
-PyPiPackage="git+https://github.com/oeway/ImJoy-Engine#egg=imjoy"
+PyPiPackage="imjoy"
 
 # Local packages to install
 # Useful if your application is not in PyPi
