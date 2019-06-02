@@ -52,10 +52,7 @@ def main():
         # running in python 3
         print("Upgrading ImJoy Plugin Engine")
         ret = subprocess.Popen(
-            "pip install -U "
-            "imjoy".split(),
-            env=os.environ.copy(),
-            shell=False,
+            "pip install -U imjoy".split(), env=os.environ.copy(), shell=False
         ).wait()
         if ret != 0:
             print("Failed to upgrade ImJoy Plugin Engine")
