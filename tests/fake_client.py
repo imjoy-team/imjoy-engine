@@ -5,20 +5,63 @@ import sys
 import uuid
 from pathlib import Path
 
+import janus
 import socketio
 
+from imjoy.helper import dotdict
 from imjoy.workers.worker_template import PluginConnection
+from imjoy.workers.worker3 import JOB_HANDLERS_PY3
 
 logging.basicConfig(stream=sys.stdout)
-_LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
-_LOGGER.setLevel(logging.INFO)
+logger.setLevel(logging.INFO)
 
 NAME_SPACE = "/"
 
 
+async def task_worker(conn, async_q, logger, abort=None):
+    """Implement a task worker."""
+    while True:
+        try:
+            if abort is not None and abort.is_set():
+                break
+            job = await async_q.get()
+            if job is None:
+                async_q.task_done()
+                continue
+
+            if "setInterface" == job["type"]:
+                api = conn.set_remote(job["api"])
+                conn.emit({"type": "interfaceSetAsRemote"})
+                if not conn.init:
+                    conn.init = True
+            else:
+                handler = JOB_HANDLERS_PY3.get(job["type"])
+                if handler is None:
+                    async_q.task_done()
+                    continue
+                try:
+                    await handler(conn, job, logger)
+                except Exception:  # pylint: disable=broad-except
+                    logger.error("Error occured in the loop %s", traceback.format_exc())
+                finally:
+                    sys.stdout.flush()
+                    async_q.task_done()
+
+        except Exception as e:
+            print(e)
+
+
 class ImJoyAPI:
     """ Represent a set of mock ImJoy API """
+
+    def log(self, message):
+        logger.info("log: %s", message)
+
+    def error(self, message):
+        logger.info("error: %s", message)
+
     def alert(self, message):
         logger.info("alert: %s", message)
 
@@ -31,28 +74,44 @@ class ImJoyAPI:
 
 class Plugin:
     """ Represent a mock proxy plugin """
+
     def __init__(self, loop, sio, pid, secret):
+        self.conn = None
         self.loop = loop
         self.sio = sio
         self.pid = pid
         self.secret = secret
         self._plugin_message_handler = []
+        self.api = None
+        self.imjoy_api = ImJoyAPI()
+        self.janus_queue = janus.Queue(loop=self.loop)
+        self.queue = self.janus_queue.sync_q
 
         @sio.on("message_from_plugin_" + secret)
         async def on_message(msg):  # pylint:disable=unused-variable
-            _LOGGER.info("Message from plugin: %s", msg)
-            self.message_handler(msg)
+            logger.info("Message from plugin: %s", msg)
+            await self.message_handler(msg)
 
-    async def _init(self, id, secret):
-        class Options:
-            id = id
-            secret = secret
+    def get_api(self):
+        return self.conn.local["api"]
 
-        opt = Options()
-        self._site = PluginConnection(opt, client=self)
+    async def init(self):
+        opt = dotdict(id=self.pid, secret=self.secret)
+        self.conn = PluginConnection(opt, client=self)
+        initialized = self.loop.create_future()
+        self.on_plugin_message("initialized", initialized)
+        await initialized
+        self.conn.set_interface(self.imjoy_api)
+        interfaceSet = self.loop.create_future()
+        self.on_plugin_message("interfaceSetAsRemote", interfaceSet)
+        self.conn.send_interface()
 
-        # self._site.set_interface(self.imjoy_api)
-        # self._site.send_interface()
+        workers = [
+            task_worker(self.conn, self.janus_queue.async_q, logger, self.conn.abort)
+            for i in range(10)
+        ]
+        asyncio.ensure_future(asyncio.gather(*workers))
+        # await interfaceSet
 
     async def _emit(self, channel, data):
         """Emit a message."""
@@ -63,11 +122,17 @@ class Plugin:
 
         await self.sio.emit(channel, data, namespace=NAME_SPACE, callback=callback)
         return await fut
-    
-    async def emit(self, data):
+
+    async def emit_plugin_message(self, data):
         """Emit plugin message."""
         await self._emit(
             "message_to_plugin_" + self.secret, {"type": "message", "data": data}
+        )
+
+    def emit(self, data):
+        """Emit plugin message."""
+        asyncio.ensure_future(
+            self.emit_plugin_message({"type": "message", "data": data})
         )
 
     def on_plugin_message(self, message_type, callback_or_future):
@@ -76,9 +141,10 @@ class Plugin:
             {"type": message_type, "callback_or_future": callback_or_future}
         )
 
-    async def execute(self, pid, code):
+    async def execute(self, code):
         """Execute plugin code."""
         future = self.loop.create_future()
+
         def resolve(ret):
             future.set_result(ret)
 
@@ -87,17 +153,24 @@ class Plugin:
 
         self.on_plugin_message("executeSuccess", resolve)
         self.on_plugin_message("executeFailure", reject)
-        self.on_plugin_message("setInterface", self._site.set_remote)
         await self.emit_plugin_message({"type": "execute", "code": code})
-        return future.result()
+        result = await future
+        assert result == {"type": "executeSuccess"}
+        await self.emit_plugin_message({"type": "getInterface"})
 
-    def message_handler(self, msg):
+    async def message_handler(self, msg):
         """Handle plugin message."""
         msg_type = msg["type"]
         handlers = self._plugin_message_handler
-        for handler in handlers:
-            if msg_type == handler["type"]:
-                callback_or_future = handler["callback_or_future"]
+        for h in handlers:
+            # extract message
+            if msg_type == "message":
+                job = msg["data"]
+                self.queue.put(job)
+                logger.debug("Added task to the queue")
+
+            if msg_type == h["type"]:
+                callback_or_future = h["callback_or_future"]
                 if isinstance(callback_or_future, asyncio.Future):
                     callback_or_future.set_result(msg)
                 else:
@@ -116,8 +189,6 @@ class TestClient:
         self.session_id = session_id
         self.token = token
         self.loop = loop or asyncio.get_event_loop()
-        self._site = None
-        self.imjoy_api = ImJoyAPI()
 
     def __repr__(self):
         """Return the client representation."""
@@ -144,10 +215,7 @@ class TestClient:
         assert ret["success"] is True
         secret = ret["secret"]
         plugin = Plugin(self.loop, self.sio, pid, secret)
-        initialized = self.loop.create_future()
-        self.on_plugin_message("initialized", initialized)
-        await initialized
-        self._init()
+        await plugin.init()
         return plugin
 
     async def connect(self):
@@ -162,7 +230,7 @@ class TestClient:
 
         @sio.on("disconnect")
         async def on_disconnect():  # pylint:disable=unused-variable
-            fut.set_exception(Exception("client disconnected"))
+            print("Client disconnected.")
 
         await sio.connect(self.url)
         return await fut
@@ -181,7 +249,8 @@ class TestClient:
         if "success" in ret and ret["success"]:
             self.engine_info = ret["engine_info"]
         else:
-            _LOGGER.error("Failed to register")
+            logger.error("Failed to register")
+            raise Exception("Failed to register")
 
 
 def main():

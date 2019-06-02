@@ -5,6 +5,7 @@ import time
 import uuid
 from importlib import import_module
 
+
 class Registry(dict):
     """Registry of items."""
 
