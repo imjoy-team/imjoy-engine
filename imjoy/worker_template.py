@@ -9,26 +9,18 @@ import threading
 from functools import reduce
 from types import ModuleType
 
-from imjoySocketIO_client import LoggingNamespace, SocketIO, find_callback
 from worker_utils import ReferenceStore, debounce, dotdict, get_psutil, set_interval
 
 if sys.version_info >= (3, 0):
-    import asyncio
-    import janus
     from worker_utils3 import FuturePromise
-    from worker3 import task_worker
+    from worker3 import AsyncClient
 
     PYTHON3 = True
 else:
     from worker_utils import Promise
-    from worker import task_worker
+    from worker import Client
 
     PYTHON3 = False
-
-try:
-    import queue
-except ImportError:
-    import Queue as queue
 
 ARRAY_CHUNK = 1000000
 logger = logging.getLogger("plugin")
@@ -70,86 +62,51 @@ API_UTILS = dotdict(
 class PluginConnection:
     """Represent a plugin connection."""
 
-    def __init__(
-        self,
-        pid,
-        secret,
-        server,
-        job_queue=None,
-        loop=None,
-        worker=None,
-        work_dir=None,
-        daemon=False,
-    ):
-        """Set up connection."""
-        if work_dir is None or work_dir == "" or work_dir == ".":
-            self.work_dir = os.getcwd()
-        else:
-            self.work_dir = work_dir
-            if not os.path.exists(self.work_dir):
-                os.makedirs(self.work_dir)
-            os.chdir(self.work_dir)
-        socket_io = SocketIO(server, Namespace=LoggingNamespace)
-        self.socket_io = socket_io
-        self.init = False
-        self.secret = secret
-        self.id = pid  # pylint: disable=invalid-name
-        self.daemon = daemon
+    # pylint:disable=too-many-instance-attributes
 
-        def emit(msg):
-            socket_io.emit("from_plugin_" + secret, msg)
-
-        self.emit = emit
-
+    def __init__(self, opt):
+        """Set up connection instance."""
+        self.secret = opt.secret
+        self.id = opt.id  # pylint: disable=invalid-name
         self.local = {}
         self._remote = dotdict()
-        self._set_local_api(self._remote)
         self.interface = {}
         self.plugin_interfaces = {}
         self.remote_set = False
         self.store = ReferenceStore()
         self.executed = False
-        self.queue = job_queue
-        self.loop = loop
-
         self.init = False
-        sys.stdout.flush()
-        socket_io.on("to_plugin_" + secret, self.sio_plugin_message)
-        self.emit({"type": "initialized", "dedicatedThread": True})
-        logger.info("Plugin %s initialized", pid)
-
-        def on_disconnect():
-            if not self.daemon:
-                self.exit(1)
-
-        socket_io.on("disconnect", on_disconnect)
         self.abort = threading.Event()
-        self.worker = worker
-        self.sync_q = None
-
-    def wait_forever(self):
-        """Wait forever."""
+        self.work_dir = opt.work_dir
+        self.opt = opt
         if PYTHON3:
-            self.sync_q = self.queue.sync_q
-            fut = self.loop.run_in_executor(None, self.socket_io.wait)
-            tasks = [
-                self.worker(self, self.queue.async_q, logger, self.abort)
-                for i in range(10)
-            ]
-            self.loop.run_until_complete(asyncio.gather(*tasks))
-            self.loop.run_until_complete(fut)
+            self.client = AsyncClient(self, self.opt)
         else:
-            self.sync_q = queue.Queue()
-            thread = threading.Thread(target=self.socket_io.wait)
-            thread.daemon = True
-            thread.start()
-            self.worker(self, self.sync_q, logger, self.abort)
+            self.client = Client(self, self.opt)
+        self.emit = self.client.emit
+
+    def setup(self):
+        """Set up the plugin connection."""
+        self.client.setup()
+        if not self.work_dir or self.work_dir == ".":
+            self.work_dir = os.getcwd()
+        else:
+            if not os.path.exists(self.work_dir):
+                os.makedirs(self.work_dir)
+            os.chdir(self.work_dir)
+
+        self._set_local_api(self._remote)
+
+    def start(self):
+        """Start the plugin connection."""
+        self.client.connect()
+        self.client.run_forever()
 
     def default_exit(self):
         """Exit default."""
         logger.info("Terminating plugin: %s", self.id)
         self.abort.set()
-        os._exit(0)
+        os._exit(0)  # pylint: disable=protected-access
 
     def exit(self, code):
         """Exit."""
@@ -246,7 +203,7 @@ class PluginConnection:
             elif "np" in self.local and isinstance(
                 val, (self.local["np"].ndarray, self.local["np"].generic)
             ):
-                v_byte = bytearray(val.tobytes())
+                v_byte = val.tobytes()
                 if len(v_byte) > ARRAY_CHUNK:
                     v_len = int(math.ceil(1.0 * len(v_byte) / ARRAY_CHUNK))
                     v_bytes = []
@@ -299,7 +256,7 @@ class PluginConnection:
                 # create build array/tensor if used in the plugin
                 try:
                     np = self.local["np"]  # pylint: disable=invalid-name
-                    if isinstance(a_object["__value__"], bytearray):
+                    if isinstance(a_object["__value__"], bytes):
                         a_object["__value__"] = a_object["__value__"]
                     elif isinstance(a_object["__value__"], (list, tuple)):
                         a_object["__value__"] = reduce(
@@ -420,10 +377,10 @@ class PluginConnection:
                 self.emit(call_func)
 
             if PYTHON3:
-                return FuturePromise(pfunc, self.loop)
+                return FuturePromise(pfunc, self.client.loop)
             return Promise(pfunc)
 
-        remote_method.__remote_method = True
+        remote_method.__remote_method = True  # pylint: disable=protected-access
         return remote_method
 
     def _gen_remote_callback(self, id_, arg_num, with_promise):
@@ -450,7 +407,7 @@ class PluginConnection:
                     )
 
                 if PYTHON3:
-                    return FuturePromise(pfunc, self.loop)
+                    return FuturePromise(pfunc, self.client.loop)
                 return Promise(pfunc)
 
         else:
@@ -508,36 +465,9 @@ class PluginConnection:
 
         # make a fake module with api
         mod = ModuleType("imjoy")
-        sys.modules[mod.__name__] = mod
-        mod.__file__ = mod.__name__ + ".py"
+        sys.modules[mod.__name__] = mod  # pylint: disable=no-member
+        mod.__file__ = mod.__name__ + ".py"  # pylint: disable=no-member
         mod.api = _remote
-
-    def sio_plugin_message(self, *args):
-        """Handle plugin message."""
-        data = args[0]
-        if data["type"] == "import":
-            self.emit({"type": "importSuccess", "url": data["url"]})
-        elif data["type"] == "disconnect":
-            self.abort.set()
-            callback, args = find_callback(args)
-            try:
-                if "exit" in self.interface and callable(self.interface["exit"]):
-                    self.interface["exit"]()
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.error("Error when exiting: %s", exc)
-            if callback:
-                callback(*args)
-        elif data["type"] == "execute":
-            if not self.executed:
-                self.sync_q.put(data)
-            else:
-                logger.debug("Skip execution")
-                self.emit({"type": "executeSuccess"})
-        elif data["type"] == "message":
-            _data = data["data"]
-            self.sync_q.put(_data)
-            logger.debug("Added task to the queue")
-        sys.stdout.flush()
 
 
 def main():
@@ -556,6 +486,7 @@ def main():
 
     opt = parser.parse_args()
 
+    # TODO: We can probably remove this since the script directory will be first in sys.path.
     if "" not in sys.path:
         sys.path.insert(0, "")
 
@@ -563,29 +494,16 @@ def main():
     if imjoy_path not in sys.path:
         sys.path.insert(0, imjoy_path)
 
+    # ENDTODO
+
     logging.basicConfig(stream=sys.stdout)
     logger.setLevel(logging.INFO)
     if opt.debug:
         logger.setLevel(logging.DEBUG)
 
-    if PYTHON3:
-        event_loop = asyncio.get_event_loop()
-        job_queue = janus.Queue(loop=event_loop)
-    else:
-        event_loop = None
-        job_queue = None
-
-    plugin_conn = PluginConnection(
-        opt.id,
-        opt.secret,
-        opt.server,
-        job_queue=job_queue,
-        loop=event_loop,
-        worker=task_worker,
-        work_dir=opt.work_dir,
-        daemon=opt.daemon,
-    )
-    plugin_conn.wait_forever()
+    plugin_conn = PluginConnection(opt)
+    plugin_conn.setup()
+    plugin_conn.start()
 
 
 if __name__ == "__main__":
