@@ -1,6 +1,6 @@
 """Provide socketio event handlers."""
-from imjoy.const import NAME_SPACE
-from imjoy.helper import get_psutil
+from imjoy.connection.server import NAME_SPACE
+from imjoy.util import get_psutil
 
 from .decorator import socketio_handler as sio_on
 

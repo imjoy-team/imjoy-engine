@@ -1,5 +1,7 @@
 """Provide a web server."""
+import json
 import os
+import pathlib
 import sys
 import threading
 import time
@@ -8,8 +10,8 @@ from mimetypes import MimeTypes
 import aiohttp_cors
 from aiohttp import web
 
-from imjoy.const import ENGINE, __version__
-from imjoy.helper import kill_process, scandir
+from imjoy.engine import ENGINE, __version__, API_VERSION
+from imjoy.util import kill_process, scandir
 from imjoy.util.aiohttp import file_sender
 
 
@@ -313,7 +315,11 @@ async def on_startup(app):
     """Run on server start."""
     engine = app[ENGINE]
     logger = engine.logger
-    logger.info("ImJoy Python Plugin Engine (version %s)", __version__)
+    logger.info(
+        "ImJoy Python Plugin Engine (version %s, api_version %s)",
+        __version__,
+        API_VERSION,
+    )
 
     if engine.opt.serve:
         logger.info(

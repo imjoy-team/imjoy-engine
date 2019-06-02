@@ -6,8 +6,8 @@ import uuid
 from urllib.parse import urlparse
 
 from imjoy.connection.decorator import socketio_handler as sio_on
-from imjoy.const import NAME_SPACE
-from imjoy.helper import scandir
+from imjoy.connection.server import NAME_SPACE
+from imjoy.util import scandir
 
 if sys.platform == "win32":
     from imjoy.util import get_drives

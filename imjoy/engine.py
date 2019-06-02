@@ -2,12 +2,27 @@
 import logging
 import sys
 
-from imjoy.helper import setup_logging
 from imjoy.options import parse_cmd_line
 from imjoy.env import bootstrap, prepare_env
 from imjoy.connection import create_connection_manager
 from imjoy.runners import setup_runners
 from imjoy.services import setup_services
+
+ENGINE = "imjoy_engine"
+
+# read version information from file
+HERE = pathlib.Path(__file__).parent
+VERSION_INFO = json.loads((HERE / "VERSION").read_text())
+__version__ = VERSION_INFO["version"]
+API_VERSION = VERSION_INFO["api_version"]
+
+
+def setup_logging(opt, logger):
+    """Set up logging."""
+    if opt.debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
 
 
 class Engine:

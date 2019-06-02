@@ -1,4 +1,6 @@
 """Provide utilities that should not be aware of ImJoy engine."""
+import copy
+from importlib import import_module
 import os
 import string
 import sys
@@ -64,3 +66,84 @@ def console_to_str(string_):
         return string_.decode("utf_8")
     except AttributeError:  # for tests, #13
         return string_
+
+
+class dotdict(dict):  # pylint: disable=invalid-name
+    """Access dictionary attributes with dot.notation."""
+
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+    def __deepcopy__(self, memo=None):
+        """Make a deep copy."""
+        return dotdict(copy.deepcopy(dict(self), memo=memo))
+
+
+def get_psutil():
+    """Try to import and return psutil."""
+    try:
+        return import_module("psutil")
+    except ImportError:
+        print(
+            "WARNING: a library called 'psutil' can not be imported, "
+            "this may cause problem when killing processes."
+        )
+        return None
+
+
+def kill_process(logger, pid):
+    """Kill process."""
+    psutil = get_psutil()
+    if psutil is None:
+        return
+    logger.info("Killing plugin process (pid=%s)", pid)
+    try:
+        current_process = psutil.Process(pid)
+        for proc in current_process.children(recursive=True):
+            try:
+                if proc.is_running():
+                    proc.kill()
+            except psutil.NoSuchProcess:
+                logger.info("Subprocess %s has already been killed", pid)
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.error(
+                    "Failed to kill a subprocess (pid=%s). Error: %s", pid, exc
+                )
+        current_process.kill()
+        logger.info("Plugin process %s was killed.", pid)
+    except psutil.NoSuchProcess:
+        logger.info("Process %s has already been killed", pid)
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.error(
+            "Failed to kill a process (pid=%s), "
+            "you may want to kill it manually. Error: %s",
+            pid,
+            exc,
+        )
+
+
+def scandir(path, type_=None, recursive=False):
+    """Scan a directory for a type of files return a list of files found."""
+    file_list = []
+    for fil in os.scandir(path):
+        if fil.name.startswith("."):
+            continue
+        if type_ is None or type_ == "file":
+            if os.path.isdir(fil.path):
+                if recursive:
+                    file_list.append(
+                        {
+                            "name": fil.name,
+                            "type": "dir",
+                            "children": scandir(fil.path, type_, recursive),
+                        }
+                    )
+                else:
+                    file_list.append({"name": fil.name, "type": "dir"})
+            else:
+                file_list.append({"name": fil.name, "type": "file"})
+        elif type_ == "directory":
+            if os.path.isdir(fil.path):
+                file_list.append({"name": fil.name})
+    return file_list
