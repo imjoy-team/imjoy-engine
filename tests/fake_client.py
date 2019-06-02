@@ -7,6 +7,7 @@ from pathlib import Path
 
 import janus
 import socketio
+import numpy as np
 
 from imjoy.helper import dotdict
 from imjoy.workers.worker_template import PluginConnection
@@ -18,39 +19,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 NAME_SPACE = "/"
-
-
-async def task_worker(conn, async_q, logger, abort=None):
-    """Implement a task worker."""
-    while True:
-        try:
-            if abort is not None and abort.is_set():
-                break
-            job = await async_q.get()
-            if job is None:
-                async_q.task_done()
-                continue
-
-            if "setInterface" == job["type"]:
-                api = conn.set_remote(job["api"])
-                conn.emit({"type": "interfaceSetAsRemote"})
-                if not conn.init:
-                    conn.init = True
-            else:
-                handler = JOB_HANDLERS_PY3.get(job["type"])
-                if handler is None:
-                    async_q.task_done()
-                    continue
-                try:
-                    await handler(conn, job, logger)
-                except Exception:  # pylint: disable=broad-except
-                    logger.error("Error occured in the loop %s", traceback.format_exc())
-                finally:
-                    sys.stdout.flush()
-                    async_q.task_done()
-
-        except Exception as e:
-            print(e)
 
 
 class ImJoyAPI:
@@ -90,28 +58,64 @@ class Plugin:
         @sio.on("message_from_plugin_" + secret)
         async def on_message(msg):  # pylint:disable=unused-variable
             logger.info("Message from plugin: %s", msg)
-            await self.message_handler(msg)
+            self.message_handler(msg)
 
     def get_api(self):
         return self.conn.local["api"]
 
+    async def message_worker(self, async_q, abort=None):
+        """Implement a message worker."""
+        while True:
+            try:
+                if abort is not None and abort.is_set():
+                    break
+
+                job = await async_q.get()
+                async_q.task_done()
+                if job is None:
+                    continue
+
+                if "setInterface" == job["type"]:
+                    api = self.conn.set_remote(job["api"])
+                    self.conn.local["np"] = np
+                    self.conn.emit({"type": "interfaceSetAsRemote"})
+                    if not self.conn.init:
+                        self.conn.set_interface(self.imjoy_api)
+                        self.conn.init = True
+                    async_q.task_done()
+                else:
+                    handler = JOB_HANDLERS_PY3.get(job["type"])
+                    if handler is None:
+                        continue
+                    try:
+                        await handler(self.conn, job, logger)
+                    except Exception:  # pylint: disable=broad-except
+                        logger.error(
+                            "Error occured in the loop %s", traceback.format_exc()
+                        )
+                    finally:
+                        sys.stdout.flush()
+            except Exception as e:
+                print(e)
+
+    def terminate(self, msg):
+        logger.info("Plugin disconnected: %s", msg)
+        self.terminated = True
+
     async def init(self):
         opt = dotdict(id=self.pid, secret=self.secret)
         self.conn = PluginConnection(opt, client=self)
+        self.terminated = False
         initialized = self.loop.create_future()
         self.on_plugin_message("initialized", initialized)
+        self.on_plugin_message("disconnected", self.terminate)
         await initialized
-        self.conn.set_interface(self.imjoy_api)
-        interfaceSet = self.loop.create_future()
-        self.on_plugin_message("interfaceSetAsRemote", interfaceSet)
-        self.conn.send_interface()
 
         workers = [
-            task_worker(self.conn, self.janus_queue.async_q, logger, self.conn.abort)
-            for i in range(10)
+            self.message_worker(self.janus_queue.async_q, self.conn.abort)
+            for i in range(2)
         ]
         asyncio.ensure_future(asyncio.gather(*workers))
-        # await interfaceSet
 
     async def _emit(self, channel, data):
         """Emit a message."""
@@ -158,7 +162,7 @@ class Plugin:
         assert result == {"type": "executeSuccess"}
         await self.emit_plugin_message({"type": "getInterface"})
 
-    async def message_handler(self, msg):
+    def message_handler(self, msg):
         """Handle plugin message."""
         msg_type = msg["type"]
         handlers = self._plugin_message_handler
@@ -169,7 +173,7 @@ class Plugin:
                 self.queue.put(job)
                 logger.debug("Added task to the queue")
 
-            if msg_type == h["type"]:
+            elif msg_type == h["type"]:
                 callback_or_future = h["callback_or_future"]
                 if isinstance(callback_or_future, asyncio.Future):
                     callback_or_future.set_result(msg)
@@ -189,6 +193,7 @@ class TestClient:
         self.session_id = session_id
         self.token = token
         self.loop = loop or asyncio.get_event_loop()
+        self.plugins = []
 
     def __repr__(self):
         """Return the client representation."""
@@ -216,6 +221,7 @@ class TestClient:
         secret = ret["secret"]
         plugin = Plugin(self.loop, self.sio, pid, secret)
         await plugin.init()
+        self.plugins.append(plugin)
         return plugin
 
     async def connect(self):
@@ -231,6 +237,8 @@ class TestClient:
         @sio.on("disconnect")
         async def on_disconnect():  # pylint:disable=unused-variable
             print("Client disconnected.")
+            for plugin in self.plugins:
+                plugin.conn.abort.set()
 
         await sio.connect(self.url)
         return await fut

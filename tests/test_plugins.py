@@ -2,6 +2,8 @@
 import pytest
 import asyncio
 
+import numpy as np
+
 # All test coroutines will be treated as marked.
 pytestmark = pytest.mark.asyncio  # pylint: disable=invalid-name
 
@@ -24,6 +26,7 @@ TEST_PLUGIN_CONFIG = {
 
 TEST_PLUGIN_SCRIPT = """
 import asyncio
+import numpy as np
 from imjoy import api
 
 class ImJoyPlugin():
@@ -33,6 +36,12 @@ class ImJoyPlugin():
     async def run(self, ctx):
         await api.alert('Hello')
         await api.log('done')
+
+    def get_array(self):
+        array = np.zeros(10)
+        # array[3] = 93834.356
+        return {'array': array}
+
 api.export(ImJoyPlugin())
 """
 
@@ -55,3 +64,10 @@ async def test_plugin_run(client, test_plugin_executed, event_loop):
     """Test plugin execute."""
     api = test_plugin_executed.get_api()
     await api.run({})
+
+
+async def test_numpy_plugin(client, test_plugin_executed, event_loop):
+    """Test plugin execute."""
+    api = test_plugin_executed.get_api()
+    result = await api.get_array()
+    assert np.array_equal(result["array"], np.zeros(10))

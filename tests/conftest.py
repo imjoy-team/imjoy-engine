@@ -33,3 +33,4 @@ async def mock_client(engine, event_loop):  # pylint: disable=unused-argument
     await client.connect()
     await client.register_client()
     yield client
+    await client.sio.disconnect()
