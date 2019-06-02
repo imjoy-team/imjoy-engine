@@ -3,7 +3,6 @@ import asyncio
 import inspect
 import logging
 import sys
-import threading
 import traceback
 
 import janus
