@@ -12,7 +12,6 @@ from aiohttp import web, streamer
 
 from imjoy import __version__, API_VERSION
 from imjoy.util import kill_process, scandir
-from imjoy.util.aiohttp import file_sender
 
 ENGINE = "imjoy_engine"
 NAME_SPACE = "/"
