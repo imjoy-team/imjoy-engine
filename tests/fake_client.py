@@ -10,8 +10,8 @@ import socketio
 import numpy as np
 
 from imjoy.helper import dotdict
-from imjoy.workers.worker_template import PluginConnection
-from imjoy.workers.worker3 import JOB_HANDLERS_PY3
+from imjoy.workers.python_worker import PluginConnection
+from imjoy.workers.python3_client import JOB_HANDLERS_PY3
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger(__name__)
