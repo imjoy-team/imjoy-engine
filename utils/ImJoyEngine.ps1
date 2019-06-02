@@ -23,7 +23,7 @@ $CondaDeps="numpy","scipy", "git" # some examples
 
 # Dependencies installed with pip instead
 # Comment out the next line if no PyPi dependencies
-$PyPiPackage="git+https://github.com/oeway/ImJoy-Engine#egg=imjoy"
+$PyPiPackage="imjoy"
 
 # Local packages to install
 # Useful if your application is not in PyPi

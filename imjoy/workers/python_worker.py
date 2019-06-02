@@ -9,16 +9,22 @@ import threading
 from functools import reduce
 from types import ModuleType
 
-from worker_utils import ReferenceStore, debounce, dotdict, get_psutil, set_interval
+from imjoy.workers.utils import (
+    ReferenceStore,
+    debounce,
+    dotdict,
+    get_psutil,
+    set_interval,
+)
 
 if sys.version_info >= (3, 0):
-    from worker_utils3 import FuturePromise
-    from worker3 import AsyncClient
+    from imjoy.workers.utils3 import FuturePromise
+    from imjoy.workers.python3_client import AsyncClient
 
     PYTHON3 = True
 else:
-    from worker_utils import Promise
-    from worker import Client
+    from imjoy.workers.utils import Promise
+    from imjoy.workers.python_client import Client
 
     PYTHON3 = False
 
@@ -64,7 +70,7 @@ class PluginConnection:
 
     # pylint:disable=too-many-instance-attributes
 
-    def __init__(self, opt):
+    def __init__(self, opt, client=None):
         """Set up connection instance."""
         self.secret = opt.secret
         self.id = opt.id  # pylint: disable=invalid-name
@@ -79,7 +85,9 @@ class PluginConnection:
         self.abort = threading.Event()
         self.work_dir = opt.work_dir
         self.opt = opt
-        if PYTHON3:
+        if client is not None:
+            self.client = client
+        elif PYTHON3:
             self.client = AsyncClient(self, self.opt)
         else:
             self.client = Client(self, self.opt)
