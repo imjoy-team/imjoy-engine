@@ -7,8 +7,7 @@ import time
 
 import socketio
 
-from worker_utils import format_traceback
-from util import Registry
+from imjoy.workers.worker_utils import format_traceback, Registry
 
 try:
     import queue

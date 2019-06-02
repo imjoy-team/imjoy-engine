@@ -7,7 +7,7 @@ from pathlib import Path
 
 import socketio
 
-from imjoy.worker_template import PluginConnection
+from imjoy.workers.worker_template import PluginConnection
 
 logging.basicConfig(stream=sys.stdout)
 _LOGGER = logging.getLogger(__name__)
