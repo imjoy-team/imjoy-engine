@@ -6,7 +6,7 @@ import sys
 import janus
 import numpy as np
 
-from imjoy.helper import dotdict
+from imjoy.utils import dotdict
 from imjoy.workers.python_worker import PluginConnection
 from imjoy.workers.python3_client import JOB_HANDLERS_PY3
 
