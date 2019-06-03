@@ -5,7 +5,6 @@ import os
 import subprocess
 import sys
 
-import imjoy
 from imjoy.options import parse_cmd_line
 
 
@@ -15,7 +14,6 @@ def main():
     if opt.dev:
         print("Running ImJoy Plugin Engine in development mode")
         from .engine import run
-
         run()
         return
 
@@ -48,16 +46,32 @@ def main():
             )
         conda_prefix = None
 
+    print("Trying to install psutil with pip")
+    ret = subprocess.Popen(
+        ["pip", "install", "psutil"], env=os.environ.copy(), shell=False
+    ).wait()
+    if ret != 0 and conda_available:
+        print("Trying to install psutil with conda")
+        ret2 = subprocess.Popen(
+            ["conda", "install", "-y", "psutil"], env=os.environ.copy()
+        ).wait()
+        if ret2 != 0:
+            raise Exception(
+                "Failed to install psutil, "
+                "please try to setup an environment with gcc support."
+            )
+
     if sys.version_info > (3, 0):
         # running in python 3
         print("Upgrading ImJoy Plugin Engine")
         ret = subprocess.Popen(
-            "pip install -U imjoy".split(), env=os.environ.copy(), shell=False
+            "pip install -U imjoy[engine]".split(), env=os.environ.copy(), shell=False
         ).wait()
         if ret != 0:
             print("Failed to upgrade ImJoy Plugin Engine")
 
         # reload to use the new version
+        import imjoy
         importlib.reload(imjoy)
         from imjoy.engine import run
 
@@ -65,15 +79,6 @@ def main():
     else:
         # running in python 2
         print("ImJoy needs to run in Python 3.6+, bootstrapping with conda")
-        imjoy_requirements = [
-            "aiohttp",
-            "aiohttp_cors",
-            "imjoy",
-            "gputil",
-            "psutil",
-            "python-socketio[asyncio_client]",
-            "pyyaml",
-        ]
         ret = subprocess.Popen(
             "conda create -y -n imjoy python=3.6".split(),
             env=os.environ.copy(),
@@ -82,16 +87,15 @@ def main():
         if ret == 0:
             print(
                 "conda environment is now ready, "
-                "installing pip requirements and starting the engine"
+                "installing imjoy and starting the engine"
             )
         else:
             print(
                 "conda environment failed to setup, maybe it already exists. "
                 "Otherwise, please make sure you are running in a conda environment"
             )
-        requirements = imjoy_requirements
-        pip_cmd = "pip install -U " + " ".join(requirements)
-
+        pip_cmd = "pip install -U imjoy[engine]"
+        
         if conda_available:
             if sys.platform == "linux" or sys.platform == "linux2":
                 # linux

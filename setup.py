@@ -1,7 +1,6 @@
 """Set up the ImJoy-Engine imjoy package."""
 import os
 import sys
-import pathlib
 import subprocess
 from setuptools import setup, find_packages
 import json
@@ -11,56 +10,19 @@ DESCRIPTION = (
     "or remotely from ImJoy.io"
 )
 
-try:
-    subprocess.call(["conda", "-V"])
-    if os.name == "nt":
-        # for fixing CondaHTTPError:
-        # https://github.com/conda/conda/issues/6064#issuecomment-458389796
-        process = subprocess.Popen(
-            ["conda", "info", "--json", "-s"], stdout=subprocess.PIPE
-        )
-        cout, err = process.communicate()
-        conda_prefix = json.loads(cout.decode("ascii"))["conda_prefix"]
-        print("Found conda environment: {}".format(conda_prefix))
-        os.environ["PATH"] = (
-            os.path.join(conda_prefix, "Library", "bin")
-            + os.pathsep
-            + os.environ["PATH"]
-        )
-except OSError:
-    if sys.version_info > (3, 0):
-        print(
-            "WARNING: you are running ImJoy without conda, "
-            "you may have problem with some plugins"
-        )
-    else:
-        sys.exit(
-            "Sorry, ImJoy Python Plugin Engine can only run within a conda environment "
-            "or at least in Python 3."
-        )
+requirements = ["python-socketio[client]>=4.1.0", "numpy"]
 
-requirements = []
 if sys.version_info > (3, 0):
-    requirements = ["aiohttp", "aiohttp_cors", "gputil", "python-socketio", "pyyaml"]
-    print("Trying to install psutil with pip")
-    ret = subprocess.Popen(
-        ["pip", "install", "psutil"], env=os.environ.copy(), shell=False
-    ).wait()
-    if ret != 0:
-        print("Trying to install psutil with conda")
-        ret2 = subprocess.Popen(
-            ["conda", "install", "-y", "psutil"], env=os.environ.copy()
-        ).wait()
-        if ret2 != 0:
-            raise Exception(
-                "Failed to install psutil, "
-                "please try to setup an environment with gcc support."
-            )
+    requirements += ["janus"]
 
+engine_requirements = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml"]
 
-HERE = pathlib.Path(__file__).parent
-README = (HERE / "README.md").read_text()
-VERSION = json.loads((HERE / "imjoy" / "VERSION").read_text())["version"]
+HERE = os.path.normpath(os.path.join(__file__, '..'))
+with open(os.path.join(HERE, "README.md"), 'r') as f:
+    README = f.read()
+
+with open(os.path.join(HERE, "imjoy", "VERSION"), 'r') as f:
+    VERSION = json.load(f)["version"]
 
 setup(
     name="imjoy",
@@ -75,6 +37,10 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=requirements,
+    extras_require={
+        'engine': engine_requirements,
+        'worker': [],
+    },
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},
 )
