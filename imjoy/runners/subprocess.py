@@ -24,11 +24,11 @@ from .helper import (
     run_process,
 )
 
-DEFAULT_REQUIREMENTS = ["numpy==1.16.4", "python-socketio[client]==4.0.3"]
+DEFAULT_REQUIREMENTS = ["numpy", "python-socketio[client]==4.0.3"]
 DEFAULT_REQUIREMENTS_PY2 = DEFAULT_REQUIREMENTS
 DEFAULT_REQUIREMENTS_PY3 = [*DEFAULT_REQUIREMENTS, "janus==0.4.0"]
 REQ_PSUTIL = ["psutil==5.6.2"]
-REQ_PSUTIL_CONDA = ["conda:psutil=5.6.2"]
+REQ_PSUTIL_CONDA = ["conda:psutil"]
 MAX_ATTEMPTS = 1000
 
 
