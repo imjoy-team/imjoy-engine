@@ -71,12 +71,12 @@ async def on_init_plugin(engine, sid, kwargs):
             )
             worker_module = "workers.python_worker"
             logger.debug(
-                "Adding imjoy package directory to PYTHONPATH, will run module `workers.python_worker`"
+                "Adding imjoy package directory to PYTHONPATH, will run module `workers.python_worker`."
             )
         else:
             worker_module = "imjoy.workers.python_worker"
             logger.debug(
-                "Will use workers from pip package, will run module `imjoy.workers.python_worker`"
+                "Will run module `imjoy.workers.python_worker` from installed imjoy package."
             )
 
         logger.info(
