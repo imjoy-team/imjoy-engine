@@ -6,7 +6,7 @@ import time
 
 import socketio
 
-from workers.utils import format_traceback, Registry
+from .utils import format_traceback, Registry
 
 try:
     import queue

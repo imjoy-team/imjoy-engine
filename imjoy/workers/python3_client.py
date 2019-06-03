@@ -7,9 +7,9 @@ import traceback
 
 import janus
 
-from workers.utils import format_traceback, Registry
-from workers.utils3 import make_coro
-from workers.python_client import BaseClient, JOB_HANDLERS
+from .utils import format_traceback, Registry
+from .utils3 import make_coro
+from .python_client import BaseClient, JOB_HANDLERS
 
 # pylint: disable=unused-argument, redefined-outer-name
 

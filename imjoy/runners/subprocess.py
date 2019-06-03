@@ -28,7 +28,6 @@ DEFAULT_REQUIREMENTS_PY2 = ["numpy", "python-socketio[client]"]
 DEFAULT_REQUIREMENTS_PY3 = ["numpy", "python-socketio[client]", "janus"]
 REQ_PSUTIL = ["psutil"]
 REQ_PSUTIL_CONDA = ["conda:psutil"]
-TEMPLATE_SCRIPT = (HERE / "workers" / "python_worker.py").resolve()
 MAX_ATTEMPTS = 1000
 
 
@@ -69,6 +68,12 @@ async def on_init_plugin(engine, sid, kwargs):
             os.makedirs(work_dir)
         plugin_env = os.environ.copy()
         plugin_env["WORK_DIR"] = work_dir
+        imjoy_path = HERE.resolve()
+        if "PYTHONPATH" in plugin_env:
+            plugin_env['PYTHONPATH'] = imjoy_path + os.path.pathsep + plugin_env['PYTHONPATH']
+        else:
+            plugin_env['PYTHONPATH'] = imjoy_path
+
         logger.info(
             "Initialize the plugin, name=%s, id=%s, cmd=%s, workspace=%s",
             pname,
@@ -187,8 +192,8 @@ async def on_init_plugin(engine, sid, kwargs):
             )
             asyncio.run_coroutine_threadsafe(coro, eloop).result()
 
-        args = '{} "{}" --id="{}" --server={} --secret="{}"'.format(
-            cmd, TEMPLATE_SCRIPT, pid, "http://127.0.0.1:" + engine.opt.port, secret_key
+        args = '{} -m workers.python_worker --id="{}" --server={} --secret="{}"'.format(
+            cmd, pid, "http://127.0.0.1:" + engine.opt.port, secret_key
         )
         task_thread = threading.Thread(
             target=launch_plugin,

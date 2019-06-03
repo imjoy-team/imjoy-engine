@@ -9,20 +9,16 @@ import threading
 from functools import reduce
 from types import ModuleType
 
-worker_path = os.path.dirname(os.path.normpath(os.path.join(__file__, "..")))
-if worker_path not in sys.path:
-    sys.path.insert(0, worker_path)
-
-from workers.utils import ReferenceStore, debounce, dotdict, get_psutil, set_interval
+from .utils import ReferenceStore, debounce, dotdict, get_psutil, set_interval
 
 if sys.version_info >= (3, 0):
-    from workers.utils3 import FuturePromise
-    from workers.python3_client import AsyncClient
+    from .utils3 import FuturePromise
+    from .python3_client import AsyncClient
 
     PYTHON3 = True
 else:
-    from workers.utils import Promise
-    from workers.python_client import Client
+    from .utils import Promise
+    from .python_client import Client
 
     PYTHON3 = False
 
