@@ -66,9 +66,9 @@ def main():
                         "please try to setup an environment with gcc support."
                     )
 
-    
     # Make sure git is installed
     import distutils.spawn
+
     if distutils.spawn.find_executable("git") is None:
         if not opt.freeze and conda_available:
             print("git not found, trying to install with conda")
@@ -78,10 +78,10 @@ def main():
                 raise Exception(
                     "Failed to install git/pip and dependencies "
                     "with exit code: {}".format(ret)
-            )
+                )
         elif not opt.freeze:
-            print('git not found, unable to install it because conda is not available')
-    
+            print("git not found, unable to install it because conda is not available")
+
     # Make sure pip is installed
     if distutils.spawn.find_executable("pip") is None:
         pip_available = False
@@ -93,9 +93,9 @@ def main():
                 raise Exception(
                     "Failed to install git/pip and dependencies "
                     "with exit code: {}".format(ret)
-            )
+                )
         elif not opt.freeze:
-            print('pip not found, unable to install it because conda is not available')
+            print("pip not found, unable to install it because conda is not available")
     else:
         pip_available = True
 
@@ -104,10 +104,14 @@ def main():
             # running in python 3
             print("Upgrading ImJoy Plugin Engine")
             ret = subprocess.Popen(
-                "pip install -U imjoy[engine]".split(), env=os.environ.copy(), shell=False
+                "pip install -U imjoy[engine]".split(),
+                env=os.environ.copy(),
+                shell=False,
             ).wait()
             if ret != 0:
                 print("Failed to upgrade ImJoy Plugin Engine")
+        elif not opt.freeze:
+            print("Failed to upgrade the engine because pip was not found.")
 
         # reload to use the new version
         import imjoy
@@ -137,7 +141,6 @@ def main():
                 )
             pip_cmd = "pip install -U imjoy[engine]"
 
-
             if sys.platform == "linux" or sys.platform == "linux2":
                 # linux
                 conda_activate = (
@@ -152,15 +155,18 @@ def main():
             else:
                 conda_activate = "conda activate {}"
 
-            pip_cmd = conda_activate.format(" imjoy && " + pip_cmd + " && python -m imjoy")
+            pip_cmd = conda_activate.format(
+                " imjoy && " + pip_cmd + " && python -m imjoy"
+            )
             ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
             if ret != 0:
                 raise Exception(
                     "Failed to install and start ImJoy, exit code: {}".format(ret)
                 )
         else:
-            raise Exception("It seems you are trying to run ImJoy Engine in Python 2, but it requires Python 3.6+ (with conda).")
-    
+            raise Exception(
+                "It seems you are trying to run ImJoy Engine in Python 2, but it requires Python 3.6+ (with conda)."
+            )
 
 
 if __name__ == "__main__":
