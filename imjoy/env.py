@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import uuid
 
 from imjoy.utils import kill_process
@@ -104,7 +105,12 @@ def bootstrap(opt, logger):
     try:
         if os.path.exists(pid_file):
             with open(pid_file, "r") as fil:
-                kill_process(int(fil.read()), logger)
+                pid = int(fil.read())
+                logger.info("Trying to kill last process (pid=%s)", pid)
+                kill_process(pid, logger)
+                # wait for a while to release the port
+                time.sleep(3)
+
     except Exception:  # pylint: disable=broad-except
         logger.debug("Failed to kill last process")
     try:

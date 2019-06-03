@@ -35,11 +35,15 @@ def run_app(engine, app):
     except OSError as exc:
         if exc.errno in {48}:
             logger.error(
-                "Failed to open port %s, "
+                "Failed to open port %s for ImJoy Engine, "
                 "please try to terminate the process which is using that port, "
                 "or restart your computer.",
                 engine.opt.port,
             )
+        else:
+            logger.error("Failed to start ImJoy Engine, error: %s", exc)
+    except Exception as e:
+        logger.error("Failed to start ImJoy Engine, error: %s", e)
 
 
 def setup_router(engine, app):
@@ -345,7 +349,7 @@ async def on_startup(app):
             "Please go to https://imjoy.io/#/app "
             "with your web browser (Chrome or FireFox)"
         )
-    logger.info("Connection token: %s", engine.opt.token)
+    print("========>> Connection token: {} <<========".format(engine.opt.token))
     sys.stdout.flush()
 
 
