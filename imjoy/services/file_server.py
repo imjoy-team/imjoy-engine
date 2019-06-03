@@ -22,7 +22,7 @@ def setup_file_server(engine):
     engine.conn.register_event_handler(on_request_upload_url)
 
 
-@sio_on("list_dir", namespace=NAME_SPACE)
+@sio_on("list_dir")
 async def on_list_dir(engine, sid, kwargs):
     """List files in directory."""
     logger = engine.logger
@@ -59,7 +59,7 @@ async def on_list_dir(engine, sid, kwargs):
         return {"success": False, "error": str(exc)}
 
 
-@sio_on("remove_files", namespace=NAME_SPACE)
+@sio_on("remove_files")
 async def on_remove_files(engine, sid, kwargs):
     """Remove files."""
     logger = engine.logger
@@ -102,7 +102,7 @@ async def on_remove_files(engine, sid, kwargs):
         return {"success": False, "error": "File not exists or type mismatch."}
 
 
-@sio_on("request_upload_url", namespace=NAME_SPACE)
+@sio_on("request_upload_url")
 async def on_request_upload_url(engine, sid, kwargs):
     """Request upload url."""
     logger = engine.logger
@@ -146,7 +146,7 @@ async def on_request_upload_url(engine, sid, kwargs):
     return {"success": True, "id": urlid, "url": url}
 
 
-@sio_on("get_file_url", namespace=NAME_SPACE)
+@sio_on("get_file_url")
 async def on_get_file_url(engine, sid, kwargs):
     """Return file url."""
     logger = engine.logger
@@ -185,7 +185,7 @@ async def on_get_file_url(engine, sid, kwargs):
     return {"success": True, "url": generated_url_files[path]}
 
 
-@sio_on("get_file_path", namespace=NAME_SPACE)
+@sio_on("get_file_path")
 async def on_get_file_path(engine, sid, kwargs):
     """Return file path."""
     logger = engine.logger

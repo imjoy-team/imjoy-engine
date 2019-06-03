@@ -48,7 +48,7 @@ async def read_and_forward_terminal_output(engine):
         terminal_session["output_monitor_running"] = False
 
 
-@sio_on("start_terminal", namespace=NAME_SPACE)
+@sio_on("start_terminal")
 async def on_start_terminal(engine, sid, kwargs):
     """Handle new terminal client connected."""
     if sys.platform == "win32":
@@ -134,7 +134,7 @@ async def on_start_terminal(engine, sid, kwargs):
         return {"success": False, "error": str(exc)}
 
 
-@sio_on("terminal_input", namespace=NAME_SPACE)
+@sio_on("terminal_input")
 async def on_terminal_input(engine, sid, data):
     """Write to the terminal as if you are typing in a real terminal."""
     if sys.platform == "win32":
@@ -163,7 +163,7 @@ def set_winsize(fdesc, row, col, xpix=0, ypix=0):
     fcntl.ioctl(fdesc, termios.TIOCSWINSZ, winsize)
 
 
-@sio_on("terminal_window_resize", namespace=NAME_SPACE)
+@sio_on("terminal_window_resize")
 async def on_terminal_window_resize(engine, sid, data):
     """Resize terminal window."""
     logger = engine.logger

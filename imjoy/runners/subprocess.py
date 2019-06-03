@@ -44,7 +44,7 @@ def setup_subprocess_runner(engine):
     engine.conn.register_event_handler(reset_engine_plugins)
 
 
-@sio_on("init_plugin", namespace=NAME_SPACE)
+@sio_on("init_plugin")
 async def on_init_plugin(engine, sid, kwargs):
     """Initialize plugin."""
     logger = engine.logger
@@ -129,7 +129,7 @@ async def on_init_plugin(engine, sid, kwargs):
         logger.debug("Add plugin: %s", plugin_info)
         add_plugin(engine, plugin_info)
 
-        @sio_on("from_plugin_" + secret_key, namespace=NAME_SPACE)
+        @sio_on("from_plugin_" + secret_key)
         async def message_from_plugin(engine, sid, kwargs):
             if kwargs["type"] in [
                 "initialized",
@@ -153,7 +153,7 @@ async def on_init_plugin(engine, sid, kwargs):
 
         engine.conn.register_event_handler(message_from_plugin)
 
-        @sio_on("message_to_plugin_" + secret_key, namespace=NAME_SPACE)
+        @sio_on("message_to_plugin_" + secret_key)
         async def message_to_plugin(engine, _, kwargs):
             if kwargs["type"] == "message":
                 await engine.conn.sio.emit("to_plugin_" + secret_key, kwargs["data"])
@@ -224,7 +224,7 @@ async def on_init_plugin(engine, sid, kwargs):
         return {"success": False, "reason": traceback_error}
 
 
-@sio_on("register_client", namespace=NAME_SPACE)
+@sio_on("register_client")
 async def on_register_client(engine, sid, kwargs):
     """Register client."""
     logger = engine.logger
@@ -310,7 +310,7 @@ async def on_register_client(engine, sid, kwargs):
     }
 
 
-@sio_on("kill_plugin", namespace=NAME_SPACE)
+@sio_on("kill_plugin")
 async def on_kill_plugin(engine, sid, kwargs):
     """Kill plugin."""
     logger = engine.logger
@@ -342,7 +342,7 @@ async def on_kill_plugin(engine, sid, kwargs):
     return {"success": True}
 
 
-@sio_on("kill_plugin_process", namespace=NAME_SPACE)
+@sio_on("kill_plugin_process")
 async def on_kill_plugin_process(engine, sid, kwargs):
     """Kill plugin process."""
     logger = engine.logger
@@ -426,7 +426,7 @@ def add_client_session(engine, session_id, client_id, sid, base_url, workspace):
     return client_connected
 
 
-@sio_on("disconnect_client_session", namespace=NAME_SPACE)
+@sio_on("disconnect_client_session")
 async def disconnect_client_session(engine, sid):
     """Disconnect client session."""
     logger = engine.logger
@@ -471,7 +471,7 @@ def add_plugin(engine, plugin_info, sid=None):
         plugin_info["sid"] = sid
 
 
-@sio_on("disconnect_plugin", namespace=NAME_SPACE)
+@sio_on("disconnect_plugin")
 async def disconnect_plugin(engine, sid):
     """Disconnect plugin."""
     logger = engine.logger
@@ -535,7 +535,7 @@ def kill_plugin(engine, pid):
         del plugins[pid]
 
 
-@sio_on("reset_engine_plugins", namespace=NAME_SPACE)
+@sio_on("reset_engine_plugins")
 async def reset_engine_plugins(engine, sid, _):
     """Handle plugins when reset engine is called."""
     await kill_all_plugins(engine, sid)

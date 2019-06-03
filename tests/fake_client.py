@@ -12,8 +12,6 @@ _LOGGER = logging.getLogger(__name__)
 
 _LOGGER.setLevel(logging.INFO)
 
-NAME_SPACE = "/"
-
 
 class TestClient:
     """Represent a mock client."""
@@ -45,7 +43,7 @@ class TestClient:
         def callback(ret=None):
             fut.set_result(ret)
 
-        await self.sio.emit(channel, data, namespace=NAME_SPACE, callback=callback)
+        await self.sio.emit(channel, data, callback=callback)
         return await fut
 
     async def connect(self):

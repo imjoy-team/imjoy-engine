@@ -1,8 +1,9 @@
 """Provide socketio event handlers."""
-from imjoy.connection.server import NAME_SPACE
 from imjoy.utils import get_psutil
 
 from .decorator import socketio_handler as sio_on
+
+NAME_SPACE = "/"
 
 
 def register_services(engine, register_event_handler):
@@ -14,14 +15,14 @@ def register_services(engine, register_event_handler):
     register_event_handler(engine, on_get_engine_status)
 
 
-@sio_on("connect", namespace=NAME_SPACE)
+@sio_on("connect")
 def connect(engine, sid, _):
     """Connect client."""
     logger = engine.logger
     logger.info("Connect %s", sid)
 
 
-@sio_on("reset_engine", namespace=NAME_SPACE)
+@sio_on("reset_engine")
 async def reset_engine(engine, sid, kwargs):
     """Reset engine."""
     logger = engine.logger
@@ -41,7 +42,7 @@ async def reset_engine(engine, sid, kwargs):
     return {"success": True}
 
 
-@sio_on("get_engine_status", namespace=NAME_SPACE)
+@sio_on("get_engine_status")
 async def on_get_engine_status(engine, sid, _):
     """Return engine status."""
     logger = engine.logger
@@ -76,7 +77,7 @@ async def on_get_engine_status(engine, sid, _):
     }
 
 
-@sio_on("disconnect", namespace=NAME_SPACE)
+@sio_on("disconnect")
 async def disconnect(engine, sid):
     """Disconnect client."""
     logger = engine.logger
