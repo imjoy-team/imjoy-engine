@@ -14,7 +14,6 @@ import GPUtil
 
 from imjoy import __version__, API_VERSION, HERE
 from imjoy.connection.decorator import socketio_handler as sio_on
-from imjoy.connection.server import NAME_SPACE
 from imjoy.utils import console_to_str, parse_repos, get_psutil, kill_process
 from .helper import (
     apply_conda_activate,

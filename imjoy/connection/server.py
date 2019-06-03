@@ -14,7 +14,6 @@ from imjoy import __version__, API_VERSION
 from imjoy.utils import kill_process, scandir
 
 ENGINE = "imjoy_engine"
-NAME_SPACE = "/"
 
 
 def create_app(engine):
