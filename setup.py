@@ -10,12 +10,8 @@ DESCRIPTION = (
     "or remotely from ImJoy.io"
 )
 
-requirements = ["python-socketio[client]>=4.1.0", "numpy"]
-
-if sys.version_info > (3, 0):
-    requirements += ["janus"]
-
-engine_requirements = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml"]
+REQUIREMENTS = ["python-socketio[client]==4.1.0", "numpy", 'janus;python_version>"3.0"']
+ENGINE_REQUIREMENTS = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml"]
 
 HERE = os.path.normpath(os.path.join(__file__, ".."))
 with open(os.path.join(HERE, "README.md"), "r") as f:
@@ -36,8 +32,8 @@ setup(
     license="MIT",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=requirements,
-    extras_require={"engine": engine_requirements, "worker": []},
+    install_requires=REQUIREMENTS,
+    extras_require={"engine": ENGINE_REQUIREMENTS, "worker": []},
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},
 )
