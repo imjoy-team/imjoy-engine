@@ -82,7 +82,7 @@ def kill_process(pid, logger=None):
     if psutil is None:
         return
     if logger:
-        logger.info("Killing plugin process (pid=%s)", pid)
+        logger.info("Killing process (pid=%s)", pid)
     try:
         current_process = psutil.Process(pid)
         for proc in current_process.children(recursive=True):
@@ -99,7 +99,7 @@ def kill_process(pid, logger=None):
                     )
         current_process.kill()
         if logger:
-            logger.info("Plugin process %s was killed.", pid)
+            logger.info("Process %s was killed.", pid)
     except psutil.NoSuchProcess:
         if logger:
             logger.info("Process %s has already been killed", pid)
