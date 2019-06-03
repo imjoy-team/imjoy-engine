@@ -47,14 +47,61 @@ def main():
             )
         conda_prefix = None
 
+    pip_available = True
+    try:
+        import distutils.spawn
+
+        if distutils.spawn.find_executable("git") is None:
+            if not opt.freeze and conda_available:
+                print("git not found, trying to install with conda")
+                # try to install git
+                ret = subprocess.Popen(
+                    "conda install -y git".split(), shell=False
+                ).wait()
+                if ret != 0:
+                    raise Exception(
+                        "Failed to install git/pip and dependencies "
+                        "with exit code: {}".format(ret)
+                    )
+            elif not opt.freeze:
+                print(
+                    "git not found, unable to install it because conda is not available"
+                )
+
+        if distutils.spawn.find_executable("pip") is None:
+            pip_available = False
+            if not opt.freeze and conda_available:
+                print("pip not found, trying to install pip with conda")
+                # try to install pip
+                ret = subprocess.Popen(
+                    "conda install -y pip".split(), shell=False
+                ).wait()
+                if ret != 0:
+                    raise Exception(
+                        "Failed to install git/pip and dependencies "
+                        "with exit code: {}".format(ret)
+                    )
+                else:
+                    pip_available = True
+            elif not opt.freeze:
+                print(
+                    "pip not found, unable to install it because conda is not available"
+                )
+    except Exception as e:
+        print("Failed to check or install pip/git, error: {}".format(e))
+
     try:
         import psutil
     except ImportError:
         if not opt.freeze:
-            print("Trying to install psutil with pip")
-            ret = subprocess.Popen(
-                "pip install psutil".split(), env=os.environ.copy(), shell=False
-            ).wait()
+            if pip_available:
+                print("Trying to install psutil with pip")
+                ret = subprocess.Popen(
+                    "pip install psutil".split(), env=os.environ.copy(), shell=False
+                ).wait()
+            else:
+                ret = 1
+
             if ret != 0 and conda_available:
                 print("Trying to install psutil with conda")
                 ret2 = subprocess.Popen(
@@ -65,37 +112,8 @@ def main():
                         "Failed to install psutil, "
                         "please try to setup an environment with gcc support."
                     )
-
-    import distutils.spawn
-
-    if distutils.spawn.find_executable("git") is None:
-        if not opt.freeze and conda_available:
-            print("git not found, trying to install with conda")
-            # try to install git
-            ret = subprocess.Popen("conda install -y git".split(), shell=False).wait()
-            if ret != 0:
-                raise Exception(
-                    "Failed to install git/pip and dependencies "
-                    "with exit code: {}".format(ret)
-                )
-        elif not opt.freeze:
-            print("git not found, unable to install it because conda is not available")
-
-    if distutils.spawn.find_executable("pip") is None:
-        pip_available = False
-        if not opt.freeze and conda_available:
-            print("pip not found, trying to install pip with conda")
-            # try to install pip
-            ret = subprocess.Popen("conda install -y pip".split(), shell=False).wait()
-            if ret != 0:
-                raise Exception(
-                    "Failed to install git/pip and dependencies "
-                    "with exit code: {}".format(ret)
-                )
-        elif not opt.freeze:
-            print("pip not found, unable to install it because conda is not available")
-    else:
-        pip_available = True
+            elif ret != 0:
+                print("Failed to install psutil.")
 
     if sys.version_info > (3, 0):
         if not opt.freeze and pip_available:
