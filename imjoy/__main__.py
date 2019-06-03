@@ -66,7 +66,6 @@ def main():
                         "please try to setup an environment with gcc support."
                     )
 
-    # Make sure git is installed
     import distutils.spawn
 
     if distutils.spawn.find_executable("git") is None:
@@ -82,7 +81,6 @@ def main():
         elif not opt.freeze:
             print("git not found, unable to install it because conda is not available")
 
-    # Make sure pip is installed
     if distutils.spawn.find_executable("pip") is None:
         pip_available = False
         if not opt.freeze and conda_available:
