@@ -1,7 +1,7 @@
 """Provide utils for Python 3 plugins."""
 import asyncio
 
-from imjoy.workers.utils import Promise
+from .utils import Promise
 
 
 def make_coro(func):

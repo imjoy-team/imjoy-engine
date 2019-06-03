@@ -9,22 +9,16 @@ import threading
 from functools import reduce
 from types import ModuleType
 
-from imjoy.workers.utils import (
-    ReferenceStore,
-    debounce,
-    dotdict,
-    get_psutil,
-    set_interval,
-)
+from .utils import ReferenceStore, debounce, dotdict, get_psutil, set_interval
 
 if sys.version_info >= (3, 0):
-    from imjoy.workers.utils3 import FuturePromise
-    from imjoy.workers.python3_client import AsyncClient
+    from .utils3 import FuturePromise
+    from .python3_client import AsyncClient
 
     PYTHON3 = True
 else:
-    from imjoy.workers.utils import Promise
-    from imjoy.workers.python_client import Client
+    from .utils import Promise
+    from .python_client import Client
 
     PYTHON3 = False
 
@@ -493,16 +487,6 @@ def main():
     parser.add_argument("--debug", action="store_true", help="debug mode")
 
     opt = parser.parse_args()
-
-    # TODO: We can probably remove this since the script directory will be first in sys.path.
-    if "" not in sys.path:
-        sys.path.insert(0, "")
-
-    imjoy_path = os.path.dirname(os.path.normpath(__file__))
-    if imjoy_path not in sys.path:
-        sys.path.insert(0, imjoy_path)
-
-    # ENDTODO
 
     logging.basicConfig(stream=sys.stdout)
     logger.setLevel(logging.INFO)
