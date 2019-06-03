@@ -9,8 +9,6 @@ import threading
 from functools import reduce
 from types import ModuleType
 
-if "" not in sys.path:
-    sys.path.insert(0, "")
 
 imjoy_path = os.path.dirname(os.path.normpath(os.path.join(__file__, '..')))
 if imjoy_path not in sys.path:
