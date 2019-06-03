@@ -5,7 +5,6 @@ import os
 import subprocess
 import sys
 
-import imjoy
 from imjoy.options import parse_cmd_line
 
 
@@ -48,51 +47,116 @@ def main():
             )
         conda_prefix = None
 
+    pip_available = True
+    try:
+        import distutils.spawn
+
+        if distutils.spawn.find_executable("git") is None:
+            if not opt.freeze and conda_available:
+                print("git not found, trying to install with conda")
+                # try to install git
+                ret = subprocess.Popen(
+                    "conda install -y git".split(), shell=False
+                ).wait()
+                if ret != 0:
+                    raise Exception(
+                        "Failed to install git/pip and dependencies "
+                        "with exit code: {}".format(ret)
+                    )
+            elif not opt.freeze:
+                print(
+                    "git not found, unable to install it because conda is not available"
+                )
+
+        if distutils.spawn.find_executable("pip") is None:
+            pip_available = False
+            if not opt.freeze and conda_available:
+                print("pip not found, trying to install pip with conda")
+                # try to install pip
+                ret = subprocess.Popen(
+                    "conda install -y pip".split(), shell=False
+                ).wait()
+                if ret != 0:
+                    raise Exception(
+                        "Failed to install git/pip and dependencies "
+                        "with exit code: {}".format(ret)
+                    )
+                else:
+                    pip_available = True
+            elif not opt.freeze:
+                print(
+                    "pip not found, unable to install it because conda is not available"
+                )
+    except Exception as e:
+        print("Failed to check or install pip/git, error: {}".format(e))
+
+    try:
+        import psutil
+    except ImportError:
+        if not opt.freeze:
+            if pip_available:
+                print("Trying to install psutil with pip")
+                ret = subprocess.Popen(
+                    "pip install psutil".split(), env=os.environ.copy(), shell=False
+                ).wait()
+            else:
+                ret = 1
+
+            if ret != 0 and conda_available:
+                print("Trying to install psutil with conda")
+                ret2 = subprocess.Popen(
+                    "conda install -y psutil".split(), env=os.environ.copy()
+                ).wait()
+                if ret2 != 0:
+                    raise Exception(
+                        "Failed to install psutil, "
+                        "please try to setup an environment with gcc support."
+                    )
+            elif ret != 0:
+                print("Failed to install psutil.")
+
     if sys.version_info > (3, 0):
-        # running in python 3
-        print("Upgrading ImJoy Plugin Engine")
-        ret = subprocess.Popen(
-            "pip install -U imjoy".split(), env=os.environ.copy(), shell=False
-        ).wait()
-        if ret != 0:
-            print("Failed to upgrade ImJoy Plugin Engine")
+        if not opt.freeze and pip_available:
+            # running in python 3
+            print("Upgrading ImJoy Plugin Engine")
+            ret = subprocess.Popen(
+                "pip install -U imjoy[engine]".split(),
+                env=os.environ.copy(),
+                shell=False,
+            ).wait()
+            if ret != 0:
+                print("Failed to upgrade ImJoy Plugin Engine")
+        elif not opt.freeze:
+            print("Failed to upgrade the engine because pip was not found.")
 
         # reload to use the new version
+        import imjoy
+
         importlib.reload(imjoy)
         from imjoy.engine import run
 
         run()
     else:
         # running in python 2
-        print("ImJoy needs to run in Python 3.6+, bootstrapping with conda")
-        imjoy_requirements = [
-            "aiohttp",
-            "aiohttp_cors",
-            "imjoy",
-            "gputil",
-            "psutil",
-            "python-socketio[asyncio_client]",
-            "pyyaml",
-        ]
-        ret = subprocess.Popen(
-            "conda create -y -n imjoy python=3.6".split(),
-            env=os.environ.copy(),
-            shell=False,
-        ).wait()
-        if ret == 0:
-            print(
-                "conda environment is now ready, "
-                "installing pip requirements and starting the engine"
-            )
-        else:
-            print(
-                "conda environment failed to setup, maybe it already exists. "
-                "Otherwise, please make sure you are running in a conda environment"
-            )
-        requirements = imjoy_requirements
-        pip_cmd = "pip install -U " + " ".join(requirements)
-
         if conda_available:
+            print("ImJoy needs to run in Python 3.6+, bootstrapping with conda")
+            ret = subprocess.Popen(
+                "conda create -y -n imjoy python=3.6".split(),
+                env=os.environ.copy(),
+                shell=False,
+            ).wait()
+            if ret == 0:
+                print(
+                    "conda environment is now ready, "
+                    "installing imjoy and starting the engine"
+                )
+            else:
+                print(
+                    "conda environment failed to setup, maybe it already exists. "
+                    "Otherwise, please make sure you are running in a conda environment"
+                )
+            pip_cmd = "pip install -U imjoy[engine]"
+
             if sys.platform == "linux" or sys.platform == "linux2":
                 # linux
                 conda_activate = (
@@ -106,33 +170,19 @@ def main():
                 conda_activate = "activate {}"
             else:
                 conda_activate = "conda activate {}"
+
+            pip_cmd = conda_activate.format(
+                " imjoy && " + pip_cmd + " && python -m imjoy"
+            )
+            ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
+            if ret != 0:
+                raise Exception(
+                    "Failed to install and start ImJoy, exit code: {}".format(ret)
+                )
         else:
-            conda_activate = "{}"
-
-        pip_cmd = conda_activate.format(" imjoy && " + pip_cmd + " && python -m imjoy")
-        ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
-        if ret != 0:
-            git_cmd = ""
-            import distutils.spawn
-
-            if distutils.spawn.find_executable("git") is None:
-                git_cmd += " git"
-            if distutils.spawn.find_executable("pip") is None:
-                git_cmd += " pip"
-            if git_cmd != "":
-                print("pip command failed, trying to install git and pip")
-                # try to install git and pip
-                git_cmd = "conda install -y" + git_cmd
-                ret = subprocess.Popen(git_cmd.split(), shell=False).wait()
-                if ret != 0:
-                    raise Exception(
-                        "Failed to install git/pip and dependencies "
-                        "with exit code: {}".format(ret)
-                    )
-                ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
-                if ret != 0:
-                    print("ImJoy failed with exit code: {}".format(ret))
-                    sys.exit(2)
+            raise Exception(
+                "It seems you are trying to run ImJoy Engine in Python 2, but it requires Python 3.6+ (with conda)."
+            )
 
 
 if __name__ == "__main__":

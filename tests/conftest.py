@@ -13,7 +13,7 @@ from tests.mock_client import TestClient
 @pytest.fixture(name="engine")
 def setup_engine():
     """Set up engine."""
-    engine_args = f"python {ENGINE_MODULE} --debug --token {TOKEN}"
+    engine_args = f"python {ENGINE_MODULE} --dev --debug --token {TOKEN}"
     process = subprocess.Popen(engine_args.split())
     time.sleep(2)  # This is needed to let the engine finish setup.
     yield
