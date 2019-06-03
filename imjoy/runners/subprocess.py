@@ -248,7 +248,8 @@ async def on_register_client(engine, sid, kwargs):
 
     token = kwargs.get("token")
     if token != engine.opt.token:
-        logger.debug("Token mismatch: %s != %s", token, engine.opt.token)
+        logger.error("Wrong connection token (%s)", token)
+        print("========>> Connection token: {} <<========".format(engine.opt.token))
         if engine.opt.engine_container_token is not None:
             await engine.conn.sio.emit(
                 "message_to_container_" + engine.opt.engine_container_token,
@@ -271,7 +272,7 @@ async def on_register_client(engine, sid, kwargs):
                 conn_data.attempt_count,
             )
             sys.exit(100)
-        return {"success": False}
+        return {"success": False, "message": "Connection token mismatch."}
 
     conn_data.attempt_count = 0
     if add_client_session(engine, session_id, client_id, sid, base_url, workspace):

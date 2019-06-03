@@ -86,4 +86,4 @@ async def disconnect(engine, sid):
         if not event.startswith("disconnect_"):
             continue
         await handler(sid)
-    logger.info("Disconnect %s", sid)
+    logger.info("Client(%s) disconneted", sid)

@@ -345,7 +345,7 @@ async def on_startup(app):
             "Please go to https://imjoy.io/#/app "
             "with your web browser (Chrome or FireFox)"
         )
-    logger.info("Connection token: %s", engine.opt.token)
+    print("========>> Connection token: {} <<========".format(engine.opt.token))
     sys.stdout.flush()
 
 
