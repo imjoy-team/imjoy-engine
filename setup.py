@@ -1,7 +1,5 @@
 """Set up the ImJoy-Engine imjoy package."""
 import os
-import sys
-import subprocess
 from setuptools import setup, find_packages
 import json
 
