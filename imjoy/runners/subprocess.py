@@ -24,10 +24,6 @@ from .helper import (
     run_process,
 )
 
-DEFAULT_REQUIREMENTS_PY2 = ["numpy", "python-socketio[client]"]
-DEFAULT_REQUIREMENTS_PY3 = ["numpy", "python-socketio[client]", "janus"]
-REQ_PSUTIL = ["psutil"]
-REQ_PSUTIL_CONDA = ["conda:psutil"]
 MAX_ATTEMPTS = 1000
 
 
@@ -68,10 +64,20 @@ async def on_init_plugin(engine, sid, kwargs):
             os.makedirs(work_dir)
         plugin_env = os.environ.copy()
         plugin_env["WORK_DIR"] = work_dir
-        imjoy_path = str(HERE.resolve())
-        plugin_env["PYTHONPATH"] = (
-            imjoy_path + os.path.pathsep + plugin_env.get("PYTHONPATH", "")
-        )
+        if engine.opt.dev:
+            imjoy_path = str(HERE.resolve())
+            plugin_env["PYTHONPATH"] = (
+                imjoy_path + os.path.pathsep + plugin_env.get("PYTHONPATH", "")
+            )
+            worker_module = "workers.python_worker"
+            logger.debug(
+                "ImJoy package directory was added to PYTHONPATH, will run module `workers.python_worker`."
+            )
+        else:
+            worker_module = "imjoy.workers.python_worker"
+            logger.debug(
+                "Will run module `imjoy.workers.python_worker` from installed ImJoy package."
+            )
 
         logger.info(
             "Initialize the plugin, name=%s, id=%s, cmd=%s, workspace=%s",
@@ -191,8 +197,8 @@ async def on_init_plugin(engine, sid, kwargs):
             )
             asyncio.run_coroutine_threadsafe(coro, eloop).result()
 
-        args = '{} -m workers.python_worker --id="{}" --server={} --secret="{}"'.format(
-            cmd, pid, "http://127.0.0.1:" + engine.opt.port, secret_key
+        args = '{} -m {} --id="{}" --server={} --secret="{}"'.format(
+            cmd, worker_module, pid, "http://127.0.0.1:" + engine.opt.port, secret_key
         )
         task_thread = threading.Thread(
             target=launch_plugin,
@@ -631,9 +637,7 @@ def launch_plugin(
         default_virtual_env = default_virtual_env.replace(" ", "_")
         venv_name, envs, is_py2 = parse_env(engine, env, work_dir, default_virtual_env)
         environment_variables = {}
-        default_requirements = (
-            DEFAULT_REQUIREMENTS_PY2 if is_py2 else DEFAULT_REQUIREMENTS_PY3
-        )
+        default_requirements = ["imjoy[worker]==" + __version__]
         default_reqs_cmds = parse_requirements(
             default_requirements, conda=opt.conda_available
         )
@@ -653,7 +657,7 @@ def launch_plugin(
             """Notify when an install process command has finished."""
             logger.debug("Finished running (pid=%s): %s", pid, cmd)
             nonlocal progress
-            progress += int(70 / (len(envs) + len(reqs_cmds) + len(REQ_PSUTIL)))
+            progress += int(70 / (len(envs) + len(reqs_cmds)))
             logging_callback(progress, type="progress")
 
         for _env in envs:
@@ -720,25 +724,6 @@ def launch_plugin(
             process_finish,
             logging_callback,
         )
-
-        if not opt.freeze:
-            psutil_cmds = parse_requirements(REQ_PSUTIL)
-            logger.info("Running requirements commands: %s", psutil_cmds)
-            code, _ = run_commands(
-                plugin_env, work_dir, psutil_cmds, process_start, process_finish
-            )
-        if not opt.freeze and code and opt.conda_available and venv_name is not None:
-            logger.info("Failed installing psutil with pip, trying conda")
-            psutil_cmds = parse_requirements(
-                REQ_PSUTIL_CONDA, conda=opt.conda_available
-            )
-            psutil_cmds = apply_conda_activate(
-                psutil_cmds, opt.conda_activate, venv_name
-            )
-            logger.info("Running requirements commands: %s", psutil_cmds)
-            code, _ = run_commands(
-                plugin_env, work_dir, psutil_cmds, process_start, process_finish
-            )
 
     except Exception:  # pylint: disable=broad-except
         error_traceback = traceback.format_exc()
