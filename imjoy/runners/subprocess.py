@@ -12,29 +12,23 @@ import uuid
 
 import GPUtil
 
+from imjoy import __version__, API_VERSION, HERE
 from imjoy.connection.decorator import socketio_handler as sio_on
-from imjoy.const import (
-    API_VERSION,
-    DEFAULT_REQUIREMENTS_PY2,
-    DEFAULT_REQUIREMENTS_PY3,
-    NAME_SPACE,
-    REQ_PSUTIL,
-    REQ_PSUTIL_CONDA,
-    TEMPLATE_SCRIPT,
-    __version__,
-)
-from imjoy.helper import (
+from imjoy.utils import console_to_str, parse_repos, get_psutil, kill_process
+from .helper import (
     apply_conda_activate,
-    get_psutil,
     install_reqs,
-    kill_process,
     parse_env,
     parse_requirements,
     run_commands,
     run_process,
 )
-from imjoy.util import console_to_str, parse_repos
 
+DEFAULT_REQUIREMENTS_PY2 = ["numpy", "python-socketio[client]"]
+DEFAULT_REQUIREMENTS_PY3 = ["numpy", "python-socketio[client]", "janus"]
+REQ_PSUTIL = ["psutil"]
+REQ_PSUTIL_CONDA = ["conda:psutil"]
+TEMPLATE_SCRIPT = (HERE / "workers" / "python_worker.py").resolve()
 MAX_ATTEMPTS = 1000
 
 
@@ -49,7 +43,7 @@ def setup_subprocess_runner(engine):
     engine.conn.register_event_handler(reset_engine_plugins)
 
 
-@sio_on("init_plugin", namespace=NAME_SPACE)
+@sio_on("init_plugin")
 async def on_init_plugin(engine, sid, kwargs):
     """Initialize plugin."""
     logger = engine.logger
@@ -134,7 +128,7 @@ async def on_init_plugin(engine, sid, kwargs):
         logger.debug("Add plugin: %s", plugin_info)
         add_plugin(engine, plugin_info)
 
-        @sio_on("from_plugin_" + secret_key, namespace=NAME_SPACE)
+        @sio_on("from_plugin_" + secret_key)
         async def message_from_plugin(engine, sid, kwargs):
             if kwargs["type"] in [
                 "initialized",
@@ -158,7 +152,7 @@ async def on_init_plugin(engine, sid, kwargs):
 
         engine.conn.register_event_handler(message_from_plugin)
 
-        @sio_on("message_to_plugin_" + secret_key, namespace=NAME_SPACE)
+        @sio_on("message_to_plugin_" + secret_key)
         async def message_to_plugin(engine, _, kwargs):
             if kwargs["type"] == "message":
                 await engine.conn.sio.emit("to_plugin_" + secret_key, kwargs["data"])
@@ -229,7 +223,7 @@ async def on_init_plugin(engine, sid, kwargs):
         return {"success": False, "reason": traceback_error}
 
 
-@sio_on("register_client", namespace=NAME_SPACE)
+@sio_on("register_client")
 async def on_register_client(engine, sid, kwargs):
     """Register client."""
     logger = engine.logger
@@ -315,7 +309,7 @@ async def on_register_client(engine, sid, kwargs):
     }
 
 
-@sio_on("kill_plugin", namespace=NAME_SPACE)
+@sio_on("kill_plugin")
 async def on_kill_plugin(engine, sid, kwargs):
     """Kill plugin."""
     logger = engine.logger
@@ -347,7 +341,7 @@ async def on_kill_plugin(engine, sid, kwargs):
     return {"success": True}
 
 
-@sio_on("kill_plugin_process", namespace=NAME_SPACE)
+@sio_on("kill_plugin_process")
 async def on_kill_plugin_process(engine, sid, kwargs):
     """Kill plugin process."""
     logger = engine.logger
@@ -366,7 +360,7 @@ async def on_kill_plugin_process(engine, sid, kwargs):
         await kill_all_plugins(engine, sid)
         return {"success": True}
     try:
-        kill_process(logger, int(kwargs["pid"]))
+        kill_process(int(kwargs["pid"]), logger)
         return {"success": True}
     except Exception:  # pylint: disable=broad-except
         return {
@@ -431,7 +425,7 @@ def add_client_session(engine, session_id, client_id, sid, base_url, workspace):
     return client_connected
 
 
-@sio_on("disconnect_client_session", namespace=NAME_SPACE)
+@sio_on("disconnect_client_session")
 async def disconnect_client_session(engine, sid):
     """Disconnect client session."""
     logger = engine.logger
@@ -476,7 +470,7 @@ def add_plugin(engine, plugin_info, sid=None):
         plugin_info["sid"] = sid
 
 
-@sio_on("disconnect_plugin", namespace=NAME_SPACE)
+@sio_on("disconnect_plugin")
 async def disconnect_plugin(engine, sid):
     """Disconnect plugin."""
     logger = engine.logger
@@ -524,7 +518,7 @@ def kill_plugin(engine, pid):
             plugins[pid]["abort"].set()
             plugins[pid]["aborting"] = asyncio.get_event_loop().create_future()
             if plugins[pid]["process_id"] is not None:
-                kill_process(logger, plugins[pid]["process_id"])
+                kill_process(plugins[pid]["process_id"], logger)
         except Exception as exc:  # pylint: disable=broad-except
             logger.error("Failed to kill plugin %s, error: %s", pid, exc)
         if "sid" in plugins[pid]:
@@ -540,7 +534,7 @@ def kill_plugin(engine, pid):
         del plugins[pid]
 
 
-@sio_on("reset_engine_plugins", namespace=NAME_SPACE)
+@sio_on("reset_engine_plugins")
 async def reset_engine_plugins(engine, sid, _):
     """Handle plugins when reset engine is called."""
     await kill_all_plugins(engine, sid)
@@ -810,7 +804,7 @@ def launch_plugin(
             time.sleep(0)
 
         logger.info("Plugin aborting")
-        kill_process(logger, process.pid)
+        kill_process(process.pid, logger)
 
         outputs, errors = process.communicate()
         if outputs is not None:
