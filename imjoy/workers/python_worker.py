@@ -9,6 +9,13 @@ import threading
 from functools import reduce
 from types import ModuleType
 
+if "" not in sys.path:
+    sys.path.insert(0, "")
+
+imjoy_path = os.path.dirname(os.path.normpath(os.path.join(__file__, '..')))
+if imjoy_path not in sys.path:
+    sys.path.insert(0, imjoy_path)
+
 from imjoy.workers.utils import (
     ReferenceStore,
     debounce,
@@ -494,15 +501,6 @@ def main():
 
     opt = parser.parse_args()
 
-    # TODO: We can probably remove this since the script directory will be first in sys.path.
-    if "" not in sys.path:
-        sys.path.insert(0, "")
-
-    imjoy_path = os.path.dirname(os.path.normpath(__file__))
-    if imjoy_path not in sys.path:
-        sys.path.insert(0, imjoy_path)
-
-    # ENDTODO
 
     logging.basicConfig(stream=sys.stdout)
     logger.setLevel(logging.INFO)
