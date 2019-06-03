@@ -1,16 +1,19 @@
 """Provide a web server."""
+import json
 import os
+import pathlib
 import sys
 import threading
 import time
 from mimetypes import MimeTypes
 
 import aiohttp_cors
-from aiohttp import web
+from aiohttp import web, streamer
 
-from imjoy.const import ENGINE, __version__
-from imjoy.helper import kill_process, scandir
-from imjoy.util.aiohttp import file_sender
+from imjoy import __version__, API_VERSION
+from imjoy.utils import kill_process, scandir
+
+ENGINE = "imjoy_engine"
 
 
 def create_app(engine):
@@ -101,6 +104,19 @@ def setup_cors(app):
     cors.add(app.router.add_route("POST", "/upload/{urlid}", upload_file))
     cors.add(app.router.add_get("/file/{urlid}/{name:.+}", download_file))
     cors.add(app.router.add_get("/file/{urlid}@{password}/{name:.+}", download_file))
+
+
+@streamer
+async def file_sender(writer, file_path=None):
+    """Read a large file chunk by chunk and send it through HTTP.
+
+    Do not read the chunks into memory.
+    """
+    with open(file_path, "rb") as f:
+        chunk = f.read(2 ** 16)
+        while chunk:
+            await writer.write(chunk)
+            chunk = f.read(2 ** 16)
 
 
 async def about(request):
@@ -313,7 +329,11 @@ async def on_startup(app):
     """Run on server start."""
     engine = app[ENGINE]
     logger = engine.logger
-    logger.info("ImJoy Python Plugin Engine (version %s)", __version__)
+    logger.info(
+        "ImJoy Python Plugin Engine (version %s, api_version %s)",
+        __version__,
+        API_VERSION,
+    )
 
     if engine.opt.serve:
         logger.info(
@@ -343,7 +363,7 @@ async def on_shutdown(app):
             if stopped.is_set():
                 break
         logger.debug("Plugin engine is killed")
-        kill_process(logger, os.getpid())
+        kill_process(os.getpid(), logger)
 
     loop_thread = threading.Thread(target=loop)
     loop_thread.daemon = True  # stop if the program exits
