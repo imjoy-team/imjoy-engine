@@ -72,7 +72,7 @@ def main():
             "gputil==1.4.0",
             "psutil==5.6.2",
             "python-socketio[client]==4.0.3",
-            "pyyaml==5.1",
+            "pyyaml",
         ]
         ret = subprocess.Popen(
             "conda create -y -n imjoy python=3.6".split(),

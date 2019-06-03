@@ -46,7 +46,7 @@ if sys.version_info > (3, 0):
         "aiohttp_cors==0.7.0",
         "gputil==1.4.0",
         "python-socketio==4.0.3",
-        "pyyaml==5.1",
+        "pyyaml",
     ]
     print("Trying to install psutil with pip")
     ret = subprocess.Popen(
