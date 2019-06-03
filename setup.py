@@ -17,11 +17,11 @@ if sys.version_info > (3, 0):
 
 engine_requirements = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml"]
 
-HERE = os.path.normpath(os.path.join(__file__, '..'))
-with open(os.path.join(HERE, "README.md"), 'r') as f:
+HERE = os.path.normpath(os.path.join(__file__, ".."))
+with open(os.path.join(HERE, "README.md"), "r") as f:
     README = f.read()
 
-with open(os.path.join(HERE, "imjoy", "VERSION"), 'r') as f:
+with open(os.path.join(HERE, "imjoy", "VERSION"), "r") as f:
     VERSION = json.load(f)["version"]
 
 setup(
@@ -37,10 +37,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=requirements,
-    extras_require={
-        'engine': engine_requirements,
-        'worker': [],
-    },
+    extras_require={"engine": engine_requirements, "worker": []},
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},
 )

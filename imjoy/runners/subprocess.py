@@ -69,11 +69,15 @@ async def on_init_plugin(engine, sid, kwargs):
             plugin_env["PYTHONPATH"] = (
                 imjoy_path + os.path.pathsep + plugin_env.get("PYTHONPATH", "")
             )
-            worker_module = 'workers.python_worker'
-            logger.debug('Adding imjoy package directory to PYTHONPATH, will run module `workers.python_worker`')
+            worker_module = "workers.python_worker"
+            logger.debug(
+                "Adding imjoy package directory to PYTHONPATH, will run module `workers.python_worker`"
+            )
         else:
-            worker_module = 'imjoy.workers.python_worker'
-            logger.debug('Will use workers from pip package, will run module `imjoy.workers.python_worker`')
+            worker_module = "imjoy.workers.python_worker"
+            logger.debug(
+                "Will use workers from pip package, will run module `imjoy.workers.python_worker`"
+            )
 
         logger.info(
             "Initialize the plugin, name=%s, id=%s, cmd=%s, workspace=%s",

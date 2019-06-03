@@ -14,6 +14,7 @@ def main():
     if opt.dev:
         print("Running ImJoy Plugin Engine in development mode")
         from .engine import run
+
         run()
         return
 
@@ -72,6 +73,7 @@ def main():
 
         # reload to use the new version
         import imjoy
+
         importlib.reload(imjoy)
         from imjoy.engine import run
 
@@ -95,7 +97,7 @@ def main():
                 "Otherwise, please make sure you are running in a conda environment"
             )
         pip_cmd = "pip install -U imjoy[engine]"
-        
+
         if conda_available:
             if sys.platform == "linux" or sys.platform == "linux2":
                 # linux
