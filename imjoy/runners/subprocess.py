@@ -68,11 +68,10 @@ async def on_init_plugin(engine, sid, kwargs):
             os.makedirs(work_dir)
         plugin_env = os.environ.copy()
         plugin_env["WORK_DIR"] = work_dir
-        imjoy_path = HERE.resolve()
-        if "PYTHONPATH" in plugin_env:
-            plugin_env['PYTHONPATH'] = imjoy_path + os.path.pathsep + plugin_env['PYTHONPATH']
-        else:
-            plugin_env['PYTHONPATH'] = imjoy_path
+        imjoy_path = str(HERE.resolve())
+        plugin_env["PYTHONPATH"] = (
+            imjoy_path + os.path.pathsep + plugin_env.get("PYTHONPATH", "")
+        )
 
         logger.info(
             "Initialize the plugin, name=%s, id=%s, cmd=%s, workspace=%s",
