@@ -11,7 +11,7 @@ DESCRIPTION = (
 REQUIREMENTS = ["python-socketio[client]==4.1.0", "numpy", 'janus;python_version>"3.0"']
 ENGINE_REQUIREMENTS = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml"]
 
-HERE = os.path.normpath(os.path.join(__file__, ".."))
+HERE = os.path.dirname(__file__)
 with open(os.path.join(HERE, "README.md"), "r") as f:
     README = f.read()
 
