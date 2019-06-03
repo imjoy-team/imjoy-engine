@@ -9,17 +9,11 @@ import threading
 from functools import reduce
 from types import ModuleType
 
-worker_path = os.path.dirname(os.path.normpath(os.path.join(__file__, '..')))
+worker_path = os.path.dirname(os.path.normpath(os.path.join(__file__, "..")))
 if worker_path not in sys.path:
     sys.path.insert(0, worker_path)
 
-from workers.utils import (
-    ReferenceStore,
-    debounce,
-    dotdict,
-    get_psutil,
-    set_interval,
-)
+from workers.utils import ReferenceStore, debounce, dotdict, get_psutil, set_interval
 
 if sys.version_info >= (3, 0):
     from workers.utils3 import FuturePromise
@@ -497,7 +491,6 @@ def main():
     parser.add_argument("--debug", action="store_true", help="debug mode")
 
     opt = parser.parse_args()
-
 
     logging.basicConfig(stream=sys.stdout)
     logger.setLevel(logging.INFO)
