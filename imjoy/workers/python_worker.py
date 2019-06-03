@@ -9,12 +9,11 @@ import threading
 from functools import reduce
 from types import ModuleType
 
+worker_path = os.path.dirname(os.path.normpath(os.path.join(__file__, '..')))
+if worker_path not in sys.path:
+    sys.path.insert(0, worker_path)
 
-imjoy_path = os.path.dirname(os.path.normpath(os.path.join(__file__, '..')))
-if imjoy_path not in sys.path:
-    sys.path.insert(0, imjoy_path)
-
-from imjoy.workers.utils import (
+from workers.utils import (
     ReferenceStore,
     debounce,
     dotdict,
@@ -23,13 +22,13 @@ from imjoy.workers.utils import (
 )
 
 if sys.version_info >= (3, 0):
-    from imjoy.workers.utils3 import FuturePromise
-    from imjoy.workers.python3_client import AsyncClient
+    from workers.utils3 import FuturePromise
+    from workers.python3_client import AsyncClient
 
     PYTHON3 = True
 else:
-    from imjoy.workers.utils import Promise
-    from imjoy.workers.python_client import Client
+    from workers.utils import Promise
+    from workers.python_client import Client
 
     PYTHON3 = False
 

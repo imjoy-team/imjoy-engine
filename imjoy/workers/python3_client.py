@@ -7,9 +7,9 @@ import traceback
 
 import janus
 
-from imjoy.workers.utils import format_traceback, Registry
-from imjoy.workers.utils3 import make_coro
-from imjoy.workers.python_client import BaseClient, JOB_HANDLERS
+from workers.utils import format_traceback, Registry
+from workers.utils3 import make_coro
+from workers.python_client import BaseClient, JOB_HANDLERS
 
 # pylint: disable=unused-argument, redefined-outer-name
 
