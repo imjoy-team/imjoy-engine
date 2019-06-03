@@ -360,7 +360,7 @@ async def on_kill_plugin_process(engine, sid, kwargs):
         await kill_all_plugins(engine, sid)
         return {"success": True}
     try:
-        kill_process(logger, int(kwargs["pid"]))
+        kill_process(int(kwargs["pid"]), logger)
         return {"success": True}
     except Exception:  # pylint: disable=broad-except
         return {
@@ -518,7 +518,7 @@ def kill_plugin(engine, pid):
             plugins[pid]["abort"].set()
             plugins[pid]["aborting"] = asyncio.get_event_loop().create_future()
             if plugins[pid]["process_id"] is not None:
-                kill_process(logger, plugins[pid]["process_id"])
+                kill_process(plugins[pid]["process_id"], logger)
         except Exception as exc:  # pylint: disable=broad-except
             logger.error("Failed to kill plugin %s, error: %s", pid, exc)
         if "sid" in plugins[pid]:
@@ -804,7 +804,7 @@ def launch_plugin(
             time.sleep(0)
 
         logger.info("Plugin aborting")
-        kill_process(logger, process.pid)
+        kill_process(process.pid, logger)
 
         outputs, errors = process.communicate()
         if outputs is not None:

@@ -104,7 +104,7 @@ def bootstrap(opt, logger):
     try:
         if os.path.exists(pid_file):
             with open(pid_file, "r") as fil:
-                kill_process(logger, int(fil.read()))
+                kill_process(int(fil.read()), logger)
     except Exception:  # pylint: disable=broad-except
         logger.debug("Failed to kill last process")
     try:

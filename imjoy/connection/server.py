@@ -363,7 +363,7 @@ async def on_shutdown(app):
             if stopped.is_set():
                 break
         logger.debug("Plugin engine is killed")
-        kill_process(logger, os.getpid())
+        kill_process(os.getpid(), logger)
 
     loop_thread = threading.Thread(target=loop)
     loop_thread.daemon = True  # stop if the program exits

@@ -76,12 +76,13 @@ def get_psutil():
         return None
 
 
-def kill_process(logger, pid):
+def kill_process(pid, logger=None):
     """Kill process."""
     psutil = get_psutil()
     if psutil is None:
         return
-    logger.info("Killing plugin process (pid=%s)", pid)
+    if logger:
+        logger.info("Killing plugin process (pid=%s)", pid)
     try:
         current_process = psutil.Process(pid)
         for proc in current_process.children(recursive=True):
@@ -89,22 +90,27 @@ def kill_process(logger, pid):
                 if proc.is_running():
                     proc.kill()
             except psutil.NoSuchProcess:
-                logger.info("Subprocess %s has already been killed", pid)
+                if logger:
+                    logger.info("Subprocess %s has already been killed", pid)
             except Exception as exc:  # pylint: disable=broad-except
-                logger.error(
-                    "Failed to kill a subprocess (pid=%s). Error: %s", pid, exc
-                )
+                if logger:
+                    logger.error(
+                        "Failed to kill a subprocess (pid=%s). Error: %s", pid, exc
+                    )
         current_process.kill()
-        logger.info("Plugin process %s was killed.", pid)
+        if logger:
+            logger.info("Plugin process %s was killed.", pid)
     except psutil.NoSuchProcess:
-        logger.info("Process %s has already been killed", pid)
+        if logger:
+            logger.info("Process %s has already been killed", pid)
     except Exception as exc:  # pylint: disable=broad-except
-        logger.error(
-            "Failed to kill a process (pid=%s), "
-            "you may want to kill it manually. Error: %s",
-            pid,
-            exc,
-        )
+        if logger:
+            logger.error(
+                "Failed to kill a process (pid=%s), "
+                "you may want to kill it manually. Error: %s",
+                pid,
+                exc,
+            )
 
 
 def scandir(path, type_=None, recursive=False):
