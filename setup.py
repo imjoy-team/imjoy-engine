@@ -8,14 +8,19 @@ DESCRIPTION = (
     "or remotely from ImJoy.io"
 )
 
-REQUIREMENTS = ["python-socketio[client]==4.1.0", "numpy", 'janus;python_version>"3.0"']
+REQUIREMENTS = [
+    "python-socketio[client]==4.1.0",
+    "numpy",
+    'janus;python_version>"3.3"',
+    'pathlib;python_version<"3.4"',
+]
 ENGINE_REQUIREMENTS = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml"]
 
-HERE = os.path.dirname(__file__)
-with open(os.path.join(HERE, "README.md"), "r") as f:
+ROOT_DIR = os.path.dirname(__file__)
+with open(os.path.join(ROOT_DIR, "README.md"), "r") as f:
     README = f.read()
 
-with open(os.path.join(HERE, "imjoy", "VERSION"), "r") as f:
+with open(os.path.join(ROOT_DIR, "imjoy", "VERSION"), "r") as f:
     VERSION = json.load(f)["version"]
 
 setup(

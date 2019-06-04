@@ -12,7 +12,7 @@ import uuid
 
 import GPUtil
 
-from imjoy import __version__, API_VERSION, HERE
+from imjoy import __version__, API_VERSION, IMJOY_PACKAGE_DIR
 from imjoy.connection.decorator import socketio_handler as sio_on
 from imjoy.utils import console_to_str, parse_repos, get_psutil, kill_process
 from .helper import (
@@ -65,9 +65,8 @@ async def on_init_plugin(engine, sid, kwargs):
         plugin_env = os.environ.copy()
         plugin_env["WORK_DIR"] = work_dir
         if engine.opt.dev:
-            imjoy_path = str(HERE.resolve())
             plugin_env["PYTHONPATH"] = (
-                imjoy_path + os.path.pathsep + plugin_env.get("PYTHONPATH", "")
+                IMJOY_PACKAGE_DIR + os.path.pathsep + plugin_env.get("PYTHONPATH", "")
             )
             worker_module = "workers.python_worker"
             logger.debug(
