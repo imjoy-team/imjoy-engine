@@ -1,10 +1,10 @@
 """Package the ImJoy plugin engine."""
 import json
-import pathlib
+import os
 
 # read version information from file
-HERE = pathlib.Path(__file__).parent
-IMJOY_PACKAGE_DIR = str(HERE.absolute())
-VERSION_INFO = json.loads((HERE / "VERSION").read_text())
-__version__ = VERSION_INFO["version"]
-API_VERSION = VERSION_INFO["api_version"]
+IMJOY_PACKAGE_DIR = os.path.dirname(__file__)
+with open(os.path.join(IMJOY_PACKAGE_DIR, "VERSION"), "r") as f:
+    VERSION_INFO = json.load(f)
+    __version__ = VERSION_INFO["version"]
+    API_VERSION = VERSION_INFO["api_version"]
