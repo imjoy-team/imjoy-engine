@@ -104,7 +104,9 @@ def main():
             if pip_available:
                 print("Trying to install psutil with pip")
                 ret = subprocess.Popen(
-                    "python -m pip install psutil".split(), env=os.environ.copy(), shell=False
+                    "python -m pip install psutil".split(),
+                    env=os.environ.copy(),
+                    shell=False,
                 ).wait()
             else:
                 ret = 1
@@ -183,7 +185,7 @@ def main():
             pip_cmd = conda_activate.format(
                 "imjoy && " + pip_cmd + " && python -m imjoy"
             )
-            print('Running command: '+pip_cmd)
+            print("Running command: " + pip_cmd)
             ret = subprocess.Popen(pip_cmd, shell=True).wait()
             if ret != 0:
                 raise Exception(
