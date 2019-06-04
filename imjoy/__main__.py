@@ -87,6 +87,13 @@ def main():
                 print(
                     "pip not found, unable to install it because conda is not available"
                 )
+        else:
+            print("Upgrading pip...")
+            ret = subprocess.Popen(
+                "python -m pip install -U pip".split(), shell=False
+            ).wait()
+            if ret != 0:
+                print("Failed to upgrade pip.")
     except Exception as e:
         print("Failed to check or install pip/git, error: {}".format(e))
 
@@ -97,7 +104,7 @@ def main():
             if pip_available:
                 print("Trying to install psutil with pip")
                 ret = subprocess.Popen(
-                    "pip install psutil".split(), env=os.environ.copy(), shell=False
+                    "python -m pip install psutil".split(), env=os.environ.copy(), shell=False
                 ).wait()
             else:
                 ret = 1
@@ -108,10 +115,12 @@ def main():
                     "conda install -y psutil".split(), env=os.environ.copy()
                 ).wait()
                 if ret2 != 0:
-                    raise Exception(
-                        "Failed to install psutil, "
+                    print(
+                        "WARNING: Failed to install psutil, "
                         "please try to setup an environment with gcc support."
                     )
+                else:
+                    print("psutil was installed successfully.")
             elif ret != 0:
                 print("Failed to install psutil.")
 
@@ -120,7 +129,7 @@ def main():
             # running in python 3
             print("Upgrading ImJoy Plugin Engine")
             ret = subprocess.Popen(
-                "pip install -U imjoy[engine]".split(),
+                "python -m pip install -U imjoy[engine]".split(),
                 env=os.environ.copy(),
                 shell=False,
             ).wait()
@@ -141,7 +150,7 @@ def main():
         if conda_available:
             print("ImJoy needs to run in Python 3.6+, bootstrapping with conda")
             ret = subprocess.Popen(
-                "conda create -y -n imjoy python=3.6".split(),
+                "conda create -y -n imjoy python=3.6 conda".split(),
                 env=os.environ.copy(),
                 shell=False,
             ).wait()
@@ -155,7 +164,7 @@ def main():
                     "conda environment failed to setup, maybe it already exists. "
                     "Otherwise, please make sure you are running in a conda environment"
                 )
-            pip_cmd = "pip install -U imjoy[engine]"
+            pip_cmd = "python -m pip install -U imjoy[engine]"
 
             if sys.platform == "linux" or sys.platform == "linux2":
                 # linux
@@ -172,9 +181,10 @@ def main():
                 conda_activate = "conda activate {}"
 
             pip_cmd = conda_activate.format(
-                " imjoy && " + pip_cmd + " && python -m imjoy"
+                "imjoy && " + pip_cmd + " && python -m imjoy"
             )
-            ret = subprocess.Popen(pip_cmd.split(), shell=False).wait()
+            print('Running command: '+pip_cmd)
+            ret = subprocess.Popen(pip_cmd, shell=True).wait()
             if ret != 0:
                 raise Exception(
                     "Failed to install and start ImJoy, exit code: {}".format(ret)
