@@ -13,14 +13,14 @@ from .utils import ReferenceStore, debounce, dotdict, get_psutil, set_interval
 
 if sys.version_info >= (3, 4):
     from .utils3 import FuturePromise
-    from .python3_client import AsyncClient
+    from .PYTHON34_client import AsyncClient
 
-    PYTHON3 = True
+    PYTHON34 = True
 else:
     from .utils import Promise
     from .python_client import Client
 
-    PYTHON3 = False
+    PYTHON34 = False
 
 ARRAY_CHUNK = 1000000
 logger = logging.getLogger("plugin")
@@ -81,7 +81,7 @@ class PluginConnection:
         self.opt = opt
         if client is not None:
             self.client = client
-        elif PYTHON3:
+        elif PYTHON34:
             self.client = AsyncClient(self, self.opt)
         else:
             self.client = Client(self, self.opt)
@@ -222,7 +222,7 @@ class PluginConnection:
             elif isinstance(val, (dict, list)):
                 v_obj = self._encode(val)
             elif not isinstance(val, basestring) and isinstance(val, bytes):
-                v_obj = val.decode()  # covert python3 bytes to str
+                v_obj = val.decode()  # covert PYTHON34 bytes to str
             elif isinstance(val, Exception):
                 v_obj = {"__jailed_type__": "error", "__value__": str(val)}
             else:
@@ -378,7 +378,7 @@ class PluginConnection:
                 }
                 self.emit(call_func)
 
-            if PYTHON3:
+            if PYTHON34:
                 return FuturePromise(pfunc, self.client.loop)
             return Promise(pfunc)
 
@@ -408,7 +408,7 @@ class PluginConnection:
                         }
                     )
 
-                if PYTHON3:
+                if PYTHON34:
                     return FuturePromise(pfunc, self.client.loop)
                 return Promise(pfunc)
 
