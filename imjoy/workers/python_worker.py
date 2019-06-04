@@ -11,7 +11,7 @@ from types import ModuleType
 
 from .utils import ReferenceStore, debounce, dotdict, get_psutil, set_interval
 
-if sys.version_info >= (3, 0):
+if sys.version_info >= (3, 4):
     from .utils3 import FuturePromise
     from .python3_client import AsyncClient
 
