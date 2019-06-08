@@ -36,10 +36,10 @@ async def on_list_dir(engine, sid, kwargs):
         )
 
         path = kwargs.get("path", workspace_dir)
-
+        path = os.path.normpath(os.path.expanduser(path))
         if not os.path.isabs(path):
             path = os.path.join(workspace_dir, path)
-        path = os.path.normpath(os.path.expanduser(path))
+        path = os.path.abspath(path)
 
         type_ = kwargs.get("type")
         recursive = kwargs.get("recursive", False)
