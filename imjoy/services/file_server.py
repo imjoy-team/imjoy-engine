@@ -44,6 +44,7 @@ async def on_list_dir(engine, sid, kwargs):
         type_ = kwargs.get("type")
         recursive = kwargs.get("recursive", False)
         files_list = {"success": True}
+        files_list["sep"] = os.sep
         files_list["path"] = path
         files_list["name"] = os.path.basename(os.path.abspath(path))
         files_list["type"] = "dir"
