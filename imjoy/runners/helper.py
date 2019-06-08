@@ -53,7 +53,7 @@ def install_reqs(
     cmd_history = engine.store.cmd_history
     commands = []
     code = 0
-    error = None
+    errors = None
 
     for cmd in reqs_cmds:
         if cmd in cmd_history:
@@ -64,11 +64,11 @@ def install_reqs(
     def fail_install():
         """Notify of failed installation."""
         logging_callback(
-            f"Failed to install dependencies with exit code {code} and error: {error}",
+            f"Failed to install dependencies with exit code {code} and error: {errors}",
             type="error",
         )
         raise Exception(
-            f"Failed to install dependencies with exit code {code} and error: {error}"
+            f"Failed to install dependencies with exit code {code} and error: {errors}"
         )
 
     def _process_start(pid=None, cmd=None):

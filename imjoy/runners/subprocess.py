@@ -637,7 +637,11 @@ def launch_plugin(
         default_virtual_env = default_virtual_env.replace(" ", "_")
         venv_name, envs, is_py2 = parse_env(engine, env, work_dir, default_virtual_env)
         environment_variables = {}
-        default_requirements = ["imjoy[worker]==" + __version__]
+
+        if engine.opt.dev:
+            default_requirements = ["imjoy[worker]"]
+        else:
+            default_requirements = ["imjoy[worker]==" + __version__]
         default_reqs_cmds = parse_requirements(
             default_requirements, conda=opt.conda_available
         )

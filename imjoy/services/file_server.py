@@ -36,20 +36,21 @@ async def on_list_dir(engine, sid, kwargs):
         )
 
         path = kwargs.get("path", workspace_dir)
-
+        path = os.path.normpath(os.path.expanduser(path))
         if not os.path.isabs(path):
             path = os.path.join(workspace_dir, path)
-        path = os.path.normpath(os.path.expanduser(path))
+        path = os.path.abspath(path)
 
         type_ = kwargs.get("type")
         recursive = kwargs.get("recursive", False)
         files_list = {"success": True}
+        files_list["sep"] = os.sep
         files_list["path"] = path
         files_list["name"] = os.path.basename(os.path.abspath(path))
         files_list["type"] = "dir"
         files_list["children"] = scandir(files_list["path"], type_, recursive)
 
-        if sys.platform == "win32" and os.path.abspath(path) == os.path.abspath("/"):
+        if sys.platform == "win32":
             files_list["drives"] = get_drives()
 
         return files_list
