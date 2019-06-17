@@ -33,7 +33,6 @@ def setup_subprocess_runner(engine):
     engine.conn.register_event_handler(on_init_plugin)
     engine.conn.register_event_handler(on_kill_plugin)
     engine.conn.register_event_handler(on_kill_plugin_process)
-    engine.conn.register_event_handler(disconnect_client_session)
     engine.conn.register_event_handler(disconnect_plugin)
     engine.conn.register_event_handler(reset_engine_plugins)
 
@@ -433,29 +432,6 @@ def add_client_session(engine, session_id, client_id, sid, base_url, workspace):
         "workspace": workspace,
     }
     return client_connected
-
-
-@sio_on("disconnect_client_session")
-async def disconnect_client_session(engine, sid):
-    """Disconnect client session."""
-    logger = engine.logger
-    clients = engine.store.clients
-    plugin_sessions = engine.store.plugin_sessions
-    registered_sessions = engine.store.registered_sessions
-    if sid in registered_sessions:
-        logger.info("Disconnecting client session %s", sid)
-        obj = registered_sessions[sid]
-        client_id, session_id = obj["client"], obj["session"]
-        del registered_sessions[sid]
-        if client_id in clients and sid in clients[client_id]:
-            clients[client_id].remove(sid)
-            if not clients[client_id]:
-                del clients[client_id]
-        if session_id in plugin_sessions:
-            for plugin in plugin_sessions[session_id]:
-                if "allow-detach" not in plugin["flags"]:
-                    kill_plugin(engine, plugin["id"])
-            del plugin_sessions[session_id]
 
 
 def add_plugin(engine, plugin_info, sid=None):
