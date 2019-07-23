@@ -53,14 +53,11 @@ class Engine:
 
     def start_proxy(self):
         """Start the reverse proxy for public access."""
-        try:
-            from pyngrok import ngrok
+        from pyngrok import ngrok
 
-            public_url = ngrok.connect(port=self.opt.port)
-            public_url = public_url.replace("http", "https")
-            self.public_url = public_url
-        except:
-            self.logger.error("ngrok failed to start.")
+        public_url = ngrok.connect(port=self.opt.port)
+        public_url = public_url.replace("http", "https")
+        self.public_url = public_url
 
     def start(self):
         """Start the engine."""
