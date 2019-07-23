@@ -349,11 +349,19 @@ async def on_startup(app):
             "Please go to https://imjoy.io/#/app "
             "with your web browser (Chrome or FireFox)"
         )
-    if engine.opt.public:
-        print("Public engine url: {}".format(engine.public_url))
-    else:
+
+    if engine.public_url:
+        print("========>> Public Engine URL: {} <<========".format(engine.public_url))
+    elif not engine.opt.public:
         print("Tip: use `--public` to access remotely")
+
     print("========>> Connection token: {} <<========".format(engine.opt.token))
+    if engine.public_url:
+        print(
+            "========>> Sharing Plugin Engine: https://imjoy.io/#/app?engine={}&token={} <<========".format(
+                engine.public_url, engine.opt.token
+            )
+        )
     sys.stdout.flush()
 
 

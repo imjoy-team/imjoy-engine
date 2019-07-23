@@ -746,10 +746,10 @@ def launch_plugin(
     # env = os.environ.copy()
 
     # Replace python to python3
-    _args = args.split(' ')
-    if not is_py2 and _args[0] == 'python':
-        _args[0] = 'python3'
-        args = ' '.join(_args)
+    _args = args.split(" ")
+    if not is_py2 and _args[0] == "python":
+        _args[0] = "python3"
+        args = " ".join(_args)
 
     if opt.conda_available and venv_name is not None:
         [args] = apply_conda_activate([args], opt.conda_activate, venv_name)
