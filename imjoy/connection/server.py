@@ -339,15 +339,20 @@ async def on_startup(app):
     )
 
     if engine.opt.serve:
-        logger.info(
-            "You can access your local ImJoy web app through %s , imjoy!",
-            engine.opt.base_url,
+        print(
+            "You can access your local ImJoy web app through {} , imjoy!".format(
+                engine.opt.base_url
+            )
         )
     else:
-        logger.info(
+        print(
             "Please go to https://imjoy.io/#/app "
             "with your web browser (Chrome or FireFox)"
         )
+    if engine.opt.public:
+        print("Public engine url: {}".format(engine.public_url))
+    else:
+        print("Tip: use `--public` to access remotely")
     print("========>> Connection token: {} <<========".format(engine.opt.token))
     sys.stdout.flush()
 

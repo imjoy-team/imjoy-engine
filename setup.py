@@ -14,7 +14,7 @@ REQUIREMENTS = [
     'janus;python_version>"3.3"',
     'pathlib;python_version<"3.4"',
 ]
-ENGINE_REQUIREMENTS = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml"]
+ENGINE_REQUIREMENTS = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml", "pyngrok"]
 
 ROOT_DIR = os.path.dirname(__file__)
 with open(os.path.join(ROOT_DIR, "README.md"), "r") as f:

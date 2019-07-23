@@ -26,6 +26,7 @@ class Engine:
         self.opt = opt
         self.conn = None
         self.store = None
+        self.public_url = None
 
     def __repr__(self):
         """Return the engine representation."""
@@ -50,8 +51,21 @@ class Engine:
         setup_services(self)
         setup_runners(self)
 
+    def start_proxy(self):
+        """Start the reverse proxy for public access."""
+        try:
+            from pyngrok import ngrok
+
+            public_url = ngrok.connect(port=self.opt.port)
+            public_url = public_url.replace("http", "https")
+            self.public_url = public_url
+        except:
+            self.logger.error("ngrok failed to start.")
+
     def start(self):
         """Start the engine."""
+        if self.opt.public:
+            self.start_proxy()
         self.conn.start()
 
 

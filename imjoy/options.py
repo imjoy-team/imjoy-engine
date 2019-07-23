@@ -40,6 +40,11 @@ def parse_cmd_line(args=None):
         "--freeze", action="store_true", help="disable conda and pip commands"
     )
     parser.add_argument(
+        "--public",
+        action="store_true",
+        help="enable public access to the engine with ngrok reverse proxy.",
+    )
+    parser.add_argument(
         "--engine_container_token",
         type=str,
         default=None,
