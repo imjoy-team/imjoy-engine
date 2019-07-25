@@ -55,7 +55,7 @@ class Engine:
         """Start the reverse proxy for public access."""
         from pyngrok import ngrok
 
-        public_url = ngrok.connect(port=self.opt.port)
+        public_url = ngrok.connect(port=self.opt.port, options={'host-header': 'rewrite'})
         public_url = public_url.replace("http", "https")
         self.public_url = public_url
 
