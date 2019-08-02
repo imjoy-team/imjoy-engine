@@ -13,7 +13,7 @@ from .server import create_app, run_app
 def create_connection_manager(engine):
     """Create a socketio connection and return the connection instance."""
     # ALLOWED_ORIGINS = [opt.base_url, 'http://imjoy.io', 'https://imjoy.io']
-    sio = socketio.AsyncServer()
+    sio = socketio.AsyncServer(cors_allowed_origins="*")
     app = create_app(engine)
     sio.attach(app)
     return ConnectionManager(engine, app, sio)
