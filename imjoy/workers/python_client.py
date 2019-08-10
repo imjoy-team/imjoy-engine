@@ -231,7 +231,8 @@ class Client(BaseClient):
         """Set up client instance."""
         super(Client, self).__init__(conn, opt)
         self.queue = queue.Queue()
+        self.task_worker = task_worker
 
     def run_forever(self):
         """Run forever."""
-        task_worker(self.conn, self.queue, logger, self.conn.abort)
+        self.task_worker(self.conn, self.queue, logger, self.conn.abort)

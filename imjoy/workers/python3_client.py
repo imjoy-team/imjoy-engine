@@ -125,11 +125,23 @@ class AsyncClient(BaseClient):
         self.loop = asyncio.get_event_loop()
         self.janus_queue = janus.Queue(loop=self.loop)
         self.queue = self.janus_queue.sync_q
+        self.task_worker = task_worker
 
     def run_forever(self):
         """Run forever."""
-        workers = [
-            task_worker(self.conn, self.janus_queue.async_q, logger, self.conn.abort)
-            for i in range(10)
-        ]
-        self.loop.run_until_complete(asyncio.gather(*workers))
+
+        if self.loop.is_running():
+            for i in range(10):
+                self.loop.create_task(
+                    self.task_worker(
+                        self.conn, self.janus_queue.async_q, logger, self.conn.abort
+                    )
+                )
+        else:
+            workers = [
+                self.task_worker(
+                    self.conn, self.janus_queue.async_q, logger, self.conn.abort
+                )
+                for i in range(10)
+            ]
+            self.loop.run_until_complete(asyncio.gather(*workers))
