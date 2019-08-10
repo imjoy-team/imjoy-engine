@@ -64,7 +64,7 @@ class PluginConnection:
 
     # pylint:disable=too-many-instance-attributes
 
-    def __init__(self, opt, client=None):
+    def __init__(self, opt):
         """Set up connection instance."""
         self.secret = opt.secret
         self.id = opt.id  # pylint: disable=invalid-name
@@ -79,16 +79,11 @@ class PluginConnection:
         self.abort = threading.Event()
         self.work_dir = opt.work_dir
         self.opt = opt
-        if client is not None:
-            self.client = client
-        elif PYTHON34:
-            self.client = AsyncClient(self, self.opt)
-        else:
-            self.client = Client(self, self.opt)
-        self.emit = self.client.emit
 
-    def setup(self):
+    def setup(self, client):
         """Set up the plugin connection."""
+        self.client = client
+        self.emit = self.client.emit
         self.client.setup()
         if not self.work_dir or self.work_dir == ".":
             self.work_dir = os.getcwd()
@@ -494,7 +489,11 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     plugin_conn = PluginConnection(opt)
-    plugin_conn.setup()
+    if PYTHON34:
+        client = AsyncClient(plugin_conn, opt)
+    else:
+        client = Client(plugin_conn, opt)
+    plugin_conn.setup(client)
     plugin_conn.start()
 
 

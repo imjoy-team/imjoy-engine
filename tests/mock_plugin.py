@@ -101,10 +101,14 @@ class TestPlugin:
         logger.info("Plugin disconnected: %s", msg)
         self.terminated = True
 
+    def setup(self):
+        pass
+
     async def init(self):
         """initialize the plugin."""
         opt = dotdict(id=self.pid, secret=self.secret)
-        self.conn = PluginConnection(opt, client=self)
+        self.conn = PluginConnection(opt)
+        self.conn.setup(self)
         self.terminated = False
         initialized = self.loop.create_future()
         self.on_plugin_message("initialized", initialized)
