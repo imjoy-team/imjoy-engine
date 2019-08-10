@@ -55,14 +55,11 @@ class JupyterClient(AsyncClient):
 
     def emit(self, msg):
         """Emit a message to the socketio server."""
-        logger.info("========> sending msg: %s", msg)
         self.comm.send(msg)
 
     def comm_plugin_message(self, msg):
         """Handle plugin message."""
         data = msg["content"]["data"]
-        logger.info("=========> processing message %s", data)
-
         # if not self.conn.executed:
         #    self.emit({'type': 'message', 'data': {"type": "interfaceSetAsRemote"}})
 
@@ -80,22 +77,13 @@ class JupyterClient(AsyncClient):
             return None
         elif data["type"] == "execute":
             if not self.conn.executed:
-                handler = JOB_HANDLERS.get(data["type"])
-                if not handler:
-                    self.emit({"type": "nohanler-" + data["type"]})
-                    return
-                handler(self.conn, data, logger)
+                self.queue.put(data)
             else:
                 logger.debug("Skip execution")
                 self.emit({"type": "executeSuccess"})
         elif data["type"] == "message":
             _data = data["data"]
-            handler = JOB_HANDLERS.get(_data["type"])
-            if not handler:
-                self.emit({"type": "nohanler=" + _data["type"], "msg": _data})
-                return
-            handler(self.conn, _data, logger)
-            self.emit({"type": "log", "msg=": _data})
+            self.queue.put(_data)
             logger.debug("Added task to the queue")
         sys.stdout.flush()
         return None

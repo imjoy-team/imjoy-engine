@@ -131,7 +131,7 @@ class AsyncClient(BaseClient):
         """Run forever."""
 
         if self.loop.is_running():
-            for i in range(10):
+            for _ in range(10):
                 self.loop.create_task(
                     self.task_worker(
                         self.conn, self.janus_queue.async_q, logger, self.conn.abort
