@@ -73,11 +73,11 @@ class PluginConnection:
     @staticmethod
     def add_plugin(plugin_id, client_id):
         opt = dotdict(id=plugin_id, secret="", work_dir="")
-        p = PluginConnection(opt)
-        p.client = BaseClient.get_client(client_id)
+        client = BaseClient.get_client(client_id)
+        p = PluginConnection(client, opt)
         return p
 
-    def __init__(self, opt):
+    def __init__(self, client, opt):
         """Set up connection instance."""
         self.secret = opt.secret
         self.id = opt.id  # pylint: disable=invalid-name
@@ -93,7 +93,7 @@ class PluginConnection:
         self.work_dir = opt.work_dir
         self.opt = opt
         self._registered_plugins[self.id] = self
-        self.client = None
+        self.client = client
 
         def emit(_):
             raise NotImplementedError
@@ -507,12 +507,11 @@ def main():
     if opt.debug:
         logger.setLevel(logging.DEBUG)
 
-    plugin_conn = PluginConnection(opt)
     if PYTHON34:
-        AsyncClient()
+        client = AsyncClient()
     else:
-        Client()
-
+        client = Client()
+    plugin_conn = PluginConnection(client, opt)
     plugin_conn.start()
 
 
