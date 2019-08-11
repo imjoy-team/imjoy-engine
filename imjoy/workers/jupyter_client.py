@@ -266,10 +266,17 @@ class JupyterClient(AsyncClient):
     #     self.loop.create_task(self.task_worker(conn, self.queue, logger, conn.abort))
 
     def start(
-        self, name="Untitled Plugin", workspace="default", imjoy_url="https://imjoy.io"
+        self,
+        name="Untitled Plugin",
+        workspace="default",
+        imjoy_url="https://imjoy.io",
+        width="100%",
+        height=650,
     ):
         """Show ImJoy in the output cell."""
         return show_imjoy(
             self.id,
             url=f"{imjoy_url}/#/app?jupyter_plugin={name}&workspace={workspace}",
+            width=width,
+            height=height,
         )
