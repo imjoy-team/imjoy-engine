@@ -3,12 +3,11 @@ import asyncio
 import logging
 import sys
 import traceback
-import uuid
 
 import janus
 
 from .utils import format_traceback
-from .python3_client import AsyncClient, task_worker, JOB_HANDLERS
+from .python3_client import AsyncClient
 from .python_worker import PluginConnection
 from ipykernel.comm import Comm
 from IPython.display import HTML
@@ -21,7 +20,7 @@ import os
 logger = logging.getLogger("jupyter_client")
 
 
-def display_imjoy(plugin_id, url="https://imjoy.io/#/app", width="100%", height=650):
+def display_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=650):
     iframe_html = """
     <style>
     .card {
@@ -32,79 +31,165 @@ def display_imjoy(plugin_id, url="https://imjoy.io/#/app", width="100%", height=
         margin: 1rem;
         position: relative;
         width: 98%%;
-        border-radius: 8px;
+        border-radius: 4px;
     }
     .card-1 {
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
         transition: all 0.3s cubic-bezier(.25,.8,.25,1);
     }
     .card-1:hover {
-        box-shadow: 0 7px 14px rgba(0,0,0,0.25), 0 3px 3px rgba(0,0,0,0.22);
+        box-shadow: 0 6px 10px rgba(0,0,0,0.25), 0 3px 3px rgba(0,0,0,0.22);
     }
     </style>
-    <iframe id="iframe_%(plugin_id)s" onload="setup_imjoy_bridge()" src="%(url)s" class="card card-1" frameborder="0" width="%(width)s" height="%(height)s" style="max-width: 100%%;"></iframe>
+    <iframe id="iframe_%(client_id)s" onload="setup_imjoy_bridge()" src="%(url)s" class="card card-1" frameborder="0" width="%(width)s" height="%(height)s" style="max-width: 100%%;"></iframe>
     <script type="text/Javascript">
-    function setup_imjoy_bridge(){
-        const iframeEl = document.getElementById('iframe_%(plugin_id)s')
-        Jupyter.notebook.kernel.comm_manager.register_target('imjoy_comm_%(plugin_id)s',
-        function (comm, open_msg) {
-            comm.on_msg((msg) => {
-                var data = msg.content.data
-                if(iframeEl&&iframeEl.contentWindow){
-                    //console.log('forwarding message to iframe', data)
-                    if (["initialized",
-                        "importSuccess",
-                        "importFailure",
-                        "executeSuccess",
-                        "executeFailure"
-                        ].includes(data.type)) {
-                        iframeEl.contentWindow.postMessage(data, '*');
-                    } else {
-                        iframeEl.contentWindow.postMessage({
-                        type: 'message',
-                        data: data
-                        }, '*');
-                    }
-                }
-            })
-            var config = open_msg.content.data
-            iframeEl.contentWindow.postMessage({'type': 'init_plugin', 'id': config.id, 'config': config}, '*');
-            window.comm = comm;
-        });
-        window.addEventListener(
-        "message",
-        function (e) {
-            if (iframeEl && iframeEl.contentWindow && e.source === iframeEl.contentWindow) {
-                if (e.data.type == "message") {
-                    if(e.data.data.type === 'init_connection'){
-                        setTimeout(()=>{
-                            var kernel = IPython.notebook.kernel;
-                            function callback(out_type, out_data){
-                                console.log('starting imjoy.')
+    (function(){
+        class PostMessageIO{
+            constructor(iframeEl){
+                this.plugins = {}
+                this._callbacks = {}
+                this.iframeEl = iframeEl
+                window.addEventListener(
+                    "message",
+                    (e)=>{
+                        if(e.data.pio_connect){
+                            if(this._callbacks['connect']){
+                                for(let cb of this._callbacks['connect']){ 
+                                    try{
+                                        cb()
+                                    }
+                                    catch(e){
+                                        console.error(e)
+                                    }
+                                }
                             }
-                            command = 'from imjoy.workers.python_worker import PluginConnection as __plugin_connection__;__plugin_connection__.get_plugin("%(plugin_id)s").start()';
-                            kernel.execute(command, {"output": callback});
-                            console.log('running start');
-                        }, 1000)
-                        
-                    }
-                    else{
-                        window.comm.send(e.data.data);
-                    }
-                    //console.log('forwarding message to python', e.data.data)
+                        }
+                        else if(e.data.pio_disconnect){
+                            if(this._callbacks['disconnect']){
+                                for(let cb of this._callbacks['disconnect']){ 
+                                    try{
+                                        cb()
+                                    }
+                                    catch(e){
+                                        console.error(e)
+                                    }
+                                }
+                            }
+                        }
+                        else{
+                            if (iframeEl && iframeEl.contentWindow && e.source === iframeEl.contentWindow) {
+                                if(e.data.channel && this._callbacks[e.data.channel]){
+                                    for(let cb of this._callbacks[e.data.channel]){
+                                        try{
+                                            cb(e.data)
+                                        }
+                                        catch(e){
+                                            console.error(e)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    false
+                );
+            }
+            
+            emit(channel, data, transferables) {
+                data.channel = channel
+                this.iframeEl.contentWindow.postMessage(
+                    data,
+                    "*",
+                    transferables
+                );
+            }
+
+            on(channel, callback){
+                if(this._callbacks[channel]){
+                    this._callbacks[channel].push(callback)
+                }
+                else{
+                    this._callbacks[channel] = [callback]
                 }
             }
-            e.stopPropagation();
-        },
-        false
-        );
+            
+            off(channel, callback){
+                if(this._callbacks[channel]){
+                    for( var i = 0; i < this._callbacks[channel].length; i++){ 
+                        if ( this._callbacks[channel][i] === callback) {
+                            this._callbacks[channel].splice(i, 1); 
+                        }
+                    }
+                }
+            }
+        }
+        window.PostMessageIO = PostMessageIO;
+    })()
+
+    function setup_imjoy_bridge(){
+        const iframeEl = document.getElementById('iframe_%(client_id)s')
+        const pio = new PostMessageIO(iframeEl);
+        let _connected_comm = null;
+        function add_plugin(plugin, _connected_comm){
+            const id = plugin.id
+            pio.on("message_to_plugin_" + id, (data)=>{
+                _connected_comm.send(data.data);
+                console.log('forwarding message to python', data.data)
+            })
+            _connected_comm.on_msg((msg) => {
+                var data = msg.content.data
+                console.log('forwarding message to iframe', data)
+                if (["initialized",
+                    "importSuccess",
+                    "importFailure",
+                    "executeSuccess",
+                    "executeFailure"
+                    ].includes(data.type)) {
+                    pio.emit("message_from_plugin_" + id, data);
+                } else {
+                    pio.emit("message_from_plugin_" + id, { type: 'message', data: data });
+                }
+                
+            })
+        }
+        Jupyter.notebook.kernel.comm_manager.register_target(
+            'imjoy_comm_%(client_id)s',
+            function (comm, open_msg) {
+                _connected_comm = comm;
+                for(let k in pio.plugins){
+                    add_plugin(pio.plugins[k], _connected_comm)
+                }
+                //var config = open_msg.content.data
+                //pio.emit("message_from_plugin_" + id, {'type': 'init_plugin', 'id': config.id, 'config': config});
+            }
+        )
+
+        pio.on('connect', ()=>{
+            console.log('pio connected.')
+        })
+
+        pio.on('init_plugin', (plugin_config)=>{
+            //id, type, config
+            pio.plugins[plugin_config.id] = plugin_config
+            if(_connected_comm){
+                add_plugin(plugin_config, _connected_comm)
+            }
+
+            var kernel = IPython.notebook.kernel;
+            function callback(out_type, out_data){
+                console.log('starting imjoy.')
+            }
+            command = 'from imjoy.workers.python_worker import PluginConnection as __plugin_connection__;__plugin_connection__.add_plugin("'+plugin_config.id+'", "%(client_id)s").start()';
+            kernel.execute(command, {"output": callback});
+            console.log('running start', command);
+        });
     }
     </script>
     """ % {
         "url": url,
         "width": width,
         "height": height,
-        "plugin_id": plugin_id,
+        "client_id": client_id,
     }
     return HTML(iframe_html)
 
@@ -113,77 +198,65 @@ class JupyterClient(AsyncClient):
     """Represent an async socketio client."""
 
     # pylint: disable=too-few-public-methods
-    def __init__(self, name, secret="", debug=False):
+    def __init__(self):
         """Set up client instance."""
-        opt = dotdict(
-            id=str(uuid.uuid4()), name=name, secret=secret, work_dir="", daemon=False
-        )
-        conn = PluginConnection(opt)
-        conn.default_exit = lambda: None
-        self.name = name
-        super().__init__(conn, opt)
+        super().__init__()
         self.comm = None
-        self.loop = asyncio.get_event_loop()
-        self.janus_queue = janus.Queue(loop=self.loop)
-        self.queue = self.janus_queue.sync_q
-        self.task_worker = task_worker
 
-    def setup(self):
+    def setup(self, conn):
         """Set up the plugin connection."""
-        logger.setLevel(logging.INFO)
-        if self.opt.debug:
-            logger.setLevel(logging.DEBUG)
-        self.comm = Comm(
-            target_name="imjoy_comm_" + self.opt.id,
-            data={"name": self.name, "id": self.opt.id, "secret": self.opt.secret},
+
+        self.comm = self.comm or Comm(
+            target_name="imjoy_comm_" + self.id, data={"id": self.id}
         )
-        self.comm.on_msg(self.comm_plugin_message)
 
         def on_disconnect():
-            if not self.opt.daemon:
-                self.conn.exit(1)
+            if not conn.opt.daemon:
+                conn.exit(1)
 
+        def emit(msg):
+            """Emit a message to the socketio server."""
+            self.comm.send(msg)
+
+        def comm_plugin_message(msg):
+            """Handle plugin message."""
+
+            data = msg["content"]["data"]
+            # emit({'type': 'logging', 'details': data})
+
+            # if not self.conn.executed:
+            #    self.emit({'type': 'message', 'data': {"type": "interfaceSetAsRemote"}})
+            if data["type"] == "import":
+                emit({"type": "importSuccess", "url": data["url"]})
+            elif data["type"] == "disconnect":
+                conn.abort.set()
+                try:
+                    if "exit" in conn.interface and callable(conn.interface["exit"]):
+                        conn.interface["exit"]()
+                except Exception as exc:  # pylint: disable=broad-except
+                    logger.error("Error when exiting: %s", exc)
+            elif data["type"] == "execute":
+                if not conn.executed:
+                    self.queue.put(data)
+                else:
+                    logger.debug("Skip execution")
+                    emit({"type": "executeSuccess"})
+            elif data["type"] == "message":
+                _data = data["data"]
+                self.queue.put(_data)
+                logger.debug("Added task to the queue")
+
+        self.comm.on_msg(comm_plugin_message)
         self.comm.on_close(on_disconnect)
-        sys.stdout.flush()
 
-    def connect(self):
-        """Connect to the socketio server."""
-        self.emit({"type": "initialized", "dedicatedThread": True})
-        logger.info("Plugin %s initialized", self.opt.id)
+        conn.default_exit = lambda: None
+        conn.emit = emit
 
-    def emit(self, msg):
-        """Emit a message to the socketio server."""
-        self.comm.send(msg)
+        emit({"type": "initialized", "dedicatedThread": True})
+        logger.info("Plugin %s initialized", conn.opt.id)
 
-    def comm_plugin_message(self, msg):
-        """Handle plugin message."""
-        data = msg["content"]["data"]
-        # if not self.conn.executed:
-        #    self.emit({'type': 'message', 'data': {"type": "interfaceSetAsRemote"}})
-        if data["type"] == "import":
-            self.emit({"type": "importSuccess", "url": data["url"]})
-        elif data["type"] == "disconnect":
-            self.conn.abort.set()
-            try:
-                if "exit" in self.conn.interface and callable(
-                    self.conn.interface["exit"]
-                ):
-                    self.conn.interface["exit"]()
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.error("Error when exiting: %s", exc)
-            return None
-        elif data["type"] == "execute":
-            if not self.conn.executed:
-                self.queue.put(data)
-            else:
-                logger.debug("Skip execution")
-                self.emit({"type": "executeSuccess"})
-        elif data["type"] == "message":
-            _data = data["data"]
-            self.queue.put(_data)
-            logger.debug("Added task to the queue")
-        sys.stdout.flush()
-        return None
+    # def run_forever(self, conn):
+    #     self.loop.create_task(self.task_worker(conn, self.queue, logger, conn.abort))
 
     def start(self):
-        return display_imjoy(self.opt.id, url="http://127.0.0.1:8000/#/app")
+        return display_imjoy(self.id, url="http://127.0.0.1:8000/#/app")

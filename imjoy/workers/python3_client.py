@@ -119,29 +119,25 @@ class AsyncClient(BaseClient):
 
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, conn, opt):
+    def __init__(self):
         """Set up client instance."""
-        super().__init__(conn, opt)
+        super().__init__()
         self.loop = asyncio.get_event_loop()
         self.janus_queue = janus.Queue(loop=self.loop)
         self.queue = self.janus_queue.sync_q
         self.task_worker = task_worker
 
-    def run_forever(self):
+    def run_forever(self, conn):
         """Run forever."""
 
         if self.loop.is_running():
             for _ in range(10):
                 self.loop.create_task(
-                    self.task_worker(
-                        self.conn, self.janus_queue.async_q, logger, self.conn.abort
-                    )
+                    self.task_worker(conn, self.janus_queue.async_q, logger, conn.abort)
                 )
         else:
             workers = [
-                self.task_worker(
-                    self.conn, self.janus_queue.async_q, logger, self.conn.abort
-                )
+                self.task_worker(conn, self.janus_queue.async_q, logger, conn.abort)
                 for i in range(10)
             ]
             self.loop.run_until_complete(asyncio.gather(*workers))

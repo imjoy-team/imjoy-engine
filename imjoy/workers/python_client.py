@@ -3,6 +3,7 @@ import logging
 import traceback
 import sys
 import time
+import uuid
 
 import socketio
 
@@ -35,6 +36,7 @@ def task_worker(conn, sync_q, logger, abort):
         handler = JOB_HANDLERS.get(job["type"])
         if handler is None:
             continue
+
         try:
             handler(conn, job, logger)
         except Exception:  # pylint: disable=broad-except
@@ -160,67 +162,61 @@ class BaseClient(object):  # pylint: disable=useless-object-inheritance
     """Represent a base socketio client."""
 
     queue = None
+    _clients = {}
 
-    def __init__(self, conn, opt):
+    @staticmethod
+    def get_client(id):
+        return BaseClient._clients.get(id)
+
+    def __init__(self):
         """Set up client instance."""
-        self.conn = conn
-        self.opt = opt
-        self.conn.client = self
-
-    def setup(self):
-        """Set up the plugin connection."""
-        logger.setLevel(logging.INFO)
+        self.id = str(uuid.uuid4())
         self.sio = socketio.Client()
-        if self.opt.debug:
-            logger.setLevel(logging.DEBUG)
-        self.sio.on("to_plugin_" + self.opt.secret, self.sio_plugin_message)
+        BaseClient._clients[self.id] = self
+
+    def setup(self, conn):
+        """Set up the plugin connection."""
+        self.sio.connect(conn.opt.server)
+
+        def emit(msg):
+            """Emit a message to the socketio server."""
+            self.sio.emit("from_plugin_" + conn.secret, msg)
+
+        def sio_plugin_message(*args):
+            """Handle plugin message."""
+            data = args[0]
+            if data["type"] == "import":
+                emit({"type": "importSuccess", "url": data["url"]})
+            elif data["type"] == "disconnect":
+                conn.abort.set()
+                try:
+                    if "exit" in conn.interface and callable(conn.interface["exit"]):
+                        conn.interface["exit"]()
+                except Exception as exc:  # pylint: disable=broad-except
+                    logger.error("Error when exiting: %s", exc)
+
+            elif data["type"] == "execute":
+                if not conn.executed:
+                    self.queue.put(data)
+                else:
+                    logger.debug("Skip execution")
+                    emit({"type": "executeSuccess"})
+            elif data["type"] == "message":
+                _data = data["data"]
+                self.queue.put(_data)
+                logger.debug("Added task to the queue")
 
         def on_disconnect():
-            if not self.opt.daemon:
-                self.conn.exit(1)
+            if not conn.opt.daemon:
+                conn.exit(1)
 
+        conn.emit = emit
         self.sio.on("disconnect", on_disconnect)
-        sys.stdout.flush()
+        self.sio.on("to_plugin_" + conn.secret, sio_plugin_message)
+        emit({"type": "initialized", "dedicatedThread": True})
+        logger.info("Plugin %s initialized", conn.opt.id)
 
-    def connect(self):
-        """Connect to the socketio server."""
-        self.sio.connect(self.opt.server)
-        self.emit({"type": "initialized", "dedicatedThread": True})
-        logger.info("Plugin %s initialized", self.opt.id)
-
-    def emit(self, msg):
-        """Emit a message to the socketio server."""
-        self.sio.emit("from_plugin_" + self.opt.secret, msg)
-
-    def sio_plugin_message(self, *args):
-        """Handle plugin message."""
-        data = args[0]
-        if data["type"] == "import":
-            self.emit({"type": "importSuccess", "url": data["url"]})
-        elif data["type"] == "disconnect":
-            self.conn.abort.set()
-            try:
-                if "exit" in self.conn.interface and callable(
-                    self.conn.interface["exit"]
-                ):
-                    self.conn.interface["exit"]()
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.error("Error when exiting: %s", exc)
-            return args
-        elif data["type"] == "execute":
-            if not self.conn.executed:
-                self.queue.put(data)
-            else:
-                logger.debug("Skip execution")
-                self.emit({"type": "executeSuccess"})
-        elif data["type"] == "message":
-            _data = data["data"]
-            self.queue.put(_data)
-            logger.debug("Added task to the queue")
-        sys.stdout.flush()
-        return None
-
-    def run_forever(self):
+    def run_forever(self, conn):
         """Run forever."""
         raise NotImplementedError
 
@@ -228,12 +224,12 @@ class BaseClient(object):  # pylint: disable=useless-object-inheritance
 class Client(BaseClient):
     """Represent a sync socketio client."""
 
-    def __init__(self, conn, opt):
+    def __init__(self):
         """Set up client instance."""
-        super(Client, self).__init__(conn, opt)
+        super(Client, self).__init__()
         self.queue = queue.Queue()
         self.task_worker = task_worker
 
-    def run_forever(self):
+    def run_forever(self, conn):
         """Run forever."""
-        self.task_worker(self.conn, self.queue, logger, self.conn.abort)
+        self.task_worker(conn, self.queue, logger, conn.abort)

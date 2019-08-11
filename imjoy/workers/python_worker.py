@@ -10,6 +10,7 @@ from functools import reduce
 from types import ModuleType
 
 from .utils import ReferenceStore, debounce, dotdict, get_psutil, set_interval
+from .python_client import BaseClient
 
 if sys.version_info >= (3, 4):
     from .utils3 import FuturePromise
@@ -63,11 +64,18 @@ class PluginConnection:
     """Represent a plugin connection."""
 
     # pylint:disable=too-many-instance-attributes
-    registered_plugins = {}
+    _registered_plugins = {}
 
     @staticmethod
     def get_plugin(plugin_id):
-        return PluginConnection.registered_plugins.get(plugin_id)
+        return PluginConnection._registered_plugins.get(plugin_id)
+
+    @staticmethod
+    def add_plugin(plugin_id, client_id):
+        opt = dotdict(id=plugin_id, secret="", work_dir="")
+        p = PluginConnection(opt)
+        p.client = BaseClient.get_client(client_id)
+        return p
 
     def __init__(self, opt):
         """Set up connection instance."""
@@ -84,14 +92,18 @@ class PluginConnection:
         self.abort = threading.Event()
         self.work_dir = opt.work_dir
         self.opt = opt
-        self.registered_plugins[self.id] = self
+        self._registered_plugins[self.id] = self
         self.client = None
+
+        def emit(_):
+            raise NotImplementedError
+
+        self.emit = emit
 
     def setup(self):
         """Set up the plugin connection."""
         assert self.client is not None
-        self.emit = self.client.emit
-        self.client.setup()
+        self.client.setup(self)
         if not self.work_dir or self.work_dir == ".":
             self.work_dir = os.getcwd()
         else:
@@ -104,8 +116,7 @@ class PluginConnection:
     def start(self):
         """Start the plugin connection."""
         self.setup()
-        self.client.connect()
-        self.client.run_forever()
+        self.client.run_forever(self)
 
     def default_exit(self):
         """Exit default."""
@@ -498,9 +509,9 @@ def main():
 
     plugin_conn = PluginConnection(opt)
     if PYTHON34:
-        AsyncClient(plugin_conn, opt)
+        AsyncClient()
     else:
-        Client(plugin_conn, opt)
+        Client()
 
     plugin_conn.start()
 
