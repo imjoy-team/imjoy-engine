@@ -10,6 +10,7 @@ from functools import reduce
 from types import ModuleType
 
 from .utils import ReferenceStore, debounce, dotdict, get_psutil, set_interval
+from .python_client import BaseClient
 
 if sys.version_info >= (3, 4):
     from .utils3 import FuturePromise
@@ -63,8 +64,20 @@ class PluginConnection:
     """Represent a plugin connection."""
 
     # pylint:disable=too-many-instance-attributes
+    _registered_plugins = {}
 
-    def __init__(self, opt, client=None):
+    @staticmethod
+    def get_plugin(plugin_id):
+        return PluginConnection._registered_plugins.get(plugin_id)
+
+    @staticmethod
+    def add_plugin(plugin_id, client_id):
+        opt = dotdict(id=plugin_id, secret="", work_dir="")
+        client = BaseClient.get_client(client_id)
+        p = PluginConnection(client, opt)
+        return p
+
+    def __init__(self, client, opt):
         """Set up connection instance."""
         self.secret = opt.secret
         self.id = opt.id  # pylint: disable=invalid-name
@@ -79,17 +92,18 @@ class PluginConnection:
         self.abort = threading.Event()
         self.work_dir = opt.work_dir
         self.opt = opt
-        if client is not None:
-            self.client = client
-        elif PYTHON34:
-            self.client = AsyncClient(self, self.opt)
-        else:
-            self.client = Client(self, self.opt)
-        self.emit = self.client.emit
+        self._registered_plugins[self.id] = self
+        self.client = client
+
+        def emit(_):
+            raise NotImplementedError
+
+        self.emit = emit
 
     def setup(self):
         """Set up the plugin connection."""
-        self.client.setup()
+        assert self.client is not None
+        self.client.setup(self)
         if not self.work_dir or self.work_dir == ".":
             self.work_dir = os.getcwd()
         else:
@@ -101,8 +115,8 @@ class PluginConnection:
 
     def start(self):
         """Start the plugin connection."""
-        self.client.connect()
-        self.client.run_forever()
+        self.setup()
+        self.client.run_forever(self)
 
     def default_exit(self):
         """Exit default."""
@@ -493,8 +507,11 @@ def main():
     if opt.debug:
         logger.setLevel(logging.DEBUG)
 
-    plugin_conn = PluginConnection(opt)
-    plugin_conn.setup()
+    if PYTHON34:
+        client = AsyncClient()
+    else:
+        client = Client()
+    plugin_conn = PluginConnection(client, opt)
     plugin_conn.start()
 
 
