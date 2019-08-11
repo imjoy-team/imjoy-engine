@@ -20,7 +20,8 @@ import os
 logger = logging.getLogger("jupyter_client")
 
 
-def display_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=650):
+def show_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=650):
+    """Show ImJoy in the output cell."""
     iframe_html = """
     <style>
     .card {
@@ -267,7 +268,8 @@ class JupyterClient(AsyncClient):
     def start(
         self, name="Untitled Plugin", workspace="default", imjoy_url="https://imjoy.io"
     ):
-        return display_imjoy(
+        """Show ImJoy in the output cell."""
+        return show_imjoy(
             self.id,
             url=f"{imjoy_url}/#/app?jupyter_plugin={name}&workspace={workspace}",
         )
