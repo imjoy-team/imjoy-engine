@@ -19,10 +19,10 @@ logger = logging.getLogger("jupyter_client")
 
 
 def display_imjoy_template(
-    comm_target_name, url="https://imjoy.io/#/app", width=700, height=550
+    comm_target_name, url="https://imjoy.io/#/app", width="100%", height=650
 ):
     iframe_html = """
-    <iframe id="%(comm_target_name)s" onload="setup_imjoy_bridge()" src="%(url)s" frameborder="1" width=%(width)d height=%(height)d></iframe>
+    <iframe id="%(comm_target_name)s" onload="setup_imjoy_bridge()" src="%(url)s" frameborder="1" width="%(width)s" height="%(height)s" style="max-width: 100%%;"></iframe>
     <script type="text/Javascript">
     function setup_imjoy_bridge(){
         
