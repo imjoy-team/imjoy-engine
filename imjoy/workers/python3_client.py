@@ -119,9 +119,9 @@ class AsyncClient(BaseClient):
 
     # pylint: disable=too-few-public-methods
 
-    def __init__(self):
+    def __init__(self, id=None):
         """Set up client instance."""
-        super().__init__()
+        super().__init__(id)
         self.loop = asyncio.get_event_loop()
         self.janus_queue = janus.Queue(loop=self.loop)
         self.queue = self.janus_queue.sync_q

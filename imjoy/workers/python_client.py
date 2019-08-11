@@ -86,6 +86,8 @@ def handle_execute(conn, job, logger):
             traceback_error = traceback.format_exc()
             logger.error("Error during execution: %s", traceback_error)
             conn.emit({"type": "executeFailure", "error": traceback_error})
+    else:
+        logger.info("Skip code execution")
 
 
 @JOB_HANDLERS.register("method")

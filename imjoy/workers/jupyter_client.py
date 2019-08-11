@@ -127,6 +127,11 @@ def display_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=
     })()
 
     function setup_imjoy_bridge(){
+        var kernel = IPython.notebook.kernel;
+        command = 'from imjoy.workers.jupyter_client import JupyterClient;JupyterClient.recover_client("%(client_id)s")';
+        kernel.execute(command);
+        console.log(command)
+
         const iframeEl = document.getElementById('iframe_%(client_id)s')
         const pio = new PostMessageIO(iframeEl);
         let _connected_comm = null;
@@ -134,11 +139,9 @@ def display_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=
             const id = plugin.id
             pio.on("message_to_plugin_" + id, (data)=>{
                 _connected_comm.send(data.data);
-                console.log('forwarding message to python', data.data)
             })
             _connected_comm.on_msg((msg) => {
                 var data = msg.content.data
-                console.log('forwarding message to iframe', data)
                 if (["initialized",
                     "importSuccess",
                     "importFailure",
@@ -176,12 +179,8 @@ def display_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=
             }
 
             var kernel = IPython.notebook.kernel;
-            function callback(out_type, out_data){
-                console.log('starting imjoy.')
-            }
             command = 'from imjoy.workers.python_worker import PluginConnection as __plugin_connection__;__plugin_connection__.add_plugin("'+plugin_config.id+'", "%(client_id)s").start()';
-            kernel.execute(command, {"output": callback});
-            console.log('running start', command);
+            kernel.execute(command);
         });
     }
     </script>
@@ -197,10 +196,17 @@ def display_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=
 class JupyterClient(AsyncClient):
     """Represent an async socketio client."""
 
+    @staticmethod
+    def recover_client(id):
+        if JupyterClient._clients.get(id):
+            return JupyterClient._clients.get(id)
+        else:
+            return JupyterClient(id)
+
     # pylint: disable=too-few-public-methods
-    def __init__(self):
+    def __init__(self, id=None):
         """Set up client instance."""
-        super().__init__()
+        super().__init__(id)
         self.comm = None
 
     def setup(self, conn):
@@ -258,5 +264,8 @@ class JupyterClient(AsyncClient):
     # def run_forever(self, conn):
     #     self.loop.create_task(self.task_worker(conn, self.queue, logger, conn.abort))
 
-    def start(self):
-        return display_imjoy(self.id, url="http://127.0.0.1:8000/#/app")
+    def start(self, name="Untitled Plugin", workspace="default"):
+        return display_imjoy(
+            self.id,
+            url=f"http://127.0.0.1:8000/#/app?jupyter_plugin={name}&workspace={workspace}",
+        )
