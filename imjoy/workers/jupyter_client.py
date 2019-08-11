@@ -30,7 +30,7 @@ def display_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=
         height: 550px;
         margin: 1rem;
         position: relative;
-        width: 98%%;
+        width: calc(100%% - 3ex);
         border-radius: 4px;
     }
     .card-1 {
