@@ -18,6 +18,68 @@ import os
 logger = logging.getLogger("jupyter_client")
 
 
+def display_imjoy_template(
+    comm_target_name, url="https://imjoy.io/#/app", width=700, height=550
+):
+    iframe_html = """
+    <iframe id="%(comm_target_name)s" onload="setup_imjoy_bridge()" src="%(url)s" frameborder="1" width=%(width)d height=%(height)d></iframe>
+    <script type="text/Javascript">
+    function setup_imjoy_bridge(){
+        
+        Jupyter.notebook.kernel.comm_manager.register_target('%(comm_target_name)s',
+        function (comm, msg) {
+            comm.on_msg((msg) => {
+            var iframeEl = document.getElementById('%(comm_target_name)s')
+            var data = msg.content.data
+
+            console.log('forwarding message to iframe', data, iframeEl)
+
+            if (["initialized",
+                "importSuccess",
+                "importFailure",
+                "executeSuccess",
+                "executeFailure"
+                ].includes(data.type)) {
+                iframeEl.contentWindow.postMessage(data, '*');
+            } else {
+                iframeEl.contentWindow.postMessage({
+                type: 'message',
+                data: data
+                }, '*');
+            }
+
+            })
+
+            window.comm = comm;
+        });
+
+        window.addEventListener(
+        "message",
+        function (e) {
+            var iframeEl = document.getElementById('%(comm_target_name)s')
+            if (iframeEl && e.source === iframeEl.contentWindow) {
+
+            if (e.data.type == "message") {
+                window.comm.send(e.data.data);
+                console.log('forwarding message to python', e.data.data)
+            }
+            }
+            e.stopPropagation();
+        },
+        false
+        );
+    }
+
+    </script>
+    """ % {
+        "url": url,
+        "width": width,
+        "height": height,
+        "comm_target_name": comm_target_name,
+    }
+    return iframe_html
+
+
 class JupyterClient(AsyncClient):
     """Represent an async socketio client."""
 
@@ -37,8 +99,7 @@ class JupyterClient(AsyncClient):
         logger.setLevel(logging.INFO)
         if self.opt.debug:
             logger.setLevel(logging.DEBUG)
-        self.comm = Comm(target_name="imjoy_comm_target", data={})
-        self.comm.open()
+        self.comm = Comm(target_name=self.opt.id, data={})
         self.comm.on_msg(self.comm_plugin_message)
 
         def on_disconnect():
@@ -63,6 +124,8 @@ class JupyterClient(AsyncClient):
         # if not self.conn.executed:
         #    self.emit({'type': 'message', 'data': {"type": "interfaceSetAsRemote"}})
 
+        if data["type"] == "init_plugin":
+            self.emit({"type": "initialized", "dedicatedThread": True})
         if data["type"] == "import":
             self.emit({"type": "importSuccess", "url": data["url"]})
         elif data["type"] == "disconnect":
