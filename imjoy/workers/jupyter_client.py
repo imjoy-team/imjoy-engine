@@ -264,8 +264,8 @@ class JupyterClient(AsyncClient):
     # def run_forever(self, conn):
     #     self.loop.create_task(self.task_worker(conn, self.queue, logger, conn.abort))
 
-    def start(self, name="Untitled Plugin", workspace="default"):
+    def start(self, name="Untitled Plugin", workspace="default", imjoy_url="https://imjoy.io"):
         return display_imjoy(
             self.id,
-            url=f"http://127.0.0.1:8000/#/app?jupyter_plugin={name}&workspace={workspace}",
+            url=f"{imjoy_url}/#/app?jupyter_plugin={name}&workspace={workspace}",
         )

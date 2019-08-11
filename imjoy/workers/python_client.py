@@ -170,9 +170,9 @@ class BaseClient(object):  # pylint: disable=useless-object-inheritance
     def get_client(id):
         return BaseClient._clients.get(id)
 
-    def __init__(self):
+    def __init__(self, id=None):
         """Set up client instance."""
-        self.id = str(uuid.uuid4())
+        self.id = id or str(uuid.uuid4())
         self.sio = socketio.Client()
         BaseClient._clients[self.id] = self
 
