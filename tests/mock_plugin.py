@@ -108,7 +108,8 @@ class TestPlugin:
         """initialize the plugin."""
         opt = dotdict(id=self.pid, secret=self.secret)
         self.conn = PluginConnection(opt)
-        self.conn.setup(self)
+        self.conn.client = self
+        self.conn.setup()
         self.terminated = False
         initialized = self.loop.create_future()
         self.on_plugin_message("initialized", initialized)

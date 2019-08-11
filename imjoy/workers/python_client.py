@@ -165,11 +165,12 @@ class BaseClient(object):  # pylint: disable=useless-object-inheritance
         """Set up client instance."""
         self.conn = conn
         self.opt = opt
-        self.sio = socketio.Client()
+        self.conn.client = self
 
     def setup(self):
         """Set up the plugin connection."""
         logger.setLevel(logging.INFO)
+        self.sio = socketio.Client()
         if self.opt.debug:
             logger.setLevel(logging.DEBUG)
         self.sio.on("to_plugin_" + self.opt.secret, self.sio_plugin_message)
