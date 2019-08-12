@@ -128,10 +128,15 @@ def show_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=650
     })()
 
     function setup_imjoy_bridge(){
-        var kernel = IPython.notebook.kernel;
-        command = 'from imjoy.workers.jupyter_client import JupyterClient;JupyterClient.recover_client("%(client_id)s")';
-        kernel.execute(command);
-        console.log(command)
+        // try to recover the client
+        try{
+            var kernel = IPython.notebook.kernel;
+            command = 'from imjoy.workers.jupyter_client import JupyterClient;JupyterClient.recover_client("%(client_id)s")';
+            kernel.execute(command);
+        }
+        catch(e){
+            console.warn('Failed to run recover client command.', e)
+        }
 
         const iframeEl = document.getElementById('iframe_%(client_id)s')
         const pio = new PostMessageIO(iframeEl);
@@ -178,10 +183,14 @@ def show_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=650
             if(_connected_comm){
                 add_plugin(plugin_config, _connected_comm)
             }
-
-            var kernel = IPython.notebook.kernel;
-            command = 'from imjoy.workers.python_worker import PluginConnection as __plugin_connection__;__plugin_connection__.add_plugin("'+plugin_config.id+'", "%(client_id)s").start()';
-            kernel.execute(command);
+            try{
+                var kernel = IPython.notebook.kernel;
+                command = 'from imjoy.workers.python_worker import PluginConnection as __plugin_connection__;__plugin_connection__.add_plugin("'+plugin_config.id+'", "%(client_id)s").start()';
+                kernel.execute(command);
+            }
+            catch(e){
+                console.error('Failed to execute command to start the plugin', plugin_config, e)
+            }
         });
     }
     </script>
