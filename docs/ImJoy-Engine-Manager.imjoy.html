@@ -1,0 +1,845 @@
+﻿<docs>
+
+# ImJoy-Engine-Manager
+
+This plugin manages different plugin engines the ImJoy-Engine or the ImJoy Desktop App is connected to.
+
+To use it, you need to install the [ImJoy Desktop App](https://github.com/oeway/ImJoy-App) or the [ImJoy-Engine](https://github.com/oeway/ImJoy-Engine).
+
+</docs>
+
+<config lang="json">
+{
+  "name": "ImJoy-Engine-Manager",
+  "type": "web-worker",
+  "tags": [],
+  "ui": "",
+  "version": "0.3.4",
+  "cover": "",
+  "description": "This plugin manages plugin engines to ImJoy-Engine.",
+  "icon": "extension",
+  "inputs": null,
+  "outputs": null,
+  "api_version": "0.1.6",
+  "env": "",
+  "permissions": [],
+  "requirements": ["https://cdn.jsdelivr.net/npm/socket.io-client@2/dist/socket.io.js", "https://lib.imjoy.io/static/jailed/_JailedSite.js"],
+  "dependencies": [],
+  "runnable": false,
+  "flags": ["engine-factory", "engine", "file-manager"]
+}
+</config>
+
+<script lang="javascript">
+async function setup() {
+  api.log('initialized')
+  await api.register({
+    type: 'engine-factory',
+    name: 'ImJoy-Engine',
+    addEngine: addEngine,
+    removeEngine: removeEngine
+  })
+  let saved_engines = await api.getConfig('engines')
+  try{
+      saved_engines = saved_engines ? JSON.parse(saved_engines) : {}
+  }
+  catch(e){
+    saved_engines = {}
+  }
+  for(let url in saved_engines){
+    const config = saved_engines[url]
+    createNewEngine(config)
+  }
+}
+
+async function addEngine(){
+  const description=`### ImJoy Plugin Engine
+  (Note: if you just want to try the Python plugins in ImJoy, you can already run it via the <code>Jupyter Engine Manager</code> and it will run directly through mybinder.org.)
+
+  Python plugins are supported by ImJoy with the ImJoy Plugin Engine.
+  If you don't have the Plugin Engine, please download and install the [ImJoy Desktop App](https://github.com/oeway/ImJoy-App/releases).
+  
+  Alternatively, if you have Anaconda or Miniconda installed already, you can run <code>pip install imjoy</code> and start with <code>imjoy</code> command from your teriminal (see [ImJoy-Engine](https://github.com/oeway/ImJoy-Engine)).
+
+  Once installed, please start the Plugin Engine, and enter the connection token below.
+`
+
+    const dialog = await api.showDialog(
+      {
+        type: 'imjoy/schema-io',
+        name: 'Add New Plugin Engine',
+        data: {
+          id: 0,
+          type: 'form',
+          schema: {
+            "fields": [
+              {
+                "type": "input",
+                "inputType": "text",
+                "label": "Engine URL",
+                "model": "url",
+              },
+              {
+                "type": "input",
+                "inputType": "text",
+                "label": "Connection Token",
+                "model": "token",
+              }
+            ]
+          },
+          data: {
+              url: 'http://127.0.0.1:9527',
+              token: ''
+          },
+          options: {
+              validateAfterLoad: true,
+              validateAfterChanged: true
+          },
+          description: description,
+          buttons: [{label: 'Connect', event_id: 'add', class: 'md-primary md-raised'}]
+        }
+    })
+    dialog.on('add', async (config)=>{
+      // let regex = /[?&]([^=#]+)=([^&#]*)/g, params = {}, match;
+      // while(match = regex.exec(engine_url)) {
+      //     params[match[1]] = match[2];
+      // }
+      // const url = engine_url.split('?')[0];
+      // config = {url: url, token: params['token']}
+      createNewEngine(config)
+      let saved_engines = await api.getConfig('engines')
+      try{
+        saved_engines = saved_engines ? JSON.parse(saved_engines) : {}
+      }
+      catch(e){
+        saved_engines = {}
+      }
+      saved_engines[config.url] = config
+      await api.setConfig('engines', JSON.stringify(saved_engines))
+      dialog.close()
+      
+      return config
+    })
+    dialog.on('download', ()=>{
+      api.utils.openUrl('https://github.com/oeway/ImJoy-App/releases')
+    })
+    dialog.on('more', ()=>{
+      api.utils.openUrl('https://github.com/oeway/ImJoy-Engine')
+    })
+}
+function randId() {
+  return Math.random()
+    .toString(36)
+    .substr(2, 10);
+}
+
+class SocketioConnection {
+  constructor(id, type, config, engine) {
+    this._disconnected = false;
+    this.id = id;
+    this.engine = engine;
+    if (!this.engine) {
+      throw "connection is not established.";
+    }
+    this._initHandler = () => {};
+    this._failHandler = () => {};
+    this._disconnectHandler = () => {};
+    this._loggingHandler = () => {};
+
+    if (this.engine && this.engine.socket) {
+      const config_ = {
+        api_version: config.api_version,
+        flags: config.flags,
+        tag: config.tag,
+        workspace: config.workspace,
+        env: config.env,
+        requirements: config.requirements,
+        cmd: config.cmd,
+        name: config.name,
+        type: config.type,
+        inputs: config.inputs,
+        outputs: config.outputs,
+      };
+      // create a plugin here
+      this.engine.socket.emit(
+        "init_plugin",
+        { id: id, type: type, config: config_ },
+        result => {
+          console.log('init_plugin: ', result)
+          this.initializing = false;
+          if (result.success) {
+            this._disconnected = false;
+            this.secret = result.secret;
+            config.work_dir = result.work_dir;
+            config.resumed = result.resumed;
+            this.engine.socket.on(
+              "message_from_plugin_" + this.secret,
+              data => {
+                if (data.type == "initialized") {
+                  this.dedicatedThread = data.dedicatedThread;
+                  this._initHandler();
+                } 
+                else if (data.type == "logging") {
+                  this._loggingHandler(data.details);
+                } else if (data.type == "disconnected") {
+                  this._disconnectHandler(data.details);
+                }
+                else{
+                   switch (data.type) {
+                    case "message":
+                      data = data.data
+                      // console.log('message_from_plugin_'+this.secret, data)
+                      if (data.type == "initialized") {
+                        this.dedicatedThread = data.dedicatedThread;
+                        this._initHandler();
+                      } else if (data.type == "logging") {
+                        this._loggingHandler(data.details);
+                      } else if (data.type == "disconnected") {
+                        this._disconnectHandler(data.details);
+                      } else {
+                        this._messageHandler(data);
+                      }
+                      break;
+                    // case "importSuccess":
+                    //   this._handleImportSuccess(m.url);
+                    //   break;
+                    // case "importFailure":
+                    //   this._handleImportFailure(m.url, m.error);
+                    //   break;
+                    case "executeSuccess":
+                      this._executeSCb();
+                      break;
+                    case "executeFailure":
+                      this._executeFCb(data.error);
+                      break;
+                  }
+                }
+              }
+            );
+            if (result.initialized) {
+              this.dedicatedThread = true;
+              this._initHandler();
+            }
+          } else {
+            this._disconnected = true;
+            console.error("failed to initialize plugin on the plugin engine");
+            this._failHandler("failed to initialize plugin on the plugin engine");
+            throw "failed to initialize plugin on the plugin engine";
+          }
+        }
+      );
+    } else {
+      this._failHandler("connection is not established.");
+      throw "connection is not established.";
+    }
+  }
+
+  send(data) {
+    if (this.engine && this.engine.socket) {
+      // console.log('message to plugin', this.secret,  data)
+      this.engine.socket.emit("message_to_plugin_" + this.secret, {
+      type: "message",
+      data: {
+        type: "message",
+        data: data,
+      }}, ()=>{
+
+      });
+    } else {
+      throw "socketio disconnected.";
+    }
+  }
+
+  execute(code) {
+    return new Promise((resolve, reject) => {
+      this._executeSCb = resolve;
+      this._executeFCb = reject;
+      this.send({ type: "execute", code: code });
+    });
+  }
+
+  disconnect() {
+    if (!this._disconnected) {
+      this._disconnected = true;
+    }
+    if (this.engine && this.engine.socket) {
+      this.engine.socket.emit("kill_plugin", { id: this.id });
+    }
+    if(this._disconnectHandler) this._disconnectHandler();
+  }
+
+  onMessage(handler) {
+    this._messageHandler = handler;
+  }
+
+  onDisconnect(handler) {
+    this._disconnectHandler = handler;
+  }
+
+  onLogging(handler) {
+    this._loggingHandler = handler;
+  }
+
+  onInit(handler) {
+    this._initHandler = handler;
+  }
+
+  onFailed(handler) {
+    this._failHandler = handler;
+  }
+}
+
+class Engine {
+  constructor({
+    config = {},
+    show_message_callback = null,
+    update_ui_callback = null,
+    show_engine_callback = null,
+    client_id = null,
+  }) {
+    this.socket = null;
+    this.activate = false;
+    this.connection = "Disconnected";
+    this.client_id = client_id;
+    this.socket_id = null;
+    this.config = config;
+    this.id = this.config.id;
+    this.name = this.config.name || this.config.url;
+    this.normalizeName();
+    this.config.name = this.name;
+    this.url = this.config.url;
+    this.token = this.config.token;
+
+    this.show_engine_callback = show_engine_callback || function() {};
+    this.show_message_callback = show_message_callback || function() {};
+    this.update_ui_callback = update_ui_callback || function() {};
+
+    this.disconnecting = false;
+    this.connection_lost_timer = null;
+    this._disconnectHandler = () => {}
+  }
+  normalizeName() {
+    this.name = this.name.replace("http://127.0.0.1:9527", "My Computer");
+    this.name = this.name.replace("https://", "");
+    this.name = this.name.replace("http://", "");
+  }
+  requestUploadUrl(config) {
+    return new Promise((resolve, reject) => {
+      if(!this.socket){
+        reject('disconnected.')
+        return
+      }
+      try {
+        this.socket.emit("request_upload_url", config, (ret)=>{
+          if(ret.success){
+            resolve(ret.url)
+          }
+          else{
+            reject(ret.error)
+          }
+        });
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  getFileUrl(config) {
+    return new Promise((resolve, reject) => {
+      if(!this.socket){
+        reject('disconnected.')
+        return
+      }
+      try {
+        this.socket.emit("get_file_url", config, (ret)=>{
+          if(ret.success){
+            resolve(ret.url)
+          }
+          else{
+            reject(ret.error)
+          }
+        });
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  getFilePath(config) {
+    return new Promise((resolve, reject) => {
+      try {
+        if(!this.socket){
+          reject('disconnected.')
+          return
+        }
+        this.socket.emit("get_file_path", config, (ret)=>{
+          if(ret.success){
+            resolve(ret.path)
+          }
+          else{
+            reject(ret.error)
+          }
+        });
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  onDisconnected(handler) {
+    this._disconnectHandler = handler;
+  }
+
+  connect(auto) {
+    return new Promise((resolve, reject) => {
+      let url = this.config.url;
+      let token = this.config.token;
+      if (this.connected) {
+        resolve();
+        return;
+      }
+      //enforcing 127.0.0.1 for avoid security restrictions
+      url = url.replace("//localhost", "//127.0.0.1");
+      token = (token && token.trim()) || "";
+      let reason = "";
+      this.connected = false;
+      this.connection = "Connecting...";
+
+      this.name = this.config.name || url;
+      this.normalizeName();
+
+      this.disconnecting = false;
+      this.engine_session_id = randId();
+      if (!auto) this.showMessage("Trying to connect to the plugin engine...");
+      console.log(url)
+      const socket = io(url);
+      const timer = setTimeout(() => {
+        if (!this.connected) {
+          this.connection = "Plugin Engine is not connected.";
+          this.disconnecting = true;
+          socket.disconnect();
+          if (!auto) {
+            this.show_engine_callback(true, this);
+            this.showMessage(
+              "Failed to connect, please make sure you have started the plugin engine."
+            );
+          }
+          if (url.endsWith(":8080") && !auto) {
+            alert(
+              "It seems you are using the legacy plugin engine port (8080), you may want to change the engine url to: " +
+                url.replace(":8080", ":9527")
+            );
+          }
+          reject(
+            "Failed to connect, please make sure you have started the plugin engine."
+          );
+        }
+      }, 2500);
+
+      //if(!auto) {this.show_engine_callback(true, this)}
+
+      const set_disconnected = () => {
+        //disconnect immediately
+        this.socket = null;
+        this.connected = false;
+        this.connection = "Disconnected.";
+        this.update_ui_callback();
+        this._disconnectHandler();
+      };
+
+      socket.on("connect", () => {
+        if (this.connection_lost_timer) {
+          clearTimeout(this.connection_lost_timer);
+          this.connection_lost_timer = null;
+          //return if it's the same session
+          if (this.socket_id === socket.id) {
+            this.showMessage(`Connection to ${this.name} has been recovered`);
+            return;
+          } else {
+            // set disconnected first
+            set_disconnected();
+          }
+        }
+        socket.emit(
+          "register_client",
+          {
+            id: this.client_id,
+            token: token,
+            base_url: url,
+            session_id: this.engine_session_id,
+          },
+          ret => {
+            clearTimeout(timer);
+            if (ret && ret.success) {
+              const connect_client = () => {
+                this.engine_info = ret.engine_info || {};
+                this.engine_info.api_version =
+                  this.engine_info.api_version || "0.1.0";
+                this.socket = socket;
+                this.socket_id = socket.id;
+                this.connected = true;
+                this.connected_url_token_ = url + token;
+                //this.show_engine_callback(false, this)
+                this.connection = "Plugin Engine Connected.";
+                this.connection_token = token;
+                // localStorage.setItem("imjoy_connection_token", token);
+                // localStorage.setItem("imjoy_engine_url", url);
+                this.showMessage(
+                  `Successfully connected to the Plugin Engine 🚀 (${url}).`
+                );
+                // console.log('plugin engine connected.')
+                this.update_ui_callback();
+                resolve();
+              };
+
+              // if(ret.message && ret.confirmation){
+              //   this.show_engine_callback(true, ret.message, connect_client,  ()=>{
+              //     this.disconnecting = true
+              //     socket.disconnect()
+              //     console.log('you canceled the connection.')
+              //     reject('User cancelled the connection.')
+              //   })
+              // }
+              // else{
+              connect_client();
+              // }
+            } else {
+              reason = ret.reason;
+              if (ret.no_retry && ret.reason) {
+                this.showStatus("Failed to connect: " + ret.reason);
+                this.showMessage("Failed to connect: " + ret.reason);
+              } else {
+                if (!auto) this.show_engine_callback(true, this);
+                if (ret.reason)
+                  this.showMessage("Failed to connect: " + ret.reason);
+                console.error(
+                  "Failed to connect to the plugin engine.",
+                  ret.reason
+                );
+              }
+              this.disconnecting = true;
+              setTimeout(() => {
+                socket.disconnect();
+              }, 200);
+              reject("Failed to connect: " + ret.reason);
+            }
+          }
+        );
+      });
+      socket.on("disconnect", () => {
+        console.error("Socket io disconnected from " + this.url);
+        if (this.connected) {
+          this.showMessage("Plugin Engine disconnected.");
+        } else {
+          if (reason) {
+            this.showMessage("Failed to connect: " + reason);
+          } else {
+            this.showMessage("Failed to connect to the plugin engine");
+          }
+        }
+        if (this.disconnecting) {
+          set_disconnected();
+        } else {
+          //wait for 10s to see if it recovers
+          this.connection_lost_timer = setTimeout(() => {
+            this.showMessage("Timeout, connection failed to recover.");
+            if (this.connected) {
+              this.socket = null;
+              this.connected = false;
+              this.connection = "Disconnected.";
+              this.update_ui_callback();
+            }
+          }, 10000);
+        }
+      });
+    });
+  }
+
+  updateEngineStatus() {
+    return new Promise((resolve, reject) => {
+      if(!this.socket){
+        reject('disconnected.')
+        return
+      }
+      this.socket.emit("get_engine_status", {}, ret => {
+        if (ret && ret.success) {
+          resolve(ret);
+        } else {
+          this.showMessage(`Failed to get engine status: ${ret.error}`);
+          reject(ret.error);
+        }
+      });
+    });
+  }
+
+  killPluginProcess(p) {
+    return new Promise((resolve, reject) => {
+      if(!this.socket){
+        reject('disconnected.')
+        return
+      }
+      this.socket.emit(
+        "kill_plugin_process",
+        { pid: p && p.pid, all: !p },
+        ret => {
+          if (ret && ret.success) {
+            this.updateEngineStatus();
+            resolve(ret);
+          } else {
+            this.showMessage(`Failed to get engine status: ${ret.error}`);
+            reject(ret.error);
+          }
+        }
+      );
+    });
+  }
+
+  resetEngine() {
+    return new Promise((resolve, reject) => {
+      if(!this.socket){
+        reject('disconnected.')
+        return
+      }
+      this.socket.emit("reset_engine", {}, ret => {
+        if (ret && ret.success) {
+          this.updateEngineStatus();
+          this.showMessage("Reset the Plugin Engine successfully");
+          resolve(ret);
+        } else {
+          this.showMessage(`Failed to reset engine: ${ret.error}`);
+          reject(ret.error);
+        }
+      });
+    });
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.disconnecting = true;
+      this.socket.disconnect();
+    }
+  }
+
+  listFiles(path, type, recursive) {
+    return new Promise((resolve, reject) => {
+      if(!this.socket){
+        reject('disconnected.')
+        return
+      }
+      this.socket.emit(
+        "list_dir",
+        {
+          path: path || "",
+          type: type || "file",
+          recursive: recursive || false,
+        },
+        async ret => {
+          if (ret && ret.success) {
+            resolve(ret);
+          } else {
+            this.showMessage(`Failed to list dir: ${path} ${ret.error}`);
+            if (path !== "") {
+              path = "";
+              ret = await this.listFiles(path, type, false);
+              resolve(ret);
+            } else {
+              reject(ret.error);
+            }
+          }
+        }
+      );
+    });
+  }
+
+  removeFiles(path, type, recursive) {
+    return new Promise((resolve, reject) => {
+      if(!this.socket){
+        reject('disconnected.')
+        return
+      }
+      this.socket.emit(
+        "remove_files",
+        { path: path, type: type, recursive: recursive || false },
+        ret => {
+          if (ret && ret.success) {
+            resolve(ret);
+          } else {
+            this.showMessage(
+              `Failed to remove file/directory: ${ret && ret.error}`
+            );
+            reject(ret.error);
+          }
+        }
+      );
+    });
+  }
+
+  showMessage(msg, duration) {
+    if (this.show_message_callback) {
+      this.show_message_callback(msg, duration);
+    } else {
+      console.log(`ENGINE MESSAGE: ${msg}`);
+    }
+  }
+
+  destroy() {
+    this.disconnect();
+  }
+}
+
+async function createNewEngine(config){
+  const engine = new Engine({config: config,
+    client_id: randId() })
+  
+  const message_handlers = []
+  await api.register({
+    type: 'file-manager',
+    name: engine.name,
+    url: engine.url,
+    listFiles: engine.listFiles.bind(engine),
+    removeFiles: engine.removeFiles.bind(engine),
+    getFileUrl: engine.getFileUrl.bind(engine),
+    requestUploadUrl: engine.requestUploadUrl.bind(engine),
+    heartbeat(){
+      return engine.connected;
+    }
+  })
+  await api.register({
+    type: 'engine',
+    pluginType: 'native-python',
+    icon: '🚀',
+    name: engine.name,
+    url: engine.url,
+    config: config,
+    connect(){
+      return engine.connect();
+    },
+    disconnect(){
+      return engine.disconnect();
+    },
+    listPlugins: ()=>{
+    },
+    getPlugin: ()=>{
+    },
+    startPlugin: (config, interface)=>{
+      return new Promise((resolve, reject) => {
+        const connection = new SocketioConnection(config.id, 'native-python', config, engine);
+        connection.onInit(()=>{
+          const site = new JailedSite(connection, "__plugin__", "javascript");
+          site.onInterfaceSetAsRemote(async ()=>{
+            for (let i = 0; i < config.scripts.length; i++) {
+              await connection.execute({
+                type: "script",
+                content: config.scripts[i].content,
+                lang: config.scripts[i].attrs.lang,
+                attrs: config.scripts[i].attrs,
+                src: config.scripts[i].attrs.src,
+              });
+            }
+            site.onRemoteUpdate(() => {
+              const remote_api = site.getRemote();
+              console.log(`plugin ${config.name} (id=${config.id}) initialized.`, remote_api)
+              resolve(remote_api)
+              site.onDisconnect((details) => {
+                config.terminate()
+              })
+            });
+            site.requestRemote();
+          });
+          site.onDisconnect((details) => {
+            console.log('disconnected.', details)
+            reject('disconnected')
+          })
+          site.setInterface(interface);
+        })
+
+      });
+    },
+    getEngineInfo() {
+      return engine.engine_info;
+    },
+    getEngineStatus() {
+      return engine.updateEngineStatus()
+    },
+    killPlugin(){
+
+    },
+    killPluginProcess(p) {
+      return engine.killPluginProcess(p)
+    },
+    heartbeat(){
+      return engine.connected
+    },
+    async startTerminal(){
+      engine.socket.emit("start_terminal", {}, async ret => {
+        if (ret && ret.success) {
+          const w = {
+            name: "Terminal " + engine.url,
+            type: "imjoy/terminal",
+            config: {},
+            w: 30,
+            h: 15,
+            standalone: false,
+            data: {
+
+            }
+          };
+          const terminal_window = await api.createWindow(w);
+          terminal_window.emit('write', ret.message + "\r\n")
+          const write = (data)=>{
+            terminal_window.emit('write', data.output)
+          }
+          const disconnect = (data)=>{
+            terminal_window.emit('write', "\r\nDisconnected!\r\n")
+          }
+          engine.socket.on("terminal_output", write);
+          engine.socket.on("disconnect", disconnect);
+          terminal_window.on('fit', (config)=>{
+            if (engine && engine.socket) {
+              engine.socket.emit("terminal_window_resize", config);
+            } else {
+              console.error("engine is not connected.");
+            }
+          })
+          terminal_window.on('key', (key)=>{
+            engine.socket.emit(
+              "terminal_input",
+              { input: key },
+              error => {
+                if (error) {
+                  terminal_window.emit('error', error);
+                }
+              }
+            );
+          });
+          
+          terminal_window.on("paste", data => {
+            engine.socket.emit(
+              "terminal_input",
+              { input: data },
+              error => {
+                if (error) {
+                  terminal_window.emit('error', error)
+                }
+              }
+            );
+          })
+          terminal_window.on("close", ()=>{
+            engine.socket.removeListener("terminal_output", write);
+            // engine.socket.removeListener("connect", this.start);
+            engine.socket.removeListener("disconnect", disconnect);
+          })
+        }
+     })
+    }
+  })
+  api.showMessage(`Plugin engine ${config.name} connected.`)
+}
+
+function removeEngine(){
+
+}
+
+api.export({'setup': setup, 'run': ()=> {}});
+
+</script>
