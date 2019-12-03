@@ -9,8 +9,8 @@ DESCRIPTION = (
 )
 
 REQUIREMENTS = [
-    "python-engineio==3.8.2",
-    "python-socketio[client]==4.1.0",
+    "python-engineio==3.9.1",
+    "python-socketio[client]==4.4.0",
     "numpy",
     'janus;python_version>"3.3"',
     'pathlib;python_version<"3.4"',
