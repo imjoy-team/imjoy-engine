@@ -1,3 +1,7 @@
+# wait_for_connection(port=9527, token='1234') # for interactive debugging
+# start_imjoy_client() # for jupyter notebook
+# start_server(port=9888, token='1234') # for deploying plugins
+
 config = {
   "name": "Untitled Plugin",
   "type": "native-python",
@@ -25,8 +29,4 @@ def run():
 
 api.export({'run': run, 'setup': setup}, config=config)
 
-api.summary()
-
-if __name__ == "__main__":
-    from imjoy import start_server
-    start_server(port=9888)
+# api.summary()
