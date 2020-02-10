@@ -1,4 +1,5 @@
 """Provide worker functions for Python 3."""
+import os
 import asyncio
 import logging
 import sys
@@ -13,7 +14,52 @@ from ipykernel.comm import Comm
 from IPython.display import HTML
 from imjoy.utils import dotdict
 
-import os
+try:
+    import google.colab.output
+
+    isColab = True
+except:
+    from ipykernel.comm import Comm
+
+    isColab = False
+
+if isColab:
+
+    def add_plugin(pid, cid):
+        from imjoy.workers.python_worker import (
+            PluginConnection as __plugin_connection__,
+        )
+
+        __plugin_connection__.add_plugin(pid, cid).start()
+
+    google.colab.output.register_callback("add_plugin", add_plugin)
+
+    class Comm:
+        def __init__(self, target_name="default_target", data=None):
+            self.target_name = target_name
+            self._msg_callbacks = []
+            google.colab.output.register_callback(
+                "comm_message_" + self.target_name, self.handle_comm_msg
+            )
+
+        def handle_comm_msg(self, msg):
+            for cb in self._msg_callbacks:
+                try:
+                    cb({"content": {"data": msg}})
+                except Exception as e:
+                    print(e)
+
+        def send(self, msg):
+            google.colab.output.eval_js(
+                {"target_name": self.target_name, "msg": msg}, ignore_result=True
+            )
+
+        def on_msg(self, cb):
+            self._msg_callbacks.append(cb)
+
+        def on_close(self, cb):
+            pass
+
 
 # pylint: disable=unused-argument, redefined-outer-name
 
@@ -45,6 +91,45 @@ def show_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=650
     <iframe id="iframe_%(client_id)s" onload="setup_imjoy_bridge()" src="%(url)s" class="card card-1" frameborder="0" width="%(width)s" height="%(height)s" style="max-width: 100%%;"></iframe>
     <script type="text/Javascript">
     (function(){
+        const env = window.google && window.google.colab ? 'colab': (window.Jupyter?'jupyter':null)
+        
+        class ColabComm {
+            constructor(target_name){
+              if(!window.google.colab){
+                throw "ColabComm only work inside google colab."
+              }
+              this.target_name = target_name
+              this._msg_callbacks = []
+              this._eval = window.eval
+              window.eval = (msg)=>{
+                if(msg.target_name && msg.target_name === this.target_name){
+                  this.handle_comm_msg({content: {data: msg.msg}})
+                }
+                else{
+                  this._eval(msg)
+                }
+              }
+            }
+            handle_comm_msg(msg){
+              for(let cb of this._msg_callbacks){
+                try{
+                  cb(msg)
+                }
+                catch(e){
+                  console.error(e)
+                }
+              }
+            }
+            send(msg){
+              google.colab.kernel.invokeFunction('comm_message_'+this.target_name, [msg], {});
+            }
+            on_msg(cb){
+              this._msg_callbacks.push(cb)
+            }
+            on_close(cb){
+            }
+        }
+        
         class PostMessageIO{
             constructor(iframeEl){
                 this.plugins = {}
@@ -124,75 +209,101 @@ def show_imjoy(client_id, url="https://imjoy.io/#/app", width="100%", height=650
                 }
             }
         }
-        window.PostMessageIO = PostMessageIO;
+        
+
+        window.setup_imjoy_bridge = ()=>{
+          // try to recover the client
+          try{
+              var kernel = IPython.notebook.kernel;
+              var command = 'from imjoy.workers.jupyter_client import JupyterClient;JupyterClient.recover_client("%(client_id)s")';
+              kernel.execute(command);
+          }
+          catch(e){
+              console.warn('Failed to run recover client command.', e)
+          }
+
+          const iframeEl = document.getElementById('iframe_%(client_id)s')
+          const pio = new PostMessageIO(iframeEl);
+          let _connected_comm = null;
+          function add_plugin(plugin, _connected_comm){
+              const id = plugin.id
+              pio.on("message_to_plugin_" + id, (data)=>{
+                  _connected_comm.send(data.data);
+              })
+              _connected_comm.on_msg((msg) => {
+                  var data = msg.content.data
+                  console.log('comm_msg====>', data)
+                  if (["initialized",
+                      "importSuccess",
+                      "importFailure",
+                      "executeSuccess",
+                      "executeFailure"
+                      ].includes(data.type)) {
+                      pio.emit("message_from_plugin_" + id, data);
+                  } else {
+                      pio.emit("message_from_plugin_" + id, { type: 'message', data: data });
+                  }
+                  
+              })
+          }
+          if(env === 'jupyter'){
+              Jupyter.notebook.kernel.comm_manager.register_target(
+                  'imjoy_comm_%(client_id)s',
+                  function (comm, open_msg) {
+                      _connected_comm = comm;
+                      for(let k in pio.plugins){
+                          add_plugin(pio.plugins[k], _connected_comm)
+                      }
+                      //var config = open_msg.content.data
+                      //pio.emit("message_from_plugin_" + id, {'type': 'init_plugin', 'id': config.id, 'config': config});
+                  }
+              )
+          }
+          else if(env === 'colab'){
+              _connected_comm = new ColabComm('imjoy_comm_%(client_id)s')
+              for(let k in pio.plugins){
+                  add_plugin(pio.plugins[k], _connected_comm)
+              }
+              //var config = open_msg.content.data
+              //pio.emit("message_from_plugin_" + id, {'type': 'init_plugin', 'id': config.id, 'config': config});
+          }
+          else{
+              throw "can only run in Jupyter notebook or google colab."
+          }
+
+
+          pio.on('connect', ()=>{
+              console.log('pio connected.')
+          })
+
+          pio.on('init_plugin', (plugin_config)=>{
+              //id, type, config
+              pio.plugins[plugin_config.id] = plugin_config
+              if(_connected_comm){
+                  add_plugin(plugin_config, _connected_comm)
+              }
+              
+              if(env === 'jupyter'){
+                  try{
+                      var command = 'from imjoy.workers.python_worker import PluginConnection as __plugin_connection__;__plugin_connection__.add_plugin("'+plugin_config.id+'", "%(client_id)s").start()';
+                      var kernel = IPython.notebook.kernel;
+                      kernel.execute(command);
+                  }
+                  catch(e){
+                      console.error('Failed to execute command to start the plugin', plugin_config, e)
+                  }
+              }
+              else if(env === 'colab'){
+                  google.colab.kernel.invokeFunction('add_plugin', [plugin_config.id, "%(client_id)s"], {});
+              }
+              else{
+                  throw "can only run in Jupyter notebook or google colab."
+              }
+          });
+      }
     })()
 
-    function setup_imjoy_bridge(){
-        // try to recover the client
-        try{
-            var kernel = IPython.notebook.kernel;
-            command = 'from imjoy.workers.jupyter_client import JupyterClient;JupyterClient.recover_client("%(client_id)s")';
-            kernel.execute(command);
-        }
-        catch(e){
-            console.warn('Failed to run recover client command.', e)
-        }
-
-        const iframeEl = document.getElementById('iframe_%(client_id)s')
-        const pio = new PostMessageIO(iframeEl);
-        let _connected_comm = null;
-        function add_plugin(plugin, _connected_comm){
-            const id = plugin.id
-            pio.on("message_to_plugin_" + id, (data)=>{
-                _connected_comm.send(data.data);
-            })
-            _connected_comm.on_msg((msg) => {
-                var data = msg.content.data
-                if (["initialized",
-                    "importSuccess",
-                    "importFailure",
-                    "executeSuccess",
-                    "executeFailure"
-                    ].includes(data.type)) {
-                    pio.emit("message_from_plugin_" + id, data);
-                } else {
-                    pio.emit("message_from_plugin_" + id, { type: 'message', data: data });
-                }
-                
-            })
-        }
-        Jupyter.notebook.kernel.comm_manager.register_target(
-            'imjoy_comm_%(client_id)s',
-            function (comm, open_msg) {
-                _connected_comm = comm;
-                for(let k in pio.plugins){
-                    add_plugin(pio.plugins[k], _connected_comm)
-                }
-                //var config = open_msg.content.data
-                //pio.emit("message_from_plugin_" + id, {'type': 'init_plugin', 'id': config.id, 'config': config});
-            }
-        )
-
-        pio.on('connect', ()=>{
-            console.log('pio connected.')
-        })
-
-        pio.on('init_plugin', (plugin_config)=>{
-            //id, type, config
-            pio.plugins[plugin_config.id] = plugin_config
-            if(_connected_comm){
-                add_plugin(plugin_config, _connected_comm)
-            }
-            try{
-                var kernel = IPython.notebook.kernel;
-                command = 'from imjoy.workers.python_worker import PluginConnection as __plugin_connection__;__plugin_connection__.add_plugin("'+plugin_config.id+'", "%(client_id)s").start()';
-                kernel.execute(command);
-            }
-            catch(e){
-                console.error('Failed to execute command to start the plugin', plugin_config, e)
-            }
-        });
-    }
+    
     </script>
     """ % {
         "url": url,
@@ -238,7 +349,7 @@ class JupyterClient(AsyncClient):
             """Handle plugin message."""
 
             data = msg["content"]["data"]
-            # emit({'type': 'logging', 'details': data})
+            emit({"type": "logging", "details": data})
 
             # if not self.conn.executed:
             #    self.emit({'type': 'message', 'data': {"type": "interfaceSetAsRemote"}})
@@ -271,8 +382,8 @@ class JupyterClient(AsyncClient):
         emit({"type": "initialized", "dedicatedThread": True})
         logger.info("Plugin %s initialized", conn.opt.id)
 
-    # def run_forever(self, conn):
-    #     self.loop.create_task(self.task_worker(conn, self.queue, logger, conn.abort))
+    #     def run_forever(self, conn):
+    #         self.loop.create_task(self.task_worker(conn, self.queue, logger, conn.abort))
 
     def start(
         self,
