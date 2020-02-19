@@ -11,6 +11,21 @@ from imjoy.options import parse_cmd_line
 def main():
     """Run main."""
     opt = parse_cmd_line()
+    if opt.jupyter:
+        sys.argv = sys.argv[:1]
+        sys.argc = 1
+        from notebook.notebookapp import NotebookApp
+
+        kwargs = {
+            "open_browser": False,
+            "allow_origin": "*",
+            "tornado_settings": {"headers": {"Access-Control-Allow-Origin": "*"}},
+        }
+        if opt.token is not None:
+            kwargs["token"] = opt.token
+        NotebookApp.launch_instance(**kwargs)
+        return
+
     if opt.dev:
         print("Running ImJoy Plugin Engine in development mode")
         from .engine import run

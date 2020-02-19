@@ -2,6 +2,8 @@
 # ImJoy Plugin Engine
 The plugin engine used for running python plugins in ImJoy (https://imjoy.io).
 
+Note: we are about to switch to Jupyter notebook server, to use it, run `imjoy --jupyter`.
+
 ## Installation (Desktop App)
 
 If you want to use the plugin engine from a desktop environment, download the latest ImJoy-App from [here](https://github.com/oeway/ImJoy-App/releases). Follow the instructions according to different operating systems.
