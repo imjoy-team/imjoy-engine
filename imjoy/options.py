@@ -6,6 +6,7 @@ from imjoy import __version__
 def parse_cmd_line(args=None):
     """Parse the command line options."""
     parser = argparse.ArgumentParser()
+    parser.add_argument("--jupyter", action="store_true", help="start jupyter")
     parser.add_argument("--token", type=str, default=None, help="connection token")
     parser.add_argument("--debug", action="store_true", help="debug mode")
     parser.add_argument(
