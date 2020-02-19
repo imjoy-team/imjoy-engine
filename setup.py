@@ -37,7 +37,12 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=REQUIREMENTS,
-    extras_require={"engine": ENGINE_REQUIREMENTS, "worker": []},
+    extras_require={
+        "engine": ENGINE_REQUIREMENTS,
+        "worker": [],
+        "jupyter": ["jupyter"],
+        "jupyter-worker": ["ipykernel"],
+    },
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},
 )
