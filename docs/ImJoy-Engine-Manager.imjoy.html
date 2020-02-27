@@ -14,7 +14,7 @@ To use it, you need to install the [ImJoy Desktop App](https://github.com/oeway/
   "type": "web-worker",
   "tags": [],
   "ui": "",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "cover": "",
   "description": "This plugin manages plugin engines to ImJoy-Engine.",
   "icon": "extension",
@@ -187,7 +187,7 @@ class SocketioConnection {
                   this._disconnectHandler(data.details);
                 }
                 else{
-                   switch (data.type) {
+                    switch (data.type) {
                     case "message":
                       data = data.data
                       // console.log('message_from_plugin_'+this.secret, data)
@@ -689,6 +689,7 @@ class Engine {
   }
 }
 
+const registered_engines = {}
 async function createNewEngine(config){
   const engine = new Engine({config: config,
     client_id: randId() })
@@ -710,10 +711,12 @@ async function createNewEngine(config){
     type: 'engine',
     pluginType: 'native-python',
     icon: '🚀',
+    factory: 'ImJoy-Engine',
     name: engine.name,
     url: engine.url,
     config: config,
     connect(){
+      registered_engines[engine.name] = engine;
       return engine.connect();
     },
     disconnect(){
@@ -832,16 +835,31 @@ async function createNewEngine(config){
             engine.socket.removeListener("disconnect", disconnect);
           })
         }
-     })
+      })
     }
   })
   api.showMessage(`Plugin engine ${config.name} connected.`)
 }
 
-function removeEngine(){
-
+async function removeEngine(engine_config){
+    if(await api.confirm(`Do you really want to remove the engine ${engine_config.name}?`)){
+    if(registered_engines[engine_config.name]) {
+      registered_engines[engine_config.name].disconnect()
+    }
+    let saved_engines = await api.getConfig('engines')
+    try{
+        saved_engines = saved_engines ? JSON.parse(saved_engines) : {}
+        delete saved_engines[engine_config.url]
+    }
+    catch(e){
+      saved_engines = {}
+    }
+    await api.setConfig('engines', JSON.stringify(saved_engines))
+    return true
+  }
 }
 
 api.export({'setup': setup, 'run': ()=> {}});
 
 </script>
+  
