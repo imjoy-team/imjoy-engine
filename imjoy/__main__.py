@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 from imjoy.options import parse_cmd_line
-from imjoy.utils import read_or_generate_token
+from imjoy.utils import read_or_generate_token, write_token
 
 
 def main():
@@ -22,15 +22,19 @@ def main():
             "port": int(opt.port),
             "tornado_settings": {"headers": {"Access-Control-Allow-Origin": "*"}},
         }
-        if opt.token is None:
-            opt.token = read_or_generate_token(
-                os.path.join(os.path.expanduser("~"), ".jupyter_token")
-            )
-        kwargs["token"] = opt.token
+
+        if opt.token is None or opt.token == "":
+            if not opt.random_token:
+                opt.token = read_or_generate_token()
+                kwargs["token"] = opt.token
+        else:
+            kwargs["token"] = opt.token
+
         app = NotebookApp.instance(**kwargs)
         app.initialize()
         if app.port != int(opt.port):
             print("\nWARNING: using a different port: {}.\n".format(app.port))
+        write_token(app.token)
         app._token_generated = True
         app.start()
         return

@@ -20,7 +20,8 @@ if sys.platform == "win32":
         return drives
 
 
-def read_or_generate_token(token_path, logger=None):
+def read_or_generate_token(token_path=None):
+    token_path = token_path or os.path.join(os.path.expanduser("~"), ".jupyter_token")
     # read token from file if exists
     try:
         with open(token_path, "r") as fil:
@@ -31,6 +32,12 @@ def read_or_generate_token(token_path, logger=None):
             fil.write(token)
 
     return token
+
+
+def write_token(token, token_path=None):
+    token_path = token_path or os.path.join(os.path.expanduser("~"), ".jupyter_token")
+    with open(token_path, "w") as fil:
+        fil.write(token)
 
 
 def parse_repos(requirements, work_dir):

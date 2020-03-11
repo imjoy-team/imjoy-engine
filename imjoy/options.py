@@ -13,6 +13,9 @@ def parse_cmd_line(args=None):
         "--legacy", action="store_true", help="start the legacy ImJoy Engine"
     )
     parser.add_argument("--token", type=str, default=None, help="connection token")
+    parser.add_argument(
+        "--random-token", action="store_true", help="randomly generate a token"
+    )
     parser.add_argument("--debug", action="store_true", help="debug mode")
     parser.add_argument(
         "--serve",
