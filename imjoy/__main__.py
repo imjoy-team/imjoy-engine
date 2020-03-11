@@ -1,11 +1,11 @@
 """Provide main entrypoint."""
-import importlib
 import json
 import os
 import subprocess
 import sys
 
 from imjoy.options import parse_cmd_line
+from imjoy.utils import read_or_generate_token
 
 
 def main():
@@ -19,11 +19,25 @@ def main():
         kwargs = {
             "open_browser": False,
             "allow_origin": "*",
+            "port": int(opt.port),
             "tornado_settings": {"headers": {"Access-Control-Allow-Origin": "*"}},
         }
-        if opt.token is not None:
-            kwargs["token"] = opt.token
-        NotebookApp.launch_instance(**kwargs)
+        if opt.token is None:
+            opt.token = read_or_generate_token(
+                os.path.join(os.path.expanduser("~"), ".jupyter_token")
+            )
+        kwargs["token"] = opt.token
+        app = NotebookApp.instance(**kwargs)
+        app.initialize()
+        if app.port != int(opt.port):
+            print("\nWARNING: using a different port: {}.\n".format(app.port))
+        app._token_generated = True
+        app.start()
+        return
+    if not opt.legacy:
+        print(
+            "\nNote: We are migrating the backend of the ImJoy Engine to Jupyter, to use it please run `imjoy --jupyter`.\n\nIf you want to use the previous engine, run `imjoy --legacy`, however, please note that it maybe removed soon.\n"
+        )
         return
 
     if opt.dev:
@@ -157,6 +171,7 @@ def main():
 
         # reload to use the new version
         import imjoy
+        import importlib
 
         importlib.reload(imjoy)
         from imjoy.engine import run

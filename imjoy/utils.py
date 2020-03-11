@@ -4,6 +4,7 @@ from importlib import import_module
 import os
 import string
 import sys
+import uuid
 
 if sys.platform == "win32":
     from ctypes import windll
@@ -17,6 +18,19 @@ if sys.platform == "win32":
                 drives.append(os.path.abspath(letter + ":/"))
             bitmask >>= 1
         return drives
+
+
+def read_or_generate_token(token_path, logger=None):
+    # read token from file if exists
+    try:
+        with open(token_path, "r") as fil:
+            token = fil.read()
+    except Exception:  # pylint: disable=broad-except
+        token = str(uuid.uuid4())
+        with open(token_path, "w") as fil:
+            fil.write(token)
+
+    return token
 
 
 def parse_repos(requirements, work_dir):

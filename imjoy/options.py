@@ -9,6 +9,9 @@ def parse_cmd_line(args=None):
     parser.add_argument(
         "--jupyter", action="store_true", help="start jupyter notebook server"
     )
+    parser.add_argument(
+        "--legacy", action="store_true", help="start the legacy ImJoy Engine"
+    )
     parser.add_argument("--token", type=str, default=None, help="connection token")
     parser.add_argument("--debug", action="store_true", help="debug mode")
     parser.add_argument(
