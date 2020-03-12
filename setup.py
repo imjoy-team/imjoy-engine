@@ -7,21 +7,19 @@ DESCRIPTION = (
     "ImJoy Plugin Engine for running Python plugins locally "
     "or remotely from ImJoy.io"
 )
-REQUIREMENTS = ["jupyter>=1.0.0"]
 
-LEGACY_REQUIREMENTS = [
+
+WORKER_REQUIREMENTS = [
     "python-engineio==3.9.1",
     "python-socketio[client]==4.4.0",
     "numpy",
     'janus;python_version>"3.3"',
     'pathlib;python_version<"3.4"',
 ]
-LEGACY_ENGINE_REQUIREMENTS = LEGACY_REQUIREMENTS + [
-    "aiohttp",
-    "aiohttp_cors",
-    "gputil",
-    "pyyaml",
-]
+
+REQUIREMENTS = WORKER_REQUIREMENTS + ["jupyter>=1.0.0"]
+
+LEGACY_ENGINE_REQUIREMENTS = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml"]
 
 ROOT_DIR = os.path.dirname(__file__)
 with open(os.path.join(ROOT_DIR, "README.md"), "r") as f:
@@ -45,7 +43,7 @@ setup(
     install_requires=REQUIREMENTS,
     extras_require={
         "engine": LEGACY_ENGINE_REQUIREMENTS,
-        "worker": LEGACY_REQUIREMENTS,
+        "worker": [],
         "jupyter": [],
         "jupyter-worker": ["ipykernel>=5.1.4"],
     },
