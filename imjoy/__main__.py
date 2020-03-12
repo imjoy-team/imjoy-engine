@@ -19,6 +19,7 @@ def main():
         kwargs = {
             "open_browser": False,
             "allow_origin": "*",
+            "ip": opt.host,
             "port": int(opt.port),
             "tornado_settings": {"headers": {"Access-Control-Allow-Origin": "*"}},
         }
