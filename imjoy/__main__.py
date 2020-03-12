@@ -20,6 +20,7 @@ def main():
             "open_browser": False,
             "allow_origin": "*",
             "ip": opt.host,
+            'notebook_dir': opt.workspace,
             "port": int(opt.port),
             "tornado_settings": {"headers": {"Access-Control-Allow-Origin": "*"}},
         }
