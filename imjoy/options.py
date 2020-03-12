@@ -1,5 +1,6 @@
 """Provide setup function to prepare the engine."""
 import argparse
+import os
 from imjoy import __version__
 
 
@@ -42,7 +43,7 @@ def parse_cmd_line(args=None):
     parser.add_argument(
         "--workspace",
         type=str,
-        default="~/ImJoyWorkspace",
+        default=os.path.abspath(os.getcwd()),
         help="workspace folder for plugins",
     )
     parser.add_argument(
