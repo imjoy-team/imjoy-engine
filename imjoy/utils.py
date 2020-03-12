@@ -26,7 +26,7 @@ def read_or_generate_token(token_path=None):
     try:
         with open(token_path, "r") as fil:
             token = fil.read()
-    except Exception:  # pylint: disable=broad-except
+    except FileNotFoundError:
         token = str(uuid.uuid4())
         with open(token_path, "w") as fil:
             fil.write(token)

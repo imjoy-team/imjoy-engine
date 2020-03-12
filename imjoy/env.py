@@ -83,7 +83,7 @@ def bootstrap(opt, logger):
     opt.workspace_dir = os.path.expanduser(opt.workspace)
     if not os.path.exists(opt.workspace_dir):
         os.makedirs(opt.workspace_dir)
-    if opt.token is None or opt.token == "":
+    if not opt.token:
         opt.token = read_or_generate_token(
             os.path.join(opt.workspace_dir, ".token"), logger
         )
