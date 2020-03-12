@@ -25,7 +25,7 @@ def main():
             "tornado_settings": {"headers": {"Access-Control-Allow-Origin": "*"}},
         }
 
-        if opt.token is None or opt.token == "":
+        if not opt.token:
             if not opt.random_token:
                 opt.token = read_or_generate_token()
                 kwargs["token"] = opt.token
