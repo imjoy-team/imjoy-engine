@@ -28,6 +28,7 @@ with open(os.path.join(ROOT_DIR, "README.md"), "r") as f:
 with open(os.path.join(ROOT_DIR, "imjoy", "VERSION"), "r") as f:
     VERSION = json.load(f)["version"]
 
+
 setup(
     name="imjoy",
     version=VERSION,
