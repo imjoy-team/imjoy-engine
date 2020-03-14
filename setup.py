@@ -8,14 +8,18 @@ DESCRIPTION = (
     "or remotely from ImJoy.io"
 )
 
-REQUIREMENTS = [
+
+WORKER_REQUIREMENTS = [
     "python-engineio==3.9.1",
     "python-socketio[client]==4.4.0",
     "numpy",
     'janus;python_version>"3.3"',
     'pathlib;python_version<"3.4"',
 ]
-ENGINE_REQUIREMENTS = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml"]
+
+REQUIREMENTS = WORKER_REQUIREMENTS + ["jupyter>=1.0.0"]
+
+LEGACY_ENGINE_REQUIREMENTS = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml"]
 
 ROOT_DIR = os.path.dirname(__file__)
 with open(os.path.join(ROOT_DIR, "README.md"), "r") as f:
@@ -23,6 +27,7 @@ with open(os.path.join(ROOT_DIR, "README.md"), "r") as f:
 
 with open(os.path.join(ROOT_DIR, "imjoy", "VERSION"), "r") as f:
     VERSION = json.load(f)["version"]
+
 
 setup(
     name="imjoy",
@@ -38,10 +43,10 @@ setup(
     include_package_data=True,
     install_requires=REQUIREMENTS,
     extras_require={
-        "engine": ENGINE_REQUIREMENTS,
+        "engine": LEGACY_ENGINE_REQUIREMENTS,
         "worker": [],
-        "jupyter": ["jupyter"],
-        "jupyter-worker": ["ipykernel"],
+        "jupyter": [],
+        "jupyter-worker": ["ipykernel>=5.1.4"],
     },
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},

@@ -7,7 +7,7 @@ import sys
 import time
 import uuid
 
-from imjoy.utils import kill_process
+from imjoy.utils import kill_process, read_or_generate_token
 
 
 def prepare_env(opt, logger):
@@ -83,22 +83,10 @@ def bootstrap(opt, logger):
     opt.workspace_dir = os.path.expanduser(opt.workspace)
     if not os.path.exists(opt.workspace_dir):
         os.makedirs(opt.workspace_dir)
-
-    # read token from file if exists
-    try:
-        if opt.token is None or opt.token == "":
-            with open(os.path.join(opt.workspace_dir, ".token"), "r") as fil:
-                opt.token = fil.read()
-    except Exception:  # pylint: disable=broad-except
-        logger.debug("Failed to read token from file")
-
-    try:
-        if opt.token is None or opt.token == "":
-            opt.token = str(uuid.uuid4())
-            with open(os.path.join(opt.workspace_dir, ".token"), "w") as fil:
-                fil.write(opt.token)
-    except Exception as exc:  # pylint: disable=broad-except
-        logger.error("Failed to save .token file: %s", str(exc))
+    if not opt.token:
+        opt.token = read_or_generate_token(
+            os.path.join(opt.workspace_dir, ".token"), logger
+        )
 
     # try to kill last process
     pid_file = os.path.join(opt.workspace_dir, ".pid")

@@ -1,5 +1,6 @@
 """Provide setup function to prepare the engine."""
 import argparse
+import os
 from imjoy import __version__
 
 
@@ -9,7 +10,13 @@ def parse_cmd_line(args=None):
     parser.add_argument(
         "--jupyter", action="store_true", help="start jupyter notebook server"
     )
+    parser.add_argument(
+        "--legacy", action="store_true", help="start the legacy ImJoy Engine"
+    )
     parser.add_argument("--token", type=str, default=None, help="connection token")
+    parser.add_argument(
+        "--random-token", action="store_true", help="randomly generate a token"
+    )
     parser.add_argument("--debug", action="store_true", help="debug mode")
     parser.add_argument(
         "--serve",
@@ -36,7 +43,7 @@ def parse_cmd_line(args=None):
     parser.add_argument(
         "--workspace",
         type=str,
-        default="~/ImJoyWorkspace",
+        default=os.path.abspath(os.getcwd()),
         help="workspace folder for plugins",
     )
     parser.add_argument(
