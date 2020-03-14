@@ -25,14 +25,20 @@ def parse_cmd_line(args=None):
     )
     parser.add_argument("--host", type=str, default="127.0.0.1", help="socketio host")
     parser.add_argument(
-        "--base_url",
+        "--base-url",
         type=str,
         default=None,
         help="the base url for accessing this plugin engine",
     )
+    parser.add_argument(
+        "--allow-origin",
+        type=str,
+        default="*",
+        help="the allow origin header to prevent unintended access from other website",
+    )
     parser.add_argument("--port", type=str, default="9527", help="socketio port")
     parser.add_argument(
-        "--force_quit_timeout",
+        "--force-quit-timeout",
         type=int,
         default=5,
         help=(
