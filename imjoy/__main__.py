@@ -18,7 +18,7 @@ def main():
 
         kwargs = {
             "open_browser": False,
-            "allow_origin": "*",
+            "allow_origin": opt.allow_origin,
             "ip": opt.host,
             "notebook_dir": opt.workspace,
             "port": int(opt.port),

@@ -84,9 +84,7 @@ def bootstrap(opt, logger):
     if not os.path.exists(opt.workspace_dir):
         os.makedirs(opt.workspace_dir)
     if not opt.token:
-        opt.token = read_or_generate_token(
-            os.path.join(opt.workspace_dir, ".token"), logger
-        )
+        opt.token = read_or_generate_token(os.path.join(opt.workspace_dir, ".token"))
 
     # try to kill last process
     pid_file = os.path.join(opt.workspace_dir, ".pid")
