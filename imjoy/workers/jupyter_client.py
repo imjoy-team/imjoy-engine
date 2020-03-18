@@ -6,6 +6,7 @@ import traceback
 
 import janus
 
+from .buffer_utils import put_buffers, remove_buffers
 from .utils import format_traceback
 from .python3_client import AsyncClient
 from .python_worker import PluginConnection
@@ -232,12 +233,21 @@ class JupyterClient(AsyncClient):
 
         def emit(msg):
             """Emit a message to the socketio server."""
-            self.comm.send(msg)
+            msg, buffer_paths, buffers = remove_buffers(msg)
+            if len(buffers) > 0:
+                msg["__buffer_paths__"] = buffer_paths
+                self.comm.send(msg, buffers=buffers)
+            else:
+                self.comm.send(msg)
 
         def comm_plugin_message(msg):
             """Handle plugin message."""
 
             data = msg["content"]["data"]
+            if "__buffer_paths__" in data:
+                buffer_paths = data["__buffer_paths__"]
+                del data["__buffer_paths__"]
+                put_buffers(data, buffer_paths, msg["buffers"])
             # emit({'type': 'logging', 'details': data})
 
             # if not self.conn.executed:
