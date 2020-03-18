@@ -23,6 +23,7 @@ else:
 
     PYTHON34 = False
 
+SPLIT_ARRAY = False
 ARRAY_CHUNK = 1000000
 logger = logging.getLogger("plugin")
 
@@ -220,7 +221,7 @@ class PluginConnection:
                 val, (self.local["np"].ndarray, self.local["np"].generic)
             ):
                 v_byte = val.tobytes()
-                if len(v_byte) > ARRAY_CHUNK:
+                if SPLIT_ARRAY and len(v_byte) > ARRAY_CHUNK:
                     v_len = int(math.ceil(1.0 * len(v_byte) / ARRAY_CHUNK))
                     v_bytes = []
                     for i in range(v_len):
