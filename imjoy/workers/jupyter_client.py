@@ -278,7 +278,7 @@ class JupyterClient(AsyncClient):
         conn.default_exit = lambda: None
         conn.emit = emit
 
-        emit({"type": "initialized", "dedicatedThread": True, "binaryBuffers": True})
+        emit({"type": "initialized", "dedicatedThread": True, "supportBinaryBuffers": True})
         logger.info("Plugin %s initialized", conn.opt.id)
 
     # def run_forever(self, conn):
