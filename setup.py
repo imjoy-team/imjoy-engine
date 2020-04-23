@@ -45,7 +45,7 @@ setup(
     extras_require={
         "engine": LEGACY_ENGINE_REQUIREMENTS,
         "worker": [],
-        "jupyter": [],
+        "jupyter": ["imjoy-elfinder[jupyter]"],
         "jupyter-worker": ["ipykernel>=5.1.4"],
     },
     zip_safe=False,
