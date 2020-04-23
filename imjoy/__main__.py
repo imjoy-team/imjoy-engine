@@ -22,7 +22,12 @@ def main():
             "ip": opt.host,
             "notebook_dir": opt.workspace,
             "port": int(opt.port),
-            "tornado_settings": {"headers": {"Access-Control-Allow-Origin": "*"}},
+            "tornado_settings": {
+                "headers": {
+                    "Access-Control-Allow-Origin": opt.allow_origin,
+                    "Content-Security-Policy": opt.content_security_policy,
+                }
+            },
         }
 
         if not opt.token:
