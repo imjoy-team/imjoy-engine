@@ -1,4 +1,4 @@
-![ENGINE_VERSION](https://img.shields.io/badge/dynamic/json.svg?color=success&label=imjoy%20engine&prefix=v&query=version&url=https%3A%2F%2Fraw.githubusercontent.com%2Foeway%2FImJoy-Engine%2Fmaster%2Fimjoy%2FVERSION) ![API_VERSION](https://img.shields.io/badge/dynamic/json.svg?color=success&label=api%20version&prefix=v&query=api_version&url=https%3A%2F%2Fraw.githubusercontent.com%2Foeway%2FImJoy-Engine%2Fmaster%2Fimjoy%2FVERSION) ![PyPI](https://img.shields.io/pypi/v/imjoy.svg?style=popout) ![GitHub](https://img.shields.io/github/license/oeway/ImJoy-Engine.svg) [![Build Status](https://travis-ci.com/oeway/ImJoy-Engine.svg?branch=master)](https://travis-ci.com/oeway/ImJoy-Engine) [![ImJoy Version](https://img.shields.io/badge/dynamic/json.svg?color=success&label=imjoy&prefix=v&query=version&url=https://raw.githubusercontent.com/oeway/ImJoy/master/web/package.json)](https://imjoy.io/#/app)
+![ENGINE_VERSION](https://img.shields.io/badge/dynamic/json.svg?color=success&label=imjoy%20engine&prefix=v&query=version&url=https%3A%2F%2Fraw.githubusercontent.com%imjoy-team%2FImJoy-Engine%2Fmaster%2Fimjoy%2FVERSION) ![API_VERSION](https://img.shields.io/badge/dynamic/json.svg?color=success&label=api%20version&prefix=v&query=api_version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fimjoy-team%2FImJoy-Engine%2Fmaster%2Fimjoy%2FVERSION) ![PyPI](https://img.shields.io/pypi/v/imjoy.svg?style=popout) ![GitHub](https://img.shields.io/github/license/imjoy-team/ImJoy-Engine.svg) [![Build Status](https://travis-ci.com/imjoy-team/ImJoy-Engine.svg?branch=master)](https://travis-ci.com/imjoy-team/ImJoy-Engine) [![ImJoy Version](https://img.shields.io/badge/dynamic/json.svg?color=success&label=imjoy&prefix=v&query=version&url=https://raw.githubusercontent.com/imjoy-team/ImJoy/master/web/package.json)](https://imjoy.io/#/app)
 # ImJoy Plugin Engine
 The plugin engine used for running python plugins in ImJoy (https://imjoy.io).
 
@@ -31,18 +31,18 @@ Please note that if you are trying to use the ImJoy Plugin Engine running on a r
 ## More details and FAQs in [Docs](https://imjoy.io/docs/#/user_manual)
 
 # Roadmap
-You can track the progress of the project here: https://github.com/oeway/ImJoy/projects/2
+You can track the progress of the project here: https://github.com/imjoy-team/ImJoy/projects/2
 
-# Bug report and feature request
+# Issues
 
-Please submit your issue to [ImJoy/issues ](https://github.com/oeway/ImJoy/issues)
+Please submit your bug report or feature request to [ImJoy/issues ](https://github.com/imjoy-team/ImJoy/issues)
 
 ## Development
 
 - Development requires Python 3.6, since we use [`black`](https://github.com/ambv/black) for code formatting.
 
 ```
-  git clone git@github.com:oeway/ImJoy-Engine.git
+  git clone git@github.com:imjoy-team/ImJoy-Engine.git
   # Enter directory.
   cd ImJoy-Engine
   # Install all development requirements and package in development mode.

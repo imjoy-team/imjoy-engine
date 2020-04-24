@@ -112,7 +112,7 @@ def bootstrap(opt, logger):
             logger.info("Installing git")
             ret = subprocess.Popen(
                 "conda install -y git && git clone -b gh-pages --depth 1 "
-                "https://github.com/oeway/ImJoy".split(),
+                "https://github.com/imjoy-team/ImJoy".split(),
                 shell=False,
             ).wait()
             if ret != 0:
@@ -141,7 +141,7 @@ def bootstrap(opt, logger):
             logger.info("Downloading files for serving ImJoy locally")
             ret = subprocess.Popen(
                 "git clone -b gh-pages --depth 1 "
-                "https://github.com/oeway/ImJoy __ImJoy__".split(),
+                "https://github.com/imjoy-team/ImJoy __ImJoy__".split(),
                 shell=False,
                 cwd=opt.workspace_dir,
             ).wait()
