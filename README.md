@@ -10,7 +10,7 @@ This library is mainly based on jupyter notebook server, with additonal librarie
 * Start a **Terminal**(Mac and Linux) or **Anaconda Prompt**(Windows), then run the following command:
 
 ```
-pip install -U [jupyter]
+pip install -U imjoy[jupyter]
 ```
 
 The above command will also install jupyter notebook and [imjoy-elfinder](https://github.com/imjoy-team/imjoy-elfinder).
