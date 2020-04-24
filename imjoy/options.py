@@ -33,8 +33,14 @@ def parse_cmd_line(args=None):
     parser.add_argument(
         "--allow-origin",
         type=str,
-        default="*",
+        default="https://lib.imjoy.io",
         help="the allow origin header to prevent unintended access from other website",
+    )
+    parser.add_argument(
+        "--content-security-policy",
+        type=str,
+        default="frame-ancestors 'self' https://imjoy.io https://*.imjoy.io",
+        help="the Content-Security-Policy header to prevent unintended access from other website",
     )
     parser.add_argument("--port", type=str, default="9527", help="socketio port")
     parser.add_argument(

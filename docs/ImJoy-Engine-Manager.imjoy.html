@@ -4,7 +4,7 @@
 
 This plugin manages different plugin engines the ImJoy-Engine or the ImJoy Desktop App is connected to.
 
-To use it, you need to install the [ImJoy Desktop App](https://github.com/oeway/ImJoy-App) or the [ImJoy-Engine](https://github.com/oeway/ImJoy-Engine).
+To use it, you need to install the [ImJoy Desktop App](https://github.com/imjoy-team/ImJoy-App) or the [ImJoy-Engine](https://github.com/imjoy-team/ImJoy-Engine).
 
 </docs>
 
@@ -57,9 +57,9 @@ async function addEngine(){
   (Note: if you just want to try the Python plugins in ImJoy, you can already run it via the <code>Jupyter Engine Manager</code> and it will run directly through mybinder.org.)
 
   Python plugins are supported by ImJoy with the ImJoy Plugin Engine.
-  If you don't have the Plugin Engine, please download and install the [ImJoy Desktop App](https://github.com/oeway/ImJoy-App/releases).
+  If you don't have the Plugin Engine, please download and install the [ImJoy Desktop App](https://github.com/imjoy-team/ImJoy-App/releases).
   
-  Alternatively, if you have Anaconda or Miniconda installed already, you can run <code>pip install imjoy</code> and start with <code>imjoy</code> command from your teriminal (see [ImJoy-Engine](https://github.com/oeway/ImJoy-Engine)).
+  Alternatively, if you have Anaconda or Miniconda installed already, you can run <code>pip install imjoy</code> and start with <code>imjoy</code> command from your teriminal (see [ImJoy-Engine](https://github.com/imjoy-team/ImJoy-Engine)).
 
   Once installed, please start the Plugin Engine, and enter the connection token below.
 `
@@ -123,10 +123,10 @@ async function addEngine(){
       return config
     })
     dialog.on('download', ()=>{
-      api.utils.openUrl('https://github.com/oeway/ImJoy-App/releases')
+      api.utils.openUrl('https://github.com/imjoy-team/ImJoy-App/releases')
     })
     dialog.on('more', ()=>{
-      api.utils.openUrl('https://github.com/oeway/ImJoy-Engine')
+      api.utils.openUrl('https://github.com/imjoy-team/ImJoy-Engine')
     })
 }
 function randId() {
