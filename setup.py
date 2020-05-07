@@ -13,7 +13,7 @@ WORKER_REQUIREMENTS = [
     "python-engineio==3.9.1",
     "python-socketio[client]==4.4.0",
     "numpy",
-    'janus==0.5.0;python_version>"3.3"',
+    'janus==0.4.0;python_version>"3.3"',
     'pathlib;python_version<"3.4"',
 ]
 

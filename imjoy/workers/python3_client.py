@@ -123,7 +123,7 @@ class AsyncClient(BaseClient):
         """Set up client instance."""
         super().__init__(id)
         self.loop = asyncio.get_event_loop()
-        self.janus_queue = janus.Queue()
+        self.janus_queue = janus.Queue(loop=self.loop)
         self.queue = self.janus_queue.sync_q
         self.task_worker = task_worker
 

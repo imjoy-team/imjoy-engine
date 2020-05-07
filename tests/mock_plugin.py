@@ -49,7 +49,7 @@ class TestPlugin:
         self._plugin_message_handler = []
         self.api = None
         self.imjoy_api = ImJoyAPI()
-        self.janus_queue = janus.Queue()
+        self.janus_queue = janus.Queue(loop=self.loop)
         self.queue = self.janus_queue.sync_q
 
         @sio.on("message_from_plugin_" + secret)
