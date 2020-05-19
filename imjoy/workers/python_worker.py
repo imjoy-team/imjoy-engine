@@ -237,7 +237,7 @@ class PluginConnection:
             elif isinstance(val, (dict, list)):
                 v_obj = self._encode(val)
             elif not isinstance(val, basestring) and isinstance(val, bytes):
-                v_obj = val.decode()  # covert python3 bytes to str
+                v_obj = val  # send bytes directly
             elif isinstance(val, Exception):
                 v_obj = {"__jailed_type__": "error", "__value__": str(val)}
             else:
