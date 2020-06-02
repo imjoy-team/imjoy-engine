@@ -9,13 +9,13 @@ DESCRIPTION = (
 )
 
 
-WORKER_REQUIREMENTS = [
+REQUIREMENTS = [
     "numpy",
-    'imjoy-rpc',
+    "imjoy-rpc>=0.2.0",
     'pathlib;python_version<"3.4"',
+    "jupyter>=1.0.0",
 ]
 
-REQUIREMENTS = WORKER_REQUIREMENTS + ["jupyter>=1.0.0"]
 
 ROOT_DIR = os.path.dirname(__file__)
 with open(os.path.join(ROOT_DIR, "README.md"), "r") as f:
