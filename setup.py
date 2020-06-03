@@ -9,17 +9,16 @@ DESCRIPTION = (
 )
 
 
-WORKER_REQUIREMENTS = [
-    "python-engineio==3.9.1",
-    "python-socketio[client]==4.4.0",
+REQUIREMENTS = [
     "numpy",
-    'janus==0.5.0;python_version>"3.3"',
+    "imjoy-rpc>=0.2.0",
     'pathlib;python_version<"3.4"',
+    "jupyter>=1.0.0",
+    "imjoy-elfinder[jupyter]",
+    "ipykernel>=5.1.4",
+    "imjoy-jupyter-extension",
 ]
 
-REQUIREMENTS = WORKER_REQUIREMENTS + ["jupyter>=1.0.0"]
-
-LEGACY_ENGINE_REQUIREMENTS = ["aiohttp", "aiohttp_cors", "gputil", "pyyaml"]
 
 ROOT_DIR = os.path.dirname(__file__)
 with open(os.path.join(ROOT_DIR, "README.md"), "r") as f:
@@ -27,7 +26,6 @@ with open(os.path.join(ROOT_DIR, "README.md"), "r") as f:
 
 with open(os.path.join(ROOT_DIR, "imjoy", "VERSION"), "r") as f:
     VERSION = json.load(f)["version"]
-
 
 setup(
     name="imjoy",
@@ -42,12 +40,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=REQUIREMENTS,
-    extras_require={
-        "engine": LEGACY_ENGINE_REQUIREMENTS,
-        "worker": [],
-        "jupyter": ["imjoy-elfinder[jupyter]"],
-        "jupyter-worker": ["ipykernel>=5.1.4"],
-    },
+    extras_require={},
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},
 )

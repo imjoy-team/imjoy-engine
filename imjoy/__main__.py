@@ -45,17 +45,11 @@ def main():
         app._token_generated = True
         app.start()
         return
+
     if not opt.legacy:
         print(
             "\nNote: We are migrating the backend of the ImJoy Engine to Jupyter, to use it please run `imjoy --jupyter`.\n\nIf you want to use the previous engine, run `imjoy --legacy`, however, please note that it maybe removed soon.\n"
         )
-        return
-
-    if opt.dev:
-        print("Running ImJoy Plugin Engine in development mode")
-        from .engine import run
-
-        run()
         return
 
     # add executable path to PATH
@@ -136,106 +130,6 @@ def main():
                 print("Failed to upgrade pip.")
     except Exception as e:
         print("Failed to check or install pip/git, error: {}".format(e))
-
-    try:
-        import psutil
-    except ImportError:
-        if not opt.freeze:
-            if pip_available:
-                print("Trying to install psutil with pip")
-                ret = subprocess.Popen(
-                    "python -m pip install psutil".split(),
-                    env=os.environ.copy(),
-                    shell=False,
-                ).wait()
-            else:
-                ret = 1
-
-            if ret != 0 and conda_available:
-                print("Trying to install psutil with conda")
-                ret2 = subprocess.Popen(
-                    "conda install -y psutil".split(), env=os.environ.copy()
-                ).wait()
-                if ret2 != 0:
-                    print(
-                        "WARNING: Failed to install psutil, "
-                        "please try to setup an environment with gcc support."
-                    )
-                else:
-                    print("psutil was installed successfully.")
-            elif ret != 0:
-                print("Failed to install psutil.")
-
-    if sys.version_info > (3, 0):
-        if not opt.freeze and pip_available:
-            # running in python 3
-            print("Upgrading ImJoy Plugin Engine")
-            ret = subprocess.Popen(
-                "python -m pip install -U imjoy[engine]".split(),
-                env=os.environ.copy(),
-                shell=False,
-            ).wait()
-            if ret != 0:
-                print("Failed to upgrade ImJoy Plugin Engine")
-        elif not opt.freeze:
-            print("Failed to upgrade the engine because pip was not found.")
-
-        # reload to use the new version
-        import imjoy
-        import importlib
-
-        importlib.reload(imjoy)
-        from imjoy.engine import run
-
-        run()
-    else:
-        # running in python 2
-        if conda_available:
-            print("ImJoy needs to run in Python 3.6+, bootstrapping with conda")
-            ret = subprocess.Popen(
-                "conda create -y -n imjoy python=3.6 conda".split(),
-                env=os.environ.copy(),
-                shell=False,
-            ).wait()
-            if ret == 0:
-                print(
-                    "conda environment is now ready, "
-                    "installing imjoy and starting the engine"
-                )
-            else:
-                print(
-                    "conda environment failed to setup, maybe it already exists. "
-                    "Otherwise, please make sure you are running in a conda environment"
-                )
-            pip_cmd = "python -m pip install -U imjoy[engine]"
-
-            if sys.platform == "linux" or sys.platform == "linux2":
-                # linux
-                conda_activate = (
-                    "/bin/bash -c 'source " + conda_prefix + "/bin/activate {}'"
-                )
-            elif sys.platform == "darwin":
-                # OS X
-                conda_activate = "source activate {}"
-            elif sys.platform == "win32":
-                # Windows...
-                conda_activate = "activate {}"
-            else:
-                conda_activate = "conda activate {}"
-
-            pip_cmd = conda_activate.format(
-                "imjoy && " + pip_cmd + " && python -m imjoy"
-            )
-            print("Running command: " + pip_cmd)
-            ret = subprocess.Popen(pip_cmd, shell=True).wait()
-            if ret != 0:
-                raise Exception(
-                    "Failed to install and start ImJoy, exit code: {}".format(ret)
-                )
-        else:
-            raise Exception(
-                "It seems you are trying to run ImJoy Engine in Python 2, but it requires Python 3.6+ (with conda)."
-            )
 
 
 if __name__ == "__main__":

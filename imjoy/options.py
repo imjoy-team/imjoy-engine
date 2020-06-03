@@ -10,9 +10,6 @@ def parse_cmd_line(args=None):
     parser.add_argument(
         "--jupyter", action="store_true", help="start jupyter notebook server"
     )
-    parser.add_argument(
-        "--legacy", action="store_true", help="start the legacy ImJoy Engine"
-    )
     parser.add_argument("--token", type=str, default=None, help="connection token")
     parser.add_argument(
         "--random-token", action="store_true", help="randomly generate a token"
@@ -44,33 +41,11 @@ def parse_cmd_line(args=None):
     )
     parser.add_argument("--port", type=str, default="9527", help="socketio port")
     parser.add_argument(
-        "--force-quit-timeout",
-        type=int,
-        default=5,
-        help=(
-            "the time (in seconds) for waiting before killing a plugin process, "
-            "default: 5 s"
-        ),
-    )
-    parser.add_argument(
         "--workspace",
         type=str,
         default=os.path.abspath(os.getcwd()),
         help="workspace folder for plugins",
     )
-    parser.add_argument(
-        "--freeze", action="store_true", help="disable conda and pip commands"
-    )
-    parser.add_argument(
-        "--engine_container_token",
-        type=str,
-        default=None,
-        help="A token set by the engine container which launches the engine",
-    )
-    parser.add_argument(
-        "--dev", action="store_true", help="run ImJoy Engine in development mode"
-    )
-
     parser.add_argument(
         "-v", "--version", action="version", version="%(prog)s " + __version__
     )
