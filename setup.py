@@ -14,6 +14,9 @@ REQUIREMENTS = [
     "imjoy-rpc>=0.2.0",
     'pathlib;python_version<"3.4"',
     "jupyter>=1.0.0",
+    "imjoy-elfinder[jupyter]",
+    "ipykernel>=5.1.4",
+    "imjoy-jupyter-extension",
 ]
 
 
@@ -37,11 +40,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=REQUIREMENTS,
-    extras_require={
-        "worker": [],
-        "jupyter": ["imjoy-elfinder[jupyter]"],
-        "jupyter-worker": ["ipykernel>=5.1.4"],
-    },
+    extras_require={},
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},
 )
