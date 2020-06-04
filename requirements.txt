@@ -1,1 +1,1 @@
-imjoy-rpc
+imjoy-rpc>=0.2.3

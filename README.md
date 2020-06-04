@@ -1,4 +1,4 @@
-![ENGINE_VERSION](https://img.shields.io/badge/dynamic/json.svg?color=success&label=imjoy%20engine&prefix=v&query=version&url=https%3A%2F%2Fraw.githubusercontent.com%imjoy-team%2FImJoy-Engine%2Fmaster%2Fimjoy%2FVERSION) ![API_VERSION](https://img.shields.io/badge/dynamic/json.svg?color=success&label=api%20version&prefix=v&query=api_version&url=https%3A%2F%2Fraw.githubusercontent.com%2Fimjoy-team%2FImJoy-Engine%2Fmaster%2Fimjoy%2FVERSION) ![PyPI](https://img.shields.io/pypi/v/imjoy.svg?style=popout) ![GitHub](https://img.shields.io/github/license/imjoy-team/ImJoy-Engine.svg) [![Build Status](https://travis-ci.com/imjoy-team/ImJoy-Engine.svg?branch=master)](https://travis-ci.com/imjoy-team/ImJoy-Engine) [![ImJoy Version](https://img.shields.io/badge/dynamic/json.svg?color=success&label=imjoy&prefix=v&query=version&url=https://raw.githubusercontent.com/imjoy-team/ImJoy/master/web/package.json)](https://imjoy.io/#/app)
+![ENGINE_VERSION](https://img.shields.io/badge/dynamic/json.svg?color=success&label=imjoy%20engine&prefix=v&query=version&url=https%3A%2F%2Fraw.githubusercontent.com%imjoy-team%2FImJoy-Engine%2Fmaster%2Fimjoy%2FVERSION) ![PyPI](https://img.shields.io/pypi/v/imjoy.svg?style=popout) ![GitHub](https://img.shields.io/github/license/imjoy-team/ImJoy-Engine.svg) [![Build Status](https://travis-ci.com/imjoy-team/ImJoy-Engine.svg?branch=master)](https://travis-ci.com/imjoy-team/ImJoy-Engine)
 # ImJoy Plugin Engine
 The plugin engine used for running python plugins in ImJoy (https://imjoy.io).
 
@@ -10,7 +10,7 @@ This library is mainly based on jupyter notebook server, with additonal librarie
 * Start a **Terminal**(Mac and Linux) or **Anaconda Prompt**(Windows), then run the following command:
 
 ```
-pip install -U imjoy[jupyter]
+pip install -U imjoy
 ```
 
 The above command will also install jupyter notebook and [imjoy-elfinder](https://github.com/imjoy-team/imjoy-elfinder).
