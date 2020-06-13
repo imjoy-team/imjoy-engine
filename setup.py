@@ -11,7 +11,7 @@ DESCRIPTION = (
 
 REQUIREMENTS = [
     "numpy",
-    "imjoy-rpc>=0.2.6",
+    "imjoy-rpc>=0.2.7",
     'pathlib;python_version<"3.4"',
     "jupyter>=1.0.0",
     "imjoy-elfinder[jupyter]",
