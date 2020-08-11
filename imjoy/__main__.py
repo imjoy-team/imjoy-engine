@@ -14,6 +14,35 @@ from imjoy.socketio_server import create_socketio_server
 from imjoy.options import parse_cmd_line
 from imjoy.utils import read_or_generate_token, write_token
 
+def load_plugin(plugin_file):
+    """load plugin file"""
+    content = open(plugin_file).read()
+    if plugin_file.endswith(".py"):
+        filename, _ = os.path.splitext(os.path.basename(plugin_file))
+        default_config["name"] = filename
+        exec(content, globals())
+    elif plugin_file.endswith(".imjoy.html"):
+        # load config
+        found = re.findall("<config (.*)>(.*)</config>", content, re.DOTALL)[0]
+        if "json" in found[0]:
+            plugin_config = json.loads(found[1])
+        elif "yaml" in found[0]:
+            plugin_config = yaml.safe_load(found[1])
+        default_config.update(plugin_config)
+
+        # load script
+        found = re.findall("<script (.*)>(.*)</script>", content, re.DOTALL)[0]
+        if "python" in found[0]:
+            exec(content, globals())
+        else:
+            raise Exception(
+                "Invalid script type ({}) in file {}".format(
+                    found[0], plugin_file
+                )
+            )
+    else:
+        raise Exception("Invalid script file type ({})".format(plugin_file))
+
 
 def main():
     """Run main."""
@@ -28,32 +57,7 @@ def main():
         )
 
         if os.path.isfile(opt.plugin_dir):
-            content = open(opt.plugin_dir).read()
-            if opt.plugin_dir.endswith(".py"):
-                filename, _ = os.path.splitext(os.path.basename(opt.plugin_dir))
-                default_config["name"] = filename
-                exec(content, globals())
-            elif opt.plugin_dir.endswith(".imjoy.html"):
-                # load config
-                found = re.findall("<config (.*)>(.*)</config>", content, re.DOTALL)[0]
-                if "json" in found[0]:
-                    plugin_config = json.loads(found[1])
-                elif "yaml" in found[0]:
-                    plugin_config = yaml.safe_load(found[1])
-                default_config.update(plugin_config)
-
-                # load script
-                found = re.findall("<script (.*)>(.*)</script>", content, re.DOTALL)[0]
-                if "python" in found[0]:
-                    exec(content, globals())
-                else:
-                    raise Exception(
-                        "Invalid script type ({}) in file {}".format(
-                            found[0], opt.plugin_dir
-                        )
-                    )
-            else:
-                raise Exception("Invalid script file type ({})".format(opt.plugin_dir))
+            load_plugin(opt.plugin_dir)
         else:
             raise Exception("Invalid input plugin file path: {}".format(opt.plugin_dir))
 
