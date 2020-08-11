@@ -1,1 +1,5 @@
 imjoy-rpc>=0.2.7
+python-socketio[asyncio_client]
+pyyaml
+aiohttp
+aiohttp_cors
