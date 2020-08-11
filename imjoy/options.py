@@ -22,7 +22,10 @@ def parse_cmd_line(args=None):
         help="serve in production mode from the specified port",
     )
     parser.add_argument(
-        "--plugin-dir", type=str, default=None, help="path to a plugin file"
+        "--plugin-dir", type=str, default=None, help="path to a plugin folder"
+    )
+    parser.add_argument(
+        "--plugin-file", type=str, default=None, help="path to a plugin file"
     )
     parser.add_argument(
         "--plugin-server",

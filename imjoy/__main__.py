@@ -7,12 +7,17 @@ import sys
 import asyncio
 import yaml
 from aiohttp import web
+import logging
 from imjoy_rpc import default_config
 
 from imjoy.socketio_server import create_socketio_server
 
 from imjoy.options import parse_cmd_line
 from imjoy.utils import read_or_generate_token, write_token
+
+logging.basicConfig(stream=sys.stdout)
+logger = logging.getLogger("main")
+logger.setLevel(logging.INFO)
 
 def load_plugin(plugin_file):
     """load plugin file"""
@@ -47,7 +52,8 @@ def load_plugin(plugin_file):
 def main():
     """Run main."""
     opt = parse_cmd_line()
-    if opt.plugin_dir and (opt.plugin_server or opt.serve):
+    
+    if opt.plugin_file and (opt.plugin_server or opt.serve):
         default_config.update(
             {
                 "name": "ImJoy Plugin",
@@ -56,10 +62,10 @@ def main():
             }
         )
 
-        if os.path.isfile(opt.plugin_dir):
-            load_plugin(opt.plugin_dir)
+        if os.path.isfile(opt.plugin_file):
+            load_plugin(opt.plugin_file)
         else:
-            raise Exception("Invalid input plugin file path: {}".format(opt.plugin_dir))
+            raise Exception("Invalid input plugin file path: {}".format(opt.plugin_file))
 
     if opt.serve:
         if opt.plugin_server and not opt.plugin_server.endswith(opt.serve):
@@ -70,7 +76,7 @@ def main():
             )
         app = create_socketio_server()
         web.run_app(app, port=opt.serve)
-    elif opt.plugin_dir:
+    elif opt.plugin_file:
         loop = asyncio.get_event_loop()
         loop.run_forever()
     elif opt.jupyter:
