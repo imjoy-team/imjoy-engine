@@ -11,7 +11,6 @@ DESCRIPTION = (
 try:
     # for Google Colab
     import google.colab.output
-
     REQUIREMENTS = [
         "numpy",
         "imjoy-rpc>=0.2.20",
