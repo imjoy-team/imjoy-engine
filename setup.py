@@ -8,16 +8,24 @@ DESCRIPTION = (
     "or remotely from ImJoy.io"
 )
 
-
-REQUIREMENTS = [
-    "numpy",
-    "imjoy-rpc>=0.2.7",
-    'pathlib;python_version<"3.4"',
-    "jupyter>=1.0.0",
-    "imjoy-elfinder[jupyter]",
-    "ipykernel>=5.1.4",
-    "imjoy-jupyter-extension",
-]
+try:
+    # for Google Colab
+    import google.colab.output
+    REQUIREMENTS = [
+        "numpy",
+        "imjoy-rpc>=0.2.20",
+        'pathlib;python_version<"3.4"',
+    ]
+except:
+    REQUIREMENTS = [
+        "numpy",
+        "imjoy-rpc>=0.2.7",
+        'pathlib;python_version<"3.4"',
+        "jupyter>=1.0.0",
+        "imjoy-elfinder[jupyter]",
+        "ipykernel>=5.1.4",
+        "imjoy-jupyter-extension",
+    ]
 
 
 ROOT_DIR = os.path.dirname(__file__)
