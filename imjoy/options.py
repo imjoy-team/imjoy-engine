@@ -17,10 +17,26 @@ def parse_cmd_line(args=None):
     parser.add_argument("--debug", action="store_true", help="debug mode")
     parser.add_argument(
         "--serve",
-        action="store_true",
-        help="download ImJoy web app and serve it locally",
+        type=str,
+        default=None,
+        help="serve in production mode from the specified port",
     )
-    parser.add_argument("--host", type=str, default="127.0.0.1", help="socketio host")
+    parser.add_argument(
+        "--plugin-dir", type=str, default=None, help="path to a plugin folder"
+    )
+    parser.add_argument(
+        "--plugin-file", type=str, default=None, help="path to a plugin file"
+    )
+    parser.add_argument(
+        "--plugin-server",
+        type=str,
+        default=None,
+        help="url to the plugin socketio server",
+    )
+
+    parser.add_argument(
+        "--host", type=str, default="127.0.0.1", help="jupyter server host"
+    )
     parser.add_argument(
         "--base-url",
         type=str,
