@@ -8,6 +8,7 @@ import asyncio
 import yaml
 from aiohttp import web
 import logging
+import urllib.request
 from imjoy_rpc import default_config
 
 from imjoy.socketio_server import create_socketio_server
@@ -22,14 +23,27 @@ logger.setLevel(logging.INFO)
 
 def load_plugin(plugin_file):
     """load plugin file"""
-    content = open(plugin_file).read()
+    if os.path.isfile(plugin_file):
+        content = open(plugin_file).read()
+    elif plugin_file.startswith("http"):
+        with urllib.request.urlopen(plugin_file) as response:
+            content = response.read().decode("utf-8")
+        # remove query string
+        plugin_file = plugin_file.split("?")[0]
+    else:
+        raise Exception("Invalid input plugin file path: {}".format(plugin_file))
     if plugin_file.endswith(".py"):
         filename, _ = os.path.splitext(os.path.basename(plugin_file))
-        default_config["name"] = filename
-        exec(content, globals())
+        default_config["name"] = filename[:32]
+        try:
+            exec(content, globals())
+            logger.info("Plugin executed")
+        except Exception as e:
+            logger.error("Failed to execute plugin %s", e)
+
     elif plugin_file.endswith(".imjoy.html"):
         # load config
-        found = re.findall("<config (.*)>(.*)</config>", content, re.DOTALL)[0]
+        found = re.findall("<config (.*)>\n(.*)</config>", content, re.DOTALL)[0]
         if "json" in found[0]:
             plugin_config = json.loads(found[1])
         elif "yaml" in found[0]:
@@ -37,9 +51,13 @@ def load_plugin(plugin_file):
         default_config.update(plugin_config)
 
         # load script
-        found = re.findall("<script (.*)>(.*)</script>", content, re.DOTALL)[0]
+        found = re.findall("<script (.*)>\n(.*)</script>", content, re.DOTALL)[0]
         if "python" in found[0]:
-            exec(content, globals())
+            try:
+                exec(found[1], globals())
+                logger.info("Plugin executed")
+            except Exception as e:
+                logger.error("Failed to execute plugin %s", e)
         else:
             raise Exception(
                 "Invalid script type ({}) in file {}".format(found[0], plugin_file)
@@ -64,12 +82,7 @@ def main():
                 }
             )
 
-            if os.path.isfile(opt.plugin_file):
-                load_plugin(opt.plugin_file)
-            else:
-                raise Exception(
-                    "Invalid input plugin file path: {}".format(opt.plugin_file)
-                )
+            load_plugin(opt.plugin_file)
 
         background_task = start_plugin
 
