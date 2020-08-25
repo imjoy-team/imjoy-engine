@@ -19,6 +19,7 @@ logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("main")
 logger.setLevel(logging.INFO)
 
+
 def load_plugin(plugin_file):
     """load plugin file"""
     content = open(plugin_file).read()
@@ -41,9 +42,7 @@ def load_plugin(plugin_file):
             exec(content, globals())
         else:
             raise Exception(
-                "Invalid script type ({}) in file {}".format(
-                    found[0], plugin_file
-                )
+                "Invalid script type ({}) in file {}".format(found[0], plugin_file)
             )
     else:
         raise Exception("Invalid script file type ({})".format(plugin_file))
@@ -52,20 +51,27 @@ def load_plugin(plugin_file):
 def main():
     """Run main."""
     opt = parse_cmd_line()
-    
-    if opt.plugin_file and (opt.plugin_server or opt.serve):
-        default_config.update(
-            {
-                "name": "ImJoy Plugin",
-                "plugin_server": opt.plugin_server
-                or "http://127.0.0.1:{}".format(opt.serve),
-            }
-        )
+    background_task = None
 
-        if os.path.isfile(opt.plugin_file):
-            load_plugin(opt.plugin_file)
-        else:
-            raise Exception("Invalid input plugin file path: {}".format(opt.plugin_file))
+    if opt.plugin_file and (opt.plugin_server or opt.serve):
+
+        async def start_plugin(app):
+            default_config.update(
+                {
+                    "name": "ImJoy Plugin",
+                    "plugin_server": opt.plugin_server
+                    or "http://127.0.0.1:{}".format(opt.serve),
+                }
+            )
+
+            if os.path.isfile(opt.plugin_file):
+                load_plugin(opt.plugin_file)
+            else:
+                raise Exception(
+                    "Invalid input plugin file path: {}".format(opt.plugin_file)
+                )
+
+        background_task = start_plugin
 
     if opt.serve:
         if opt.plugin_server and not opt.plugin_server.endswith(opt.serve):
@@ -75,9 +81,11 @@ def main():
                 )
             )
         app = create_socketio_server()
+        app.on_startup.append(background_task)
         web.run_app(app, port=opt.serve)
     elif opt.plugin_file:
         loop = asyncio.get_event_loop()
+        loop.create_task(background_task(app))
         loop.run_forever()
     elif opt.jupyter:
         sys.argv = sys.argv[:1]

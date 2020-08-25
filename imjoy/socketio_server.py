@@ -100,16 +100,25 @@ def setup_socketio(sio):
         return {"channel": plugin_channel}
 
     @sio.event
+    async def start_plugin(sid, config):
+        for k in plugins:
+            if plugins[k]["name"] == config["name"]:
+                return connect_plugin(sid, {"id": plugins[k]["id"]})
+        return {
+            "error": "Plugin execution is disabled, you are only allowed to connect an existing plugin."
+        }
+
+    @sio.event
     async def connect_plugin(sid, data):
         pid = data.get("id")
 
         if pid in plugins:
             plugin_info = plugins[pid]
             client_info = {}
-            logger.info(f"{sid} is connecting to plugin {pid}")
 
             # generate a channel and store it to plugin.clients
             client_channel = str(uuid.uuid4())
+            logger.info(f"{client_channel}(sid:{sid}) is connecting to plugin {pid}")
             plugin_info["clients"][client_channel] = client_info
             client_info["channel"] = client_channel
 
