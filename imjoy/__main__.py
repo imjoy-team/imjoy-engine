@@ -5,13 +5,10 @@ import re
 import subprocess
 import sys
 import asyncio
-import yaml
 from aiohttp import web
 import logging
 import urllib.request
 from imjoy_rpc import default_config
-
-from imjoy.socketio_server import create_socketio_server
 
 from imjoy.options import parse_cmd_line
 from imjoy.utils import read_or_generate_token, write_token
@@ -23,6 +20,13 @@ logger.setLevel(logging.INFO)
 
 def load_plugin(plugin_file):
     """load plugin file"""
+    try:
+        import yaml
+    except:
+        logger.error(
+            "It appears that your ImJoy installation is not complete, please reinstall it with 'pip install imjoy[socketio]'"
+        )
+        raise SystemExit
     if os.path.isfile(plugin_file):
         content = open(plugin_file).read()
     elif plugin_file.startswith("http"):
@@ -87,6 +91,13 @@ def main():
         background_task = start_plugin
 
     if opt.serve:
+        try:
+            from imjoy.socketio_server import create_socketio_server
+        except:
+            logger.error(
+                "It appears that your ImJoy installation is not complete, please reinstall it with 'pip install imjoy[socketio]'"
+            )
+            raise SystemExit
         if opt.plugin_server and not opt.plugin_server.endswith(opt.serve):
             print(
                 "WARNING: the specified port ({}) does not match the one in the url ({})".format(
@@ -94,7 +105,8 @@ def main():
                 )
             )
         app = create_socketio_server()
-        app.on_startup.append(background_task)
+        if background_task:
+            app.on_startup.append(background_task)
         web.run_app(app, port=opt.serve)
     elif opt.plugin_file:
         loop = asyncio.get_event_loop()
