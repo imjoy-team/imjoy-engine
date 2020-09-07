@@ -28,7 +28,6 @@ except:
         "imjoy-jupyter-extension",
     ]
 
-
 ROOT_DIR = os.path.dirname(__file__)
 with open(os.path.join(ROOT_DIR, "README.md"), "r") as f:
     README = f.read()
@@ -49,7 +48,14 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=REQUIREMENTS,
-    extras_require={},
+    extras_require={
+        "socketio": [
+            "python-socketio[asyncio_client]",
+            "pyyaml",
+            "aiohttp",
+            "aiohttp_cors",
+        ]
+    },
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},
 )
