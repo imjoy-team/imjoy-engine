@@ -9,4 +9,4 @@ with open(os.path.join(IMJOY_PACKAGE_DIR, "VERSION"), "r") as f:
     __version__ = VERSION_INFO["version"]
     API_VERSION = VERSION_INFO["api_version"]
 
-from imjoy_rpc import api
+from imjoy_rpc import *
