@@ -16,6 +16,7 @@ try:
         "numpy",
         "imjoy-rpc>=0.2.55",
         'pathlib;python_version<"3.4"',
+        "imjoy-elfinder",
     ]
 except:
     REQUIREMENTS = [
