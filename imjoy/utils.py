@@ -71,7 +71,7 @@ def show_elfinder(**kwargs):
         from google.colab import output
 
         is_colab = True
-    except:
+    except ImportError:
         is_colab = False
 
     if is_colab:
