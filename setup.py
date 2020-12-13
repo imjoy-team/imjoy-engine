@@ -14,13 +14,14 @@ try:
 
     REQUIREMENTS = [
         "numpy",
-        "imjoy-rpc>=0.2.23",
+        "imjoy-rpc>=0.2.30",
         'pathlib;python_version<"3.4"',
+        "imjoy-elfinder",
     ]
 except:
     REQUIREMENTS = [
         "numpy",
-        "imjoy-rpc>=0.2.23",
+        "imjoy-rpc>=0.2.30",
         'pathlib;python_version<"3.4"',
         "jupyter>=1.0.0",
         "imjoy-elfinder[jupyter]",
