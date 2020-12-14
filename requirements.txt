@@ -1,4 +1,4 @@
-imjoy-rpc>=0.2.55
+imjoy-rpc>=0.2.56
 python-socketio[asyncio_client]
 pyyaml
 aiohttp
