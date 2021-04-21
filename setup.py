@@ -23,10 +23,9 @@ except:
         "numpy",
         "imjoy-rpc>=0.2.55",
         'pathlib;python_version<"3.4"',
-        "jupyter>=1.0.0",
         "imjoy-elfinder[jupyter]",
-        "ipykernel>=5.1.4",
-        "imjoy-jupyter-extension",
+        "python-socketio[asyncio_client]==5.0.4",
+        "python-engineio==4.0.0",
     ]
 
 ROOT_DIR = os.path.dirname(__file__)
@@ -50,6 +49,11 @@ setup(
     include_package_data=True,
     install_requires=REQUIREMENTS,
     extras_require={
+        "jupyter": [
+            "jupyter>=1.0.0",
+            "ipykernel>=5.1.4",
+            "imjoy-jupyter-extension",
+        ],
         "socketio": [
             "python-socketio[asyncio_client]",
             "pyyaml",
