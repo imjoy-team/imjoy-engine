@@ -26,7 +26,9 @@ class Services:
         pass
 
     def get_service(self, plugin, name):
-        return list(filter(lambda x: x.get("name") == name, self._services))[0]
+        return next(
+            service for service in self._services if service.get("name") == name
+        )
 
     def log(self, plugin, msg):
         logger.info(f"{plugin.name}: {msg}")
