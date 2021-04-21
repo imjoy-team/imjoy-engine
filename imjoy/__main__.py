@@ -2,7 +2,6 @@
 import json
 import os
 import re
-import subprocess
 import sys
 import asyncio
 from aiohttp import web
@@ -19,12 +18,13 @@ logger.setLevel(logging.INFO)
 
 
 def load_plugin(plugin_file):
-    """load plugin file"""
+    """Load plugin file."""
     try:
         import yaml
-    except:
+    except Exception:
         logger.error(
-            "It appears that your ImJoy installation is not complete, please reinstall it with 'pip install imjoy[socketio]'"
+            "It appears that your ImJoy installation is not complete, "
+            "please reinstall it with 'pip install imjoy[socketio]'"
         )
         raise SystemExit
     if os.path.isfile(plugin_file):
@@ -93,14 +93,16 @@ def main():
     if opt.serve:
         try:
             from imjoy.socketio_server import create_socketio_server
-        except:
+        except Exception:
             logger.error(
-                "It appears that your ImJoy installation is not complete, please reinstall it with 'pip install imjoy[socketio]'"
+                "It appears that your ImJoy installation is not complete, "
+                "please reinstall it with 'pip install imjoy[socketio]'"
             )
             raise SystemExit
         if opt.plugin_server and not opt.plugin_server.endswith(opt.serve):
             print(
-                "WARNING: the specified port ({}) does not match the one in the url ({})".format(
+                "WARNING: the specified port ({}) "
+                "does not match the one in the url ({})".format(
                     opt.serve, opt.plugin_server
                 )
             )
@@ -148,7 +150,10 @@ def main():
 
     elif not opt.legacy:
         print(
-            "\nNote: We are migrating the backend of the ImJoy Engine to Jupyter, to use it please run `imjoy --jupyter`.\n\nIf you want to use the previous engine, run `imjoy --legacy`, however, please note that it maybe removed soon.\n"
+            "\nNote: We are migrating the backend of the ImJoy Engine to Jupyter, "
+            "to use it please run `imjoy --jupyter`.\n\n"
+            "If you want to use the previous engine, run `imjoy --legacy`, "
+            "however, please note that it maybe removed soon.\n"
         )
 
 

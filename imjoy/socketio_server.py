@@ -1,13 +1,11 @@
-import sys
-import os
-import argparse
+"""Provide a socketio server."""
 import logging
-import aiohttp_cors
-import socketio
-import asyncio
+import sys
 import uuid
 
-from aiohttp import web, streamer
+import aiohttp_cors
+import socketio
+from aiohttp import web
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("socketio-server")
@@ -39,7 +37,7 @@ async def on_shutdown(app):
 
 def setup_cors(app):
     """Set up cors."""
-    cors = aiohttp_cors.setup(
+    aiohttp_cors.setup(
         app,
         defaults={
             "*": aiohttp_cors.ResourceOptions(
@@ -54,10 +52,12 @@ plugins = {}
 
 
 async def app_handler(request):
+    """Handle requests in the app."""
     return web.Response(text="clients: " + str(clients))
 
 
 def setup_router(app, static_dir=None):
+    """Set up the router in the app."""
     if static_dir is not None:
         app.router.add_static("/", path=str(static_dir))
     app.router.add_get("/apps", app_handler)
@@ -67,6 +67,8 @@ finalizers = []
 
 
 def setup_socketio(sio):
+    """Set up socketio."""
+
     @sio.event
     async def list_plugins(sid, data):
         return list(plugins.values())
@@ -105,7 +107,8 @@ def setup_socketio(sio):
             if plugins[k]["name"] == config["name"]:
                 return connect_plugin(sid, {"id": plugins[k]["id"]})
         return {
-            "error": "Plugin execution is disabled, you are only allowed to connect an existing plugin."
+            "error": "Plugin execution is disabled, "
+            "you are only allowed to connect an existing plugin."
         }
 
     @sio.event

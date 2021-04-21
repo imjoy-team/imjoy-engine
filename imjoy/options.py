@@ -53,7 +53,10 @@ def parse_cmd_line(args=None):
         "--content-security-policy",
         type=str,
         default="frame-ancestors 'self' https://imjoy.io https://*.imjoy.io",
-        help="the Content-Security-Policy header to prevent unintended access from other website",
+        help=(
+            "the Content-Security-Policy header "
+            "to prevent unintended access from other website"
+        ),
     )
     parser.add_argument("--port", type=str, default="9527", help="socketio port")
     parser.add_argument(
