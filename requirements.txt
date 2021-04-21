@@ -1,5 +1,5 @@
-imjoy-rpc==0.2.72
-python-socketio[asyncio_client]==5.2.1
+imjoy-rpc==0.2.56
+python-socketio[asyncio_client]==5.0.4  # pin for now to solve unknown connection issue
 pyyaml==5.4.1
 aiohttp==3.7.4.post0
 aiohttp_cors==0.7.0
