@@ -68,6 +68,7 @@ finalizers = []
 
 def setup_socketio(sio):
     """Set up socketio."""
+    # pylint: disable=unused-variable
 
     @sio.event
     async def list_plugins(sid, data):
@@ -78,8 +79,8 @@ def setup_socketio(sio):
         plugins[config["id"]] = config
         plugin_channel = str(uuid.uuid4())
         config["plugin_channel"] = plugin_channel
-        clients = {}
-        config["clients"] = clients
+        plugin_clients = {}
+        config["clients"] = plugin_clients
 
         # broadcast to the plugin message to all the clients
         @sio.on(plugin_channel)
@@ -115,33 +116,33 @@ def setup_socketio(sio):
     async def connect_plugin(sid, data):
         pid = data.get("id")
 
-        if pid in plugins:
-            plugin_info = plugins[pid]
-            client_info = {}
-
-            # generate a channel and store it to plugin.clients
-            client_channel = str(uuid.uuid4())
-            logger.info(f"{client_channel}(sid:{sid}) is connecting to plugin {pid}")
-            plugin_info["clients"][client_channel] = client_info
-            client_info["channel"] = client_channel
-
-            # listen to the client channel and forward to the plugin
-            @sio.on(client_channel)
-            async def on_client_message(sid, data):
-                await sio.emit(plugin_info["plugin_channel"], data)
-
-            # notify the plugin about the new client
-            await sio.emit(plugin_info["plugin_channel"] + "-new-client", client_info)
-
-            async def finalize():
-                del plugin_info["clients"][client_channel]
-
-            finalizers.append([sid, finalize])
-
-            return {"channel": client_channel}
-        else:
-            logger.error(f"Plugin not found {pid}, requested by client {sid}")
+        if pid not in plugins:
+            logger.error("Plugin not found %s, requested by client %s", pid, sid)
             return {"error": "Plugin not found: " + pid}
+
+        plugin_info = plugins[pid]
+        client_info = {}
+
+        # generate a channel and store it to plugin.clients
+        client_channel = str(uuid.uuid4())
+        logger.info("%s(sid:%s) is connecting to plugin %s", client_channel, sid, pid)
+        plugin_info["clients"][client_channel] = client_info
+        client_info["channel"] = client_channel
+
+        # listen to the client channel and forward to the plugin
+        @sio.on(client_channel)
+        async def on_client_message(sid, data):
+            await sio.emit(plugin_info["plugin_channel"], data)
+
+        # notify the plugin about the new client
+        await sio.emit(plugin_info["plugin_channel"] + "-new-client", client_info)
+
+        async def finalize():
+            del plugin_info["clients"][client_channel]
+
+        finalizers.append([sid, finalize])
+
+        return {"channel": client_channel}
 
     @sio.event
     async def connect(sid, environ):
@@ -153,12 +154,12 @@ def setup_socketio(sio):
         for obj in lst2finalize:
             finalize_func = obj[1]
             try:
-                logger.info("Removing " + obj[0])
+                logger.info("Removing %s", obj[0])
                 await finalize_func()
             finally:
                 finalizers.remove(obj)
 
 
 if __name__ == "__main__":
-    app = create_socketio_server()
-    web.run_app(app, port=9988)
+    application = create_socketio_server()
+    web.run_app(application, port=9988)
