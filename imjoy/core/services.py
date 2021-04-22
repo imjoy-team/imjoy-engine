@@ -46,17 +46,17 @@ class Services:
         raise NotImplementedError
 
     def get_interface(self):
-        return dict(
-            log=self.log,
-            error=self.error,
-            alert=self.alert,
-            confirm=self.confirm,
-            prompt=self.prompt,
-            registerService=self.register_service,
-            getService=self.get_service,
-            utils=dict(),
-            getPlugin=self.get_plugin,
-        )
+        return {
+            "log": self.log,
+            "error": self.error,
+            "alert": self.alert,
+            "confirm": self.confirm,
+            "prompt": self.prompt,
+            "registerService": self.register_service,
+            "getService": self.get_service,
+            "utils": {},
+            "getPlugin": self.get_plugin,
+        }
 
     def removePluginServices(self, plugin):
         for service in self._services.copy():
