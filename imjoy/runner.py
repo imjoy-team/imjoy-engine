@@ -6,14 +6,13 @@ import sys
 import logging
 import yaml
 import urllib.request
-from imjoy_rpc import default_config
+from imjoy_rpc import connect_to_server
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("plugin-runner")
 logger.setLevel(logging.INFO)
 
-
-def run_plugin(plugin_file):
+def run_plugin(plugin_file, default_config):
     """load plugin file"""
     if os.path.isfile(plugin_file):
         content = open(plugin_file).read()
@@ -24,10 +23,10 @@ def run_plugin(plugin_file):
         plugin_file = plugin_file.split("?")[0]
     else:
         raise Exception("Invalid input plugin file path: {}".format(plugin_file))
-
     if plugin_file.endswith(".py"):
         filename, _ = os.path.splitext(os.path.basename(plugin_file))
         default_config["name"] = filename[:32]
+        connect_to_server(default_config)
         try:
             exec(content, globals())
             logger.info("Plugin executed")
@@ -42,7 +41,7 @@ def run_plugin(plugin_file):
         elif "yaml" in found[0]:
             plugin_config = yaml.safe_load(found[1])
         default_config.update(plugin_config)
-
+        connect_to_server(default_config)
         # load script
         found = re.findall("<script (.*)>\n(.*)</script>", content, re.DOTALL)[0]
         if "python" in found[0]:
@@ -68,7 +67,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("file", type=str, help="path to a plugin file")
     parser.add_argument(
-        "--server",
+        "--server-url",
         type=str,
         default=None,
         help="url to the plugin socketio server",
@@ -99,15 +98,13 @@ if __name__ == "__main__":
             loop.stop()
 
     def start_plugin():
-        default_config.update(
-            {
-                "name": "ImJoy Plugin",
-                "server": opt.server,
-                "token": opt.token,
-                "on_ready_callback": on_ready_callback,
-            }
-        )
-        run_plugin(opt.file)
+        default_config ={
+            "name": "ImJoy Plugin",
+            "server_url": opt.server_url,
+            "token": opt.token,
+            "on_ready_callback": on_ready_callback,
+        }
+        run_plugin(opt.file, default_config)
 
     start_plugin()
 
