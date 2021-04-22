@@ -10,7 +10,7 @@ DESCRIPTION = (
 
 try:
     # for Google Colab
-    import google.colab.output
+    import google.colab.output  # noqa: F401
 
     REQUIREMENTS = [
         "numpy",
@@ -18,7 +18,7 @@ try:
         'pathlib;python_version<"3.4"',
         "imjoy-elfinder",
     ]
-except:
+except ImportError:
     REQUIREMENTS = [
         "numpy",
         "imjoy-rpc>=0.2.55",
