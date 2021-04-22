@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import logging
+import yaml
 import urllib.request
 from imjoy_rpc import default_config
 
@@ -14,11 +15,6 @@ logger.setLevel(logging.INFO)
 
 def run_plugin(plugin_file):
     """load plugin file"""
-    try:
-        import yaml
-    except:
-        logger.warning("yaml not found, please install it with `pip install PyYAML`")
-
     if os.path.isfile(plugin_file):
         content = open(plugin_file).read()
     elif plugin_file.startswith("http"):
