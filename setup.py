@@ -1,7 +1,8 @@
 """Set up the ImJoy-Engine imjoy package."""
-import os
-from setuptools import setup, find_packages
 import json
+import os
+
+from setuptools import find_packages, setup
 
 DESCRIPTION = (
     "ImJoy Plugin Engine for running Python plugins locally "
@@ -10,7 +11,8 @@ DESCRIPTION = (
 
 try:
     # for Google Colab
-    import google.colab.output
+    # pylint: disable=unused-import
+    import google.colab.output  # noqa: F401
 
     REQUIREMENTS = [
         "numpy",
@@ -18,7 +20,7 @@ try:
         'pathlib;python_version<"3.4"',
         "imjoy-elfinder",
     ]
-except:
+except ImportError:
     REQUIREMENTS = [
         "numpy",
         "imjoy-rpc>=0.2.55",

@@ -23,23 +23,24 @@ if sys.platform == "win32":
         return drives
 
 
-_server_thread = None
+_SERVER_THREAD = None
 
 
 def _show_elfinder_colab(root_dir="/content", port=8765, height=600, width="100%"):
+    # pylint: disable=import-error, import-outside-toplevel, no-name-in-module
     from google.colab import output
     from imjoy_elfinder.app import main
 
-    global _server_thread
-    if _server_thread is None:
+    global _SERVER_THREAD  # pylint: disable=global-statement
+    if _SERVER_THREAD is None:
 
         def start_elfinder():
-            global _server_thread
+            global _SERVER_THREAD  # pylint: disable=global-statement
             try:
                 main(["--root-dir={}".format(root_dir), "--port={}".format(port)])
             except OSError:
                 print("ImJoy-elFinder server already started.")
-            _server_thread = thread
+            _SERVER_THREAD = thread
 
         # start imjoy-elfinder server
         thread = threading.Thread(target=start_elfinder)
@@ -50,7 +51,7 @@ def _show_elfinder_colab(root_dir="/content", port=8765, height=600, width="100%
 
 
 def _show_elfinder_jupyter(url="/elfinder", height=600, width="100%"):
-    from IPython import display
+    from IPython import display  # pylint: disable=import-outside-toplevel
 
     code = """(async (url, width, height, element) => {
         element.appendChild(document.createTextNode(''));
@@ -67,8 +68,10 @@ def _show_elfinder_jupyter(url="/elfinder", height=600, width="100%"):
 
 
 def show_elfinder(**kwargs):
+    """Show elfinder."""
     try:
-        from google.colab import output
+        # pylint: disable=import-outside-toplevel, unused-import
+        from google.colab import output  # noqa: F401
 
         is_colab = True
     except ImportError:
@@ -81,6 +84,7 @@ def show_elfinder(**kwargs):
 
 
 def read_or_generate_token(token_path=None):
+    """Read or generate token."""
     token_path = token_path or os.path.join(os.path.expanduser("~"), ".jupyter_token")
     # read token from file if exists
     try:
@@ -95,6 +99,7 @@ def read_or_generate_token(token_path=None):
 
 
 def write_token(token, token_path=None):
+    """Write token."""
     token_path = token_path or os.path.join(os.path.expanduser("~"), ".jupyter_token")
     with open(token_path, "w") as fil:
         fil.write(token)
@@ -110,7 +115,7 @@ def parse_repos(requirements, work_dir):
                 req_parts = req.split(":")
                 typ, libs = req_parts[0], ":".join(req_parts[1:])
                 typ, libs = typ.strip(), libs.strip()
-                libs = [l.strip() for l in libs.split(" ") if l.strip() != ""]
+                libs = [lib.strip() for lib in libs.split(" ") if lib.strip() != ""]
                 if typ == "repo" and libs:
                     name = libs[0].split("/")[-1].replace(".git", "")
                     repo = {

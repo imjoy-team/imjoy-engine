@@ -1,13 +1,13 @@
 """Provide main entrypoint."""
+import asyncio
 import json
+import logging
 import os
 import re
-import subprocess
 import sys
-import asyncio
-from aiohttp import web
-import logging
 import urllib.request
+
+from aiohttp import web
 from imjoy_rpc import default_config
 
 from imjoy.options import parse_cmd_line
@@ -19,14 +19,15 @@ logger.setLevel(logging.INFO)
 
 
 def load_plugin(plugin_file):
-    """load plugin file"""
+    """Load plugin file."""
     try:
-        import yaml
-    except:
+        import yaml  # pylint: disable=import-outside-toplevel
+    except Exception as err:
         logger.error(
-            "It appears that your ImJoy installation is not complete, please reinstall it with 'pip install imjoy[socketio]'"
+            "It appears that your ImJoy installation is not complete, "
+            "please reinstall it with 'pip install imjoy[socketio]'"
         )
-        raise SystemExit
+        raise SystemExit from err
     if os.path.isfile(plugin_file):
         content = open(plugin_file).read()
     elif plugin_file.startswith("http"):
@@ -40,10 +41,10 @@ def load_plugin(plugin_file):
         filename, _ = os.path.splitext(os.path.basename(plugin_file))
         default_config["name"] = filename[:32]
         try:
-            exec(content, globals())
+            exec(content, globals())  # pylint: disable=exec-used
             logger.info("Plugin executed")
-        except Exception as e:
-            logger.error("Failed to execute plugin %s", e)
+        except Exception as err:  # pylint: disable=broad-except
+            logger.error("Failed to execute plugin %s", err)
 
     elif plugin_file.endswith(".imjoy.html"):
         # load config
@@ -58,10 +59,10 @@ def load_plugin(plugin_file):
         found = re.findall("<script (.*)>\n(.*)</script>", content, re.DOTALL)[0]
         if "python" in found[0]:
             try:
-                exec(found[1], globals())
+                exec(found[1], globals())  # pylint: disable=exec-used
                 logger.info("Plugin executed")
-            except Exception as e:
-                logger.error("Failed to execute plugin %s", e)
+            except Exception as err:  # pylint: disable=broad-except
+                logger.error("Failed to execute plugin %s", err)
         else:
             raise Exception(
                 "Invalid script type ({}) in file {}".format(found[0], plugin_file)
@@ -92,15 +93,18 @@ def main():
 
     if opt.serve:
         try:
+            # pylint: disable=import-outside-toplevel
             from imjoy.socketio_server import create_socketio_server
-        except:
+        except Exception as err:
             logger.error(
-                "It appears that your ImJoy installation is not complete, please reinstall it with 'pip install imjoy[socketio]'"
+                "It appears that your ImJoy installation is not complete, "
+                "please reinstall it with 'pip install imjoy[socketio]'"
             )
-            raise SystemExit
+            raise SystemExit from err
         if opt.plugin_server and not opt.plugin_server.endswith(opt.serve):
             print(
-                "WARNING: the specified port ({}) does not match the one in the url ({})".format(
+                "WARNING: the specified port ({}) "
+                "does not match the one in the url ({})".format(
                     opt.serve, opt.plugin_server
                 )
             )
@@ -115,6 +119,7 @@ def main():
     elif opt.jupyter:
         sys.argv = sys.argv[:1]
         sys.argc = 1
+        # pylint: disable=import-outside-toplevel
         from notebook.notebookapp import NotebookApp
 
         kwargs = {
@@ -143,12 +148,15 @@ def main():
         if app.port != int(opt.port):
             print("\nWARNING: using a different port: {}.\n".format(app.port))
         write_token(app.token)
-        app._token_generated = True
+        app._token_generated = True  # pylint: disable=protected-access
         app.start()
 
     elif not opt.legacy:
         print(
-            "\nNote: We are migrating the backend of the ImJoy Engine to Jupyter, to use it please run `imjoy --jupyter`.\n\nIf you want to use the previous engine, run `imjoy --legacy`, however, please note that it maybe removed soon.\n"
+            "\nNote: We are migrating the backend of the ImJoy Engine to Jupyter, "
+            "to use it please run `imjoy --jupyter`.\n\n"
+            "If you want to use the previous engine, run `imjoy --legacy`, "
+            "however, please note that it maybe removed soon.\n"
         )
 
 
