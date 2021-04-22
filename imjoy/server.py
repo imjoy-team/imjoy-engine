@@ -37,12 +37,13 @@ class UserInfo(BaseModel):
     parent: Optional[str]
     scopes: Optional[List[str]]  # a list of namespace
     expires_at: Optional[int]
-    plugins: Optional[Dict[str, Any]] # id:plugin
+    plugins: Optional[Dict[str, Any]]  # id:plugin
 
 
 sessions: Dict[str, UserInfo] = {}  # sid:user_info
 users: Dict[str, UserInfo] = {}  # uid:user_info
-all_plugins: Dict[str, Dict[str, Any]] = {} # namespace: {name: plugin}
+all_plugins: Dict[str, Dict[str, Any]] = {}  # namespace: {name: plugin}
+
 
 def parse_token(authorization):
     if authorization.startswith("#RTC:"):
@@ -67,6 +68,7 @@ def check_permission(namespace, user_info):
     if namespace == user_info.id:
         return True
     return False
+
 
 def initialize_socketio(sio, services):
     @sio.event
@@ -113,13 +115,13 @@ def initialize_socketio(sio, services):
     @sio.event
     async def register_plugin(sid, config):
         user_info = sessions[sid]
-        namespace = config.get('namespace') or user_info.id
-        config['namespace'] = namespace
-        if not check_permission(namespace, user_info):
-            return {"success": False, "detail": f"Permission denied for namespace: {namespace}"}
+        namespace = config.get("namespace") or user_info.id
+        config["namespace"] = namespace
+        # if not check_permission(namespace, user_info):
+        #     return {"success": False, "detail": f"Permission denied for namespace: {namespace}"}
 
-        name = config["name"].replace('/', '-') # prevent hacking of the plugin name
-        plugin_id = f'{namespace}/{name}'
+        name = config["name"].replace("/", "-")  # prevent hacking of the plugin name
+        plugin_id = f"{namespace}/{name}"
         config["id"] = plugin_id
         sio.enter_room(sid, plugin_id)
 
@@ -136,30 +138,28 @@ def initialize_socketio(sio, services):
             user_info.plugins[plugin.id] = plugin
         else:
             user_info.plugins = {plugin.id: plugin}
-        
+
         if namespace in all_plugins:
             ns_plugins = all_plugins[namespace]
         else:
             ns_plugins = {}
             all_plugins[namespace] = ns_plugins
         if plugin.name in ns_plugins:
-            #kill the plugin if already exist
+            # kill the plugin if already exist
             asyncio.ensure_future(plugin.terminate(True))
             del user_info.plugins[plugin.id]
         ns_plugins[plugin.name] = plugin
-        logger.info(
-            f"New plugin registered successfully ({plugin_id})"
-        )
+        logger.info(f"New plugin registered successfully ({plugin_id})")
         return {"success": True, "plugin_id": plugin_id}
 
     @sio.event
     async def plugin_message(sid, data):
         user_info = sessions[sid]
-        plugin_id = data['plugin_id']
+        plugin_id = data["plugin_id"]
         namespace, name = os.path.split(plugin_id)
-        if not check_permission(namespace, user_info):
-            logger.error(f"Permission denied: namespace={namespace}, user_id={user_info.id}")
-            return {"success": False, "detail": "Permission denied"}
+        # if not check_permission(namespace, user_info):
+        #     logger.error(f"Permission denied: namespace={namespace}, user_id={user_info.id}")
+        #     return {"success": False, "detail": "Permission denied"}
         if all_plugins[namespace]:
             plugin = all_plugins[namespace].get(name)
             if plugin:
@@ -187,23 +187,28 @@ def initialize_socketio(sio, services):
                     del all_plugins[p.namespace][p.name]
                     if not all_plugins[p.namespace]:
                         del all_plugins[p.namespace]
+                    services.removePluginServices(p)
         del sessions[sid]
+
 
 def setup_socketio_server(
     app: FastAPI,
-    mount_location: str = "/rtc",
+    mount_location: str = "/",
     socketio_path: str = "socket.io",
-    allow_origins: Union[str, list] = "",
+    allow_origins: Union[str, list] = "*",
 ) -> None:
     """Setup the socketio server."""
+    if allow_origins == ["*"]:
+        allow_origins = "*"
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=allow_origins)
     _app = socketio.ASGIApp(socketio_server=sio, socketio_path=socketio_path)
 
     app.mount(mount_location, _app)
     app.sio = sio
-    services = Services()
+    services = Services(plugins=all_plugins)
     initialize_socketio(sio, services)
     return sio
+
 
 ROOT_DIR = os.path.dirname(__file__)
 with open(os.path.join(ROOT_DIR, "VERSION"), "r") as f:
@@ -225,20 +230,23 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+
 @app.get("/")
 async def root():
     return {
         "name": "ImJoy Core Server",
         "version": __version__,
-        "users": {u:users[u].sessions for u in users}, 
-        "all_plugins": {k: list(all_plugins[k].keys()) for k in all_plugins}
+        "users": {u: users[u].sessions for u in users},
+        "all_plugins": {k: list(all_plugins[k].keys()) for k in all_plugins},
     }
+
 
 setup_socketio_server(app, allow_origins=allow_origins)
 
 if __name__ == "__main__":
     import uvicorn
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--port",

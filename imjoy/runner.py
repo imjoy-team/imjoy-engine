@@ -66,6 +66,7 @@ def run_plugin(plugin_file):
 if __name__ == "__main__":
     import argparse
     import asyncio
+
     loop = asyncio.get_event_loop()
 
     parser = argparse.ArgumentParser()
@@ -86,7 +87,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--quit-on-ready",
-        action='store_true',
+        action="store_true",
         help="quit the server when the plugin is ready",
     )
 
@@ -96,18 +97,22 @@ if __name__ == "__main__":
         if not error:
             logger.info("Plugin is now ready")
         else:
-            logger.error(error)
-            loop.stop()
+            logger.error("Plugin failed with error: " + str(error))
 
         if opt.quit_on_ready:
             loop.stop()
 
     def start_plugin():
         default_config.update(
-            {"name": "ImJoy Plugin", "server": opt.server, "token": opt.token, "on_ready_callback": on_ready_callback}
+            {
+                "name": "ImJoy Plugin",
+                "server": opt.server,
+                "token": opt.token,
+                "on_ready_callback": on_ready_callback,
+            }
         )
         run_plugin(opt.file)
 
     start_plugin()
-    
+
     loop.run_forever()
