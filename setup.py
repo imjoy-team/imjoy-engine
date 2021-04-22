@@ -59,7 +59,7 @@ setup(
             "pyyaml",
             "aiohttp",
             "aiohttp_cors",
-        ]
+        ],
     },
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},

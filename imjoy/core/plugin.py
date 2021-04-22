@@ -70,7 +70,7 @@ class DynamicPlugin:
         self.config.passive = self.config.passive or pluginConfig.get("passive")
         if self.config.passive:
 
-            def func(*args):
+            async def func(*args):
                 pass
 
             self.api = dotdict(
@@ -145,7 +145,7 @@ class DynamicPlugin:
         def interfaceSetAsRemote(result):
             fut.set_result(result)
 
-        self._rpc.once("interfaceSetAsRemote", interfaceSetAsRemote)
+        self._rpc._connection.once("interfaceSetAsRemote", interfaceSetAsRemote)
         self._rpc.send_interface()
         return fut
 
@@ -153,7 +153,11 @@ class DynamicPlugin:
         fut = self.loop.create_future()
 
         def remoteReady(result):
-            fut.set_result(self._rpc.get_remote())
+            try:
+                fut.set_result(self._rpc.get_remote())
+            # TODO: this happens when the the plugin is reconnected
+            except asyncio.exceptions.InvalidStateError:
+                pass
 
         self._rpc.once("remoteReady", remoteReady)
         self._rpc.request_remote()
@@ -188,7 +192,6 @@ class DynamicPlugin:
                     credential = {}
                     # for k in config['credential_fields']:
                     #     credential[k.id] = prompt(k.label, k.value)
-
             connection.emit(
                 {
                     "type": "initialize",
@@ -210,8 +213,8 @@ class DynamicPlugin:
     async def terminate(self, force=False):
         try:
             if self.api and self.api.exit and callable(self.api.exit):
-                logger.info(f'Terminating plugin {self.namespace}/{self.name}...')
+                logger.info(f"Terminating plugin {self.namespace}/{self.name}...")
                 self.api.exit()
         finally:
-            logger.info(f'Plugin {self.config.name} terminated.')
+            logger.info(f"Plugin {self.config.name} terminated.")
             self._set_disconnected()

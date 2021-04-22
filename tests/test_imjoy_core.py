@@ -65,12 +65,19 @@ async def startup_and_shutdown_server():
     import requests
     import time
 
-    proc = subprocess.Popen([sys.executable, "-m", "imjoy_rpc.imjoy_core.imjoy_core_server", f'--port={PORT}'])
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "imjoy_rpc.imjoy_core.imjoy_core_server",
+            f"--port={PORT}",
+        ]
+    )
 
     timeout = 5
     while timeout > 0:
         try:
-            r = requests.get(f'http://127.0.0.1:{PORT}/docs')
+            r = requests.get(f"http://127.0.0.1:{PORT}/docs")
             if r.ok:
                 break
         except:
@@ -82,23 +89,26 @@ async def startup_and_shutdown_server():
     proc.wait()
 
 
-
 async def test_plugin(startup_and_shutdown_server):
     """Create and return the client."""
-    file = os.path.join(os.path.dirname(__file__), 'example_plugin.py')
-    server = f'http://127.0.0.1:{startup_and_shutdown_server.config.port}'
+    file = os.path.join(os.path.dirname(__file__), "example_plugin.py")
+    server = f"http://127.0.0.1:{startup_and_shutdown_server.config.port}"
     loop = asyncio.get_event_loop()
     fut = loop.create_future()
+
     def on_ready_callback(_):
         fut.set_result(None)
 
     from imjoy_rpc import default_config
-    default_config.update({
-        "name": "ImJoy Plugin", 
-        "server": server,
-        "token": None,
-        "on_ready_callback": on_ready_callback
-    })
-    
+
+    default_config.update(
+        {
+            "name": "ImJoy Plugin",
+            "server": server,
+            "token": None,
+            "on_ready_callback": on_ready_callback,
+        }
+    )
+
     run_plugin(file)
     await fut

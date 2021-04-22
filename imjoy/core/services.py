@@ -7,15 +7,20 @@ logger.setLevel(logging.INFO)
 
 
 class Services:
-    def __init__(self, imjoy_api=None):
+    def __init__(self, plugins=None, imjoy_api=None):
         self._services = []
         self.imjoy_api = imjoy_api
+        self.plugins = plugins
 
     def register_service(self, plugin, service):
+        service.provider = plugin.name
+        service.providerId = plugin.id
         self._services.append(service)
 
-    def get_plugin(self, plugin, config):
-        pass
+    def get_plugin(self, plugin, name):
+        ns_plugins = self.plugins.get(plugin.namespace)
+        if ns_plugins:
+            return ns_plugins[name].api
 
     def generate_presigned_token(self, plugin):
         pass
@@ -30,15 +35,13 @@ class Services:
         logger.error(f"{plugin.name}: {msg}")
 
     def alert(self, plugin, msg):
-        print(msg)
+        raise NotImplementedError
 
     def confirm(self, plugin, msg):
-        print(msg)
-        return True
+        raise NotImplementedError
 
     def prompt(self, plugin, *arg):
-        print(*arg)
-        return None
+        raise NotImplementedError
 
     def get_interface(self):
         return dict(
@@ -50,4 +53,10 @@ class Services:
             registerService=self.register_service,
             getService=self.get_service,
             utils=dict(),
+            getPlugin=self.get_plugin,
         )
+
+    def removePluginServices(self, plugin):
+        for service in self._services.copy():
+            if service.providerId == plugin.id:
+                self._services.remove(service)

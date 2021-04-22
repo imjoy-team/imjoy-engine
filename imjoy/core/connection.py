@@ -94,7 +94,7 @@ class BasicConnection(MessageEmitter):
                 raise Exception("Refresh token is not implemented.")
 
             data["access_token"] = self._access_token
-        data["peer_id"] = self.peer_id
+        data["peer_id"] = data.get("peer_id") or self.peer_id
         asyncio.ensure_future(self._send(data))
 
     def disconnect(self, details):
