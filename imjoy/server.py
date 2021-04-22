@@ -35,14 +35,14 @@ class UserInfo(BaseModel):
     roles: List[str]
     email: Optional[EmailStr]
     parent: Optional[str]
-    scopes: Optional[List[str]]  # a list of namespace
+    scopes: Optional[List[str]]  # a list of workspace
     expires_at: Optional[int]
     plugins: Optional[Dict[str, Any]]  # id:plugin
 
 
 sessions: Dict[str, UserInfo] = {}  # sid:user_info
 users: Dict[str, UserInfo] = {}  # uid:user_info
-all_plugins: Dict[str, Dict[str, Any]] = {}  # namespace: {name: plugin}
+all_plugins: Dict[str, Dict[str, Any]] = {}  # workspace: {name: plugin}
 
 
 def parse_token(authorization):
@@ -64,8 +64,8 @@ def parse_token(authorization):
         return get_user_info(valid_token(authorization))
 
 
-def check_permission(namespace, user_info):
-    if namespace == user_info.id:
+def check_permission(workspace, user_info):
+    if workspace == user_info.id:
         return True
     return False
 
@@ -115,13 +115,13 @@ def initialize_socketio(sio, services):
     @sio.event
     async def register_plugin(sid, config):
         user_info = sessions[sid]
-        namespace = config.get("namespace") or user_info.id
-        config["namespace"] = namespace
-        # if not check_permission(namespace, user_info):
-        #     return {"success": False, "detail": f"Permission denied for namespace: {namespace}"}
+        workspace = config.get("workspace") or user_info.id
+        config["workspace"] = workspace
+        # if not check_permission(workspace, user_info):
+        #     return {"success": False, "detail": f"Permission denied for workspace: {workspace}"}
 
         name = config["name"].replace("/", "-")  # prevent hacking of the plugin name
-        plugin_id = f"{namespace}/{name}"
+        plugin_id = f"{workspace}/{name}"
         config["id"] = plugin_id
         sio.enter_room(sid, plugin_id)
 
@@ -139,16 +139,16 @@ def initialize_socketio(sio, services):
         else:
             user_info.plugins = {plugin.id: plugin}
 
-        if namespace in all_plugins:
-            ns_plugins = all_plugins[namespace]
+        if workspace in all_plugins:
+            ws_plugins = all_plugins[workspace]
         else:
-            ns_plugins = {}
-            all_plugins[namespace] = ns_plugins
-        if plugin.name in ns_plugins:
+            ws_plugins = {}
+            all_plugins[workspace] = ws_plugins
+        if plugin.name in ws_plugins:
             # kill the plugin if already exist
             asyncio.ensure_future(plugin.terminate(True))
             del user_info.plugins[plugin.id]
-        ns_plugins[plugin.name] = plugin
+        ws_plugins[plugin.name] = plugin
         logger.info(f"New plugin registered successfully ({plugin_id})")
         return {"success": True, "plugin_id": plugin_id}
 
@@ -156,12 +156,12 @@ def initialize_socketio(sio, services):
     async def plugin_message(sid, data):
         user_info = sessions[sid]
         plugin_id = data["plugin_id"]
-        namespace, name = os.path.split(plugin_id)
-        # if not check_permission(namespace, user_info):
-        #     logger.error(f"Permission denied: namespace={namespace}, user_id={user_info.id}")
+        workspace, name = os.path.split(plugin_id)
+        # if not check_permission(workspace, user_info):
+        #     logger.error(f"Permission denied: workspace={workspace}, user_id={user_info.id}")
         #     return {"success": False, "detail": "Permission denied"}
-        if all_plugins[namespace]:
-            plugin = all_plugins[namespace].get(name)
+        if all_plugins[workspace]:
+            plugin = all_plugins[workspace].get(name)
             if plugin:
                 plugin.connection.handle_message(data)
                 return {"success": True}
@@ -184,9 +184,9 @@ def initialize_socketio(sio, services):
                     # the plugin should be reclaimed for the user
                     asyncio.ensure_future(p.terminate())
                     del user_info.plugins[k]
-                    del all_plugins[p.namespace][p.name]
-                    if not all_plugins[p.namespace]:
-                        del all_plugins[p.namespace]
+                    del all_plugins[p.workspace][p.name]
+                    if not all_plugins[p.workspace]:
+                        del all_plugins[p.workspace]
                     services.removePluginServices(p)
         del sessions[sid]
 
