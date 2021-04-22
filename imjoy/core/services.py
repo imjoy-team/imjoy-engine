@@ -18,9 +18,9 @@ class Services:
         self._services.append(service)
 
     def get_plugin(self, plugin, name):
-        ns_plugins = self.plugins.get(plugin.namespace)
-        if ns_plugins:
-            return ns_plugins[name].api
+        ws_plugins = self.plugins.get(plugin.workspace)
+        if ws_plugins:
+            return ws_plugins[name].api
 
     def generate_presigned_token(self, plugin):
         pass

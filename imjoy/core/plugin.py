@@ -15,7 +15,7 @@ class DynamicPlugin:
     def __init__(self, config, interface, connection):
         self.loop = asyncio.get_event_loop()
         self.config = dotdict(config)
-        self.namespace = self.config.namespace
+        self.workspace = self.config.workspace
         self.id = self.config.id or str(uuid.uuid4())
         self.name = self.config.name
         self.initializing = False
@@ -82,16 +82,16 @@ class DynamicPlugin:
         self.api["config"] = dotdict(
             id=self.id,
             name=self.config.name,
-            workspace=self.config.workspace,
-            type=self.config.type,
             namespace=self.config.namespace,
+            type=self.config.type,
+            workspace=self.config.workspace,
             tag=self.config.tag,
         )
 
         self._disconnected = False
         self.initializing = False
         logger.info(
-            f"Plugin loaded successfully (namespace={self.namespace}, name={self.name}, description={self.config.description}, api={list(self.api.keys())})"
+            f"Plugin loaded successfully (workspace={self.workspace}, name={self.name}, description={self.config.description}, api={list(self.api.keys())})"
         )
         if self.api.setup:
             asyncio.ensure_future(self.api.setup())
@@ -213,7 +213,7 @@ class DynamicPlugin:
     async def terminate(self, force=False):
         try:
             if self.api and self.api.exit and callable(self.api.exit):
-                logger.info(f"Terminating plugin {self.namespace}/{self.name}...")
+                logger.info(f"Terminating plugin {self.workspace}/{self.name}...")
                 self.api.exit()
         finally:
             logger.info(f"Plugin {self.config.name} terminated.")
