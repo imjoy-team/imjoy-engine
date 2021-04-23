@@ -1,3 +1,4 @@
+"""Provide authentication."""
 import json
 import logging
 import ssl
@@ -12,7 +13,7 @@ from urllib.request import urlopen
 from dotenv import find_dotenv, load_dotenv
 from fastapi import Header, HTTPException, Request
 from jose import jwt
-from pydantic import BaseModel
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
@@ -31,29 +32,38 @@ if not JWT_SECRET:
 
 
 class AuthError(Exception):
+    """Represent an authentication error."""
+
     def __init__(self, error, status_code):
+        """Set up instance."""
+        super().__init__()
         self.error = error
         self.status_code = status_code
 
 
 class ValidToken(BaseModel):
+    """Represent a valid token."""
+
     credentials: dict
     scopes: List[str] = []
 
-    def hasScope(self, checkedToken):
-        if checkedToken in self.scopes:
+    def has_scope(self, checked_token):
+        """Return True if the token has the correct scope."""
+        if checked_token in self.scopes:
             return True
-        else:
-            raise HTTPException(
-                status_code=403, detail="Not authorised to perform this action"
-            )
+
+        raise HTTPException(
+            status_code=403, detail="Not authorized to perform this action"
+        )
 
 
 def login_required(request: Request, authorization: str = Header(None)):
+    """Return token if login is ok."""
     return valid_token(authorization, request)
 
 
 def admin_required(request: Request, authorization: str = Header(None)):
+    """Return token if the token has an admin role."""
     token = valid_token(authorization, request)
     roles = token.credentials.get("https://api.imjoy.io/roles", [])
     if "admin" not in roles:
@@ -62,6 +72,7 @@ def admin_required(request: Request, authorization: str = Header(None)):
 
 
 def is_admin(token):
+    """Check if token has an admin role."""
     roles = token.credentials.get("https://api.imjoy.io/roles", [])
     if "admin" not in roles:
         return False
@@ -69,14 +80,17 @@ def is_admin(token):
 
 
 def get_user_email(token):
+    """Return the user email from the token."""
     return token.credentials.get("https://api.imjoy.io/email")
 
 
 def get_user_id(token):
+    """Return the user id from the token."""
     return token.credentials.get("sub")
 
 
 def get_user_info(token):
+    """Return the user info from the token."""
     return {
         "user_id": token.credentials.get("sub"),
         "email": token.credentials.get("https://api.imjoy.io/email"),
@@ -84,19 +98,21 @@ def get_user_info(token):
     }
 
 
-jwks = None
+JWKS = None
 
 
 def get_rsa_key(kid, refresh=False):
-    global jwks
-    if jwks is None or refresh:
+    """Return an rsa key."""
+    global JWKS  # pylint: disable=global-statement
+    if JWKS is None or refresh:
         jsonurl = urlopen(
             f"https://{AUTH0_DOMAIN}/.well-known/jwks.json",
+            # pylint: disable=protected-access
             context=ssl._create_unverified_context(),
         )
-        jwks = json.loads(jsonurl.read())
+        JWKS = json.loads(jsonurl.read())
     rsa_key = {}
-    for key in jwks["keys"]:
+    for key in JWKS["keys"]:
         if key["kid"] == kid:
             rsa_key = {
                 "kty": key["kty"],
@@ -109,23 +125,22 @@ def get_rsa_key(kid, refresh=False):
     return rsa_key
 
 
-def simulate_user_token(returnedToken, request):
-    """
-    Allow admin users to simulate another user
-    """
+def simulate_user_token(returned_token, request):
+    """Allow admin users to simulate another user."""
     if "user_id" in request.query_params:
-        returnedToken.credentials["sub"] = request.query_params["user_id"]
+        returned_token.credentials["sub"] = request.query_params["user_id"]
     if "email" in request.query_params:
-        returnedToken.credentials["https://api.imjoy.io/email"] = request.query_params[
+        returned_token.credentials["https://api.imjoy.io/email"] = request.query_params[
             "email"
         ]
     if "roles" in request.query_params:
-        returnedToken.credentials["https://api.imjoy.io/roles"] = request.query_params[
+        returned_token.credentials["https://api.imjoy.io/roles"] = request.query_params[
             "roles"
         ].split(",")
 
 
 def valid_token(authorization: str, request: Optional[Request] = None):
+    """Validate token."""
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header is expected")
 
@@ -135,9 +150,9 @@ def valid_token(authorization: str, request: Optional[Request] = None):
         raise HTTPException(
             status_code=401, detail="Authorization header must start with" " Bearer"
         )
-    elif len(parts) == 1:
+    if len(parts) == 1:
         raise HTTPException(status_code=401, detail="Token not found")
-    elif len(parts) > 2:
+    if len(parts) > 2:
         raise HTTPException(
             status_code=401, detail="Authorization header must be 'Bearer' token"
         )
@@ -145,7 +160,6 @@ def valid_token(authorization: str, request: Optional[Request] = None):
     authorization = parts[1]
     try:
         unverified_header = jwt.get_unverified_header(authorization)
-        unverified_claims = jwt.get_unverified_claims(authorization)
 
         # Get RSA key
         rsa_key = get_rsa_key(unverified_header["kid"], refresh=False)
@@ -162,37 +176,38 @@ def valid_token(authorization: str, request: Optional[Request] = None):
             issuer=f"https://{AUTH0_DOMAIN}/",
         )
 
-        returnedToken = ValidToken(
+        returned_token = ValidToken(
             credentials=payload, scopes=payload["scope"].split(" ")
         )
 
         # This is needed for patching the test token
         if "create:roles" in payload["scope"]:
-            if "https://api.imjoy.io/roles" not in returnedToken.credentials:
-                returnedToken.credentials["https://api.imjoy.io/roles"] = ["admin"]
-            if "https://api.imjoy.io/email" not in returnedToken.credentials:
-                returnedToken.credentials["https://api.imjoy.io/email"] = None
+            if "https://api.imjoy.io/roles" not in returned_token.credentials:
+                returned_token.credentials["https://api.imjoy.io/roles"] = ["admin"]
+            if "https://api.imjoy.io/email" not in returned_token.credentials:
+                returned_token.credentials["https://api.imjoy.io/email"] = None
 
         if (
-            "admin" in returnedToken.credentials["https://api.imjoy.io/roles"]
+            "admin" in returned_token.credentials["https://api.imjoy.io/roles"]
             and request
         ):
-            simulate_user_token(returnedToken, request)
+            simulate_user_token(returned_token, request)
 
-        return returnedToken
+        return returned_token
 
-    except jwt.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError as err:
         raise HTTPException(
             status_code=401, detail="The token has expired. Please fetch a new one"
-        )
-    except jwt.JWTError:
-        raise HTTPException(status_code=401, detail=traceback.format_exc())
+        ) from err
+    except jwt.JWTError as err:
+        raise HTTPException(status_code=401, detail=traceback.format_exc()) from err
 
 
 def generate_presigned_token(user_info, config):
-    """generating presigned tokens.
-    This will generate a token which will be connected as a child user
-    Child user may generate more child user token if it has admin permission
+    """Generate presigned tokens.
+
+    This will generate a token which will be connected as a child user.
+    Child user may generate more child user token if it has admin permission.
     """
     scope = config.get("scope")
     if scope and user_info.scopes and scope not in user_info.scopes:
