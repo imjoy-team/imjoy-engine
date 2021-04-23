@@ -1,6 +1,6 @@
 """Set up the ImJoy-Engine imjoy package."""
 import json
-import os
+from pathlib import Path
 
 from setuptools import find_packages, setup
 
@@ -17,7 +17,6 @@ try:
     REQUIREMENTS = [
         "numpy",
         "imjoy-rpc>=0.2.55",
-        'pathlib;python_version<"3.4"',
         "imjoy-elfinder",
     ]
 except ImportError:
@@ -30,24 +29,25 @@ except ImportError:
         "python-engineio==4.0.0",
     ]
 
-ROOT_DIR = os.path.dirname(__file__)
-with open(os.path.join(ROOT_DIR, "README.md"), "r") as f:
-    README = f.read()
+ROOT_DIR = Path(__file__).parent.resolve()
+README_FILE = ROOT_DIR / "README.md"
+LONG_DESCRIPTION = README_FILE.read_text(encoding="utf-8")
+VERSION_FILE = ROOT_DIR / "imjoy" / "VERSION"
+VERSION = json.loads(VERSION_FILE.read_text())["version"]
 
-with open(os.path.join(ROOT_DIR, "imjoy", "VERSION"), "r") as f:
-    VERSION = json.load(f)["version"]
 
 setup(
     name="imjoy",
     version=VERSION,
     description=DESCRIPTION,
-    long_description=README,
+    long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
     url="http://github.com/imjoy-team/ImJoy-Engine",
     author="ImJoy Team",
     author_email="imjoy.team@gmail.com",
     license="MIT",
     packages=find_packages(),
+    python_requires=">=3.6",
     include_package_data=True,
     install_requires=REQUIREMENTS,
     extras_require={
