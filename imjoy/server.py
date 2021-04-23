@@ -203,7 +203,7 @@ def initialize_socketio(sio, services):
                     del all_plugins[plugin.workspace][plugin.name]
                     if not all_plugins[plugin.workspace]:
                         del all_plugins[plugin.workspace]
-                    services.removePluginServices(plugin)
+                    services.remove_plugin_services(plugin)
         del sessions[sid]
 
 
