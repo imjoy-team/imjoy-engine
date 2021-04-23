@@ -155,6 +155,7 @@ def initialize_socketio(sio, services):
     @sio.event
     async def plugin_message(sid, data):
         user_info = sessions[sid]
+        data["context"] = {"user_info": user_info}
         plugin_id = data["plugin_id"]
         workspace, name = os.path.split(plugin_id)
         # if not check_permission(workspace, user_info):
@@ -179,6 +180,7 @@ def initialize_socketio(sio, services):
             if user_info.plugins:
                 for k in list(user_info.plugins.keys()):
                     p = user_info.plugins[k]
+                    print("=============", p.api)
                     # TODO: how to allow plugin running when the user disconnected
                     # we will also need to handle the case when the user login again
                     # the plugin should be reclaimed for the user

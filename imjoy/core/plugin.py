@@ -93,8 +93,6 @@ class DynamicPlugin:
         logger.info(
             f"Plugin loaded successfully (workspace={self.workspace}, name={self.name}, description={self.config.description}, api={list(self.api.keys())})"
         )
-        if self.api.setup:
-            asyncio.ensure_future(self.api.setup())
 
     def error(self, *args):
         self._log_history.append({"type": "error", "value": args})
@@ -125,6 +123,11 @@ class DynamicPlugin:
             self._set_disconnected()
 
         self._rpc.on("disconnected", disconnected)
+
+        def remoteReady(_):
+            logger.info("Plugin interface updated")
+
+        self._rpc.on("remoteReady", remoteReady)
 
         def remote_idle():
             self.running = False
