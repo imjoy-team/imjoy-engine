@@ -12,7 +12,7 @@ logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("plugin-runner")
 logger.setLevel(logging.INFO)
 
-def run_plugin(plugin_file, default_config):
+async def run_plugin(plugin_file, default_config):
     """load plugin file"""
     if os.path.isfile(plugin_file):
         content = open(plugin_file).read()
@@ -26,12 +26,17 @@ def run_plugin(plugin_file, default_config):
     if plugin_file.endswith(".py"):
         filename, _ = os.path.splitext(os.path.basename(plugin_file))
         default_config["name"] = filename[:32]
-        connect_to_server(default_config)
+        fut = connect_to_server(default_config)
         try:
             exec(content, globals())
             logger.info("Plugin executed")
+            await fut
+            if opt.quit_on_ready:
+                loop.stop()
         except Exception as e:
             logger.error("Failed to execute plugin %s", e)
+            loop.stop()
+        
 
     elif plugin_file.endswith(".imjoy.html"):
         # load config
@@ -41,15 +46,19 @@ def run_plugin(plugin_file, default_config):
         elif "yaml" in found[0]:
             plugin_config = yaml.safe_load(found[1])
         default_config.update(plugin_config)
-        connect_to_server(default_config)
+        fut = connect_to_server(default_config)
         # load script
         found = re.findall("<script (.*)>\n(.*)</script>", content, re.DOTALL)[0]
         if "python" in found[0]:
             try:
                 exec(found[1], globals())
                 logger.info("Plugin executed")
+                await fut
+                if opt.quit_on_ready:
+                    loop.stop()
             except Exception as e:
                 logger.error("Failed to execute plugin %s", e)
+                loop.stop()
         else:
             raise Exception(
                 "Invalid script type ({}) in file {}".format(found[0], plugin_file)
@@ -88,23 +97,13 @@ if __name__ == "__main__":
 
     opt = parser.parse_args()
 
-    def on_ready_callback(error):
-        if not error:
-            logger.info("Plugin is now ready")
-        else:
-            logger.error("Plugin failed with error: " + str(error))
-
-        if opt.quit_on_ready:
-            loop.stop()
-
     def start_plugin():
         default_config ={
             "name": "ImJoy Plugin",
             "server_url": opt.server_url,
-            "token": opt.token,
-            "on_ready_callback": on_ready_callback,
+            "token": opt.token
         }
-        run_plugin(opt.file, default_config)
+        asyncio.ensure_future(run_plugin(opt.file, default_config))
 
     start_plugin()
 
