@@ -2,9 +2,10 @@
 reports=no
 
 disable=
+  duplicate-code,
+  fixme,
   locally-disabled,
   unused-argument,
-  fixme,
 
 # Minimum number of public methods for a class (see R0903).
 min-public-methods=0
