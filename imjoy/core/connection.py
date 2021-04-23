@@ -1,7 +1,8 @@
+import asyncio
 import logging
 import sys
-import asyncio
 import time
+
 from imjoy_rpc.utils import MessageEmitter, dotdict
 
 logging.basicConfig(stream=sys.stdout)

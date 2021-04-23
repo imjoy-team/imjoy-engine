@@ -1,23 +1,24 @@
-import os
+import asyncio
 import json
+import os
 import traceback
 import uuid
-import asyncio
 from enum import Enum
 from os import environ as env
 from typing import Any, Dict, List, Optional, Type, Union
-from imjoy.core.services import Services
 
 import socketio
 from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.logger import logger
+from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt
 from pydantic import BaseModel, EmailStr
+
 from imjoy.core.auth import JWT_SECRET, get_user_info, valid_token
 from imjoy.core.connection import BasicConnection
 from imjoy.core.plugin import DynamicPlugin
+from imjoy.core.services import Services
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -246,8 +247,9 @@ async def root():
 setup_socketio_server(app, allow_origins=allow_origins)
 
 if __name__ == "__main__":
-    import uvicorn
     import argparse
+
+    import uvicorn
 
     parser = argparse.ArgumentParser()
     parser.add_argument(

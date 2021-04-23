@@ -1,11 +1,12 @@
 """Provide main entrypoint."""
 import json
+import logging
 import os
 import re
 import sys
-import logging
-import yaml
 import urllib.request
+
+import yaml
 from imjoy_rpc import connect_to_server
 
 logging.basicConfig(stream=sys.stdout)

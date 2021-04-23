@@ -1,10 +1,11 @@
+import asyncio
 import logging
 import sys
-import asyncio
 import uuid
 from functools import partial
-from imjoy_rpc.utils import dotdict, ContextLocal
+
 from imjoy_rpc.rpc import RPC
+from imjoy_rpc.utils import ContextLocal, dotdict
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("dynamic-plugin")
