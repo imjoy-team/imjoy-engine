@@ -1,6 +1,8 @@
 import logging
 import sys
 
+from imjoy.core.auth import generate_presigned_token
+
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
 logger.setLevel(logging.INFO)
@@ -19,8 +21,9 @@ class Services:
 
     def get_plugin(self, plugin, name):
         ws_plugins = self.plugins.get(plugin.workspace)
-        if ws_plugins:
+        if ws_plugins and name in ws_plugins:
             return ws_plugins[name].api
+        raise Exception("Plugin not found")
 
     def generate_presigned_token(self, plugin):
         pass
@@ -45,6 +48,9 @@ class Services:
     def prompt(self, plugin, *arg):
         raise NotImplementedError
 
+    def generate_token(self, plugin, config):
+        return generate_presigned_token(config)
+
     def get_interface(self):
         return {
             "log": self.log,
@@ -56,6 +62,7 @@ class Services:
             "getService": self.get_service,
             "utils": {},
             "getPlugin": self.get_plugin,
+            "generateToken": self.generate_token,
         }
 
     def removePluginServices(self, plugin):

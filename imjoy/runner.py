@@ -12,6 +12,7 @@ logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("plugin-runner")
 logger.setLevel(logging.INFO)
 
+
 async def run_plugin(plugin_file, default_config):
     """load plugin file"""
     if os.path.isfile(plugin_file):
@@ -36,7 +37,6 @@ async def run_plugin(plugin_file, default_config):
         except Exception as e:
             logger.error("Failed to execute plugin %s", e)
             loop.stop()
-        
 
     elif plugin_file.endswith(".imjoy.html"):
         # load config
@@ -98,10 +98,10 @@ if __name__ == "__main__":
     opt = parser.parse_args()
 
     def start_plugin():
-        default_config ={
+        default_config = {
             "name": "ImJoy Plugin",
             "server_url": opt.server_url,
-            "token": opt.token
+            "token": opt.token,
         }
         asyncio.ensure_future(run_plugin(opt.file, default_config))
 
