@@ -19,6 +19,4 @@ max-branches=30
 max-returns=8
 
 [BASIC]
-good-names = [
-    "ws",
-]
+good-names = ["ws"]
