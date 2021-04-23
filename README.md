@@ -39,7 +39,7 @@ Please submit your bug report or feature request to [ImJoy/issues ](https://gith
 
 ## Development
 
-- Development requires Python 3.6, since we use [`black`](https://github.com/ambv/black) for code formatting.
+- We use [`black`](https://github.com/ambv/black) for code formatting.
 
 ```
   git clone git@github.com:imjoy-team/ImJoy-Engine.git
