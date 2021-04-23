@@ -6,6 +6,7 @@ import time
 
 import pytest
 import requests
+from requests import RequestException
 from imjoy_rpc import connect_to_server
 
 # All test coroutines will be treated as marked.
@@ -25,7 +26,7 @@ def socketio_server_fixture():
             response = requests.get(f"http://127.0.0.1:{PORT}/")
             if response.ok:
                 break
-        except Exception:
+        except RequestException:
             pass
         timeout -= 0.1
         time.sleep(0.1)
