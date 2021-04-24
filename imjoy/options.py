@@ -17,6 +17,11 @@ def parse_cmd_line(args=None):
     )
     parser.add_argument("--debug", action="store_true", help="debug mode")
     parser.add_argument(
+        "--insecure",
+        action="store_true",
+        help="disable authentication token and xsrf. DO NOT USE IN PRODUCTION!!!",
+    )
+    parser.add_argument(
         "--serve", action="store_true", help="start the socketio server backend",
     )
     parser.add_argument("--host", type=str, default="127.0.0.1", help="server host")
