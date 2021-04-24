@@ -1,4 +1,4 @@
-"""Provide services."""
+"""Provide interface functions for the core."""
 import logging
 import sys
 from contextvars import ContextVar
@@ -12,8 +12,8 @@ logger.setLevel(logging.INFO)
 current_user = ContextVar("current_user")
 
 
-class Services:
-    """Represent the available services."""
+class CoreInterface:
+    """Represent the interface of the ImJoy core."""
 
     # pylint: disable=no-self-use
 
@@ -35,9 +35,6 @@ class Services:
         if ws_plugins and name in ws_plugins:
             return ws_plugins[name].api
         raise Exception("Plugin not found")
-
-    def generate_presigned_token(self, plugin):
-        """Generate a presigned token."""
 
     def get_service(self, plugin, name):
         """Return a service."""

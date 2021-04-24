@@ -20,7 +20,7 @@ from imjoy import __version__ as VERSION
 from imjoy.core.auth import JWT_SECRET, get_user_info, valid_token
 from imjoy.core.connection import BasicConnection
 from imjoy.core.plugin import DynamicPlugin
-from imjoy.core.services import Services, current_user
+from imjoy.core.interface import CoreInterface, current_user
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -79,7 +79,7 @@ def check_permission(workspace, user_info):
     return False
 
 
-def initialize_socketio(sio, services):
+def initialize_socketio(sio, core_api):
     """Initialize socketio."""
     # pylint: disable=too-many-statements, unused-variable
 
@@ -147,7 +147,7 @@ def initialize_socketio(sio, services):
             )
 
         connection = BasicConnection(send)
-        plugin = DynamicPlugin(config, services.get_interface(), connection)
+        plugin = DynamicPlugin(config, core_api.get_interface(), connection)
         if user_info.plugins:
             user_info.plugins[plugin.id] = plugin
         else:
@@ -206,7 +206,7 @@ def initialize_socketio(sio, services):
                     del all_plugins[plugin.workspace][plugin.name]
                     if not all_plugins[plugin.workspace]:
                         del all_plugins[plugin.workspace]
-                    services.remove_plugin_services(plugin)
+                    core_api.remove_plugin_services(plugin)
         del sessions[sid]
 
 
@@ -256,8 +256,8 @@ def setup_socketio_server(
 
     app.mount(mount_location, _app)
     app.sio = sio
-    services = Services(plugins=all_plugins)
-    initialize_socketio(sio, services)
+    core_api = CoreInterface(plugins=all_plugins)
+    initialize_socketio(sio, core_api)
     return sio
 
 
