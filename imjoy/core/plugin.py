@@ -193,7 +193,7 @@ class DynamicPlugin:
             try:
                 fut.set_result(self._rpc.get_remote())
             # TODO: this happens when the the plugin is reconnected
-            except asyncio.exceptions.InvalidStateError:
+            except asyncio.InvalidStateError:
                 pass
 
         self._rpc.once("remoteReady", remote_ready)
