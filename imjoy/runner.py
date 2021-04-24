@@ -1,4 +1,5 @@
 """Provide main entrypoint."""
+import asyncio
 import json
 import logging
 import os
@@ -16,6 +17,7 @@ logger.setLevel(logging.INFO)
 
 async def run_plugin(plugin_file, default_config):
     """Load plugin file."""
+    loop = asyncio.get_event_loop()
     if os.path.isfile(plugin_file):
         content = open(plugin_file).read()
     elif plugin_file.startswith("http"):
@@ -68,11 +70,21 @@ async def run_plugin(plugin_file, default_config):
         raise Exception("Invalid script file type ({})".format(plugin_file))
 
 
+def start_runner(args):
+    """Start the plugin runner"""
+    loop = asyncio.get_event_loop()
+
+    default_config = {
+        "name": "ImJoy Plugin",
+        "server_url": args.server_url,
+        "token": args.token,
+    }
+    asyncio.ensure_future(run_plugin(args.file, default_config))
+    loop.run_forever()
+
+
 if __name__ == "__main__":
     import argparse
-    import asyncio
-
-    loop = asyncio.get_event_loop()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("file", type=str, help="path to a plugin file")
@@ -95,15 +107,4 @@ if __name__ == "__main__":
 
     opt = parser.parse_args()
 
-    def start_plugin():
-        """Start the plugin."""
-        default_config = {
-            "name": "ImJoy Plugin",
-            "server_url": opt.server_url,
-            "token": opt.token,
-        }
-        asyncio.ensure_future(run_plugin(opt.file, default_config))
-
-    start_plugin()
-
-    loop.run_forever()
+    start_runner(opt)

@@ -2,11 +2,13 @@
 import asyncio
 import os
 import uuid
+from contextvars import copy_context
 from enum import Enum
 from os import environ as env
 from typing import Any, Dict, List, Optional, Union
 
 import socketio
+import uvicorn
 from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
 from fastapi.logger import logger
@@ -18,7 +20,7 @@ from imjoy import __version__ as VERSION
 from imjoy.core.auth import JWT_SECRET, get_user_info, valid_token
 from imjoy.core.connection import BasicConnection
 from imjoy.core.plugin import DynamicPlugin
-from imjoy.core.services import Services
+from imjoy.core.services import Services, current_user
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -178,7 +180,9 @@ def initialize_socketio(sio, services):
         if all_plugins[workspace]:
             plugin = all_plugins[workspace].get(name)
             if plugin:
-                plugin.connection.handle_message(data)
+                current_user.set(user_info)
+                ctx = copy_context()
+                ctx.run(plugin.connection.handle_message, data)
                 return {"success": True}
         logger.warning("Unhandled message for plugin %s", plugin_id)
         return {"success": False, "detail": "Plugin not found"}
@@ -257,20 +261,26 @@ def setup_socketio_server(
     return sio
 
 
+def start_server(args):
+    """Start the socketio server"""
+    if args.allow_origin:
+        allow_origin = args.allow_origin.split(",")
+    else:
+        allow_origin = env.get("ALLOW_ORIGINS", "*").split(",")
+    application = create_application(allow_origin)
+    setup_socketio_server(application, allow_origins=allow_origin)
+    uvicorn.run(application, host=args.host, port=int(args.port))
+
+
 if __name__ == "__main__":
     import argparse
 
-    import uvicorn
-
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--host", type=str, default="127.0.0.1", help="host for the socketio server",
+    )
     parser.add_argument(
         "--port", type=int, default=3000, help="port for the socketio server",
     )
-
-    ALLOW_ORIGINS = env.get("ALLOW_ORIGINS", "*").split(",")
-    application = create_application(ALLOW_ORIGINS)
-    setup_socketio_server(application, allow_origins=ALLOW_ORIGINS)
-
     opt = parser.parse_args()
-
-    uvicorn.run(application, port=opt.port)
+    start_server(opt)

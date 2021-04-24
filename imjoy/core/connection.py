@@ -86,21 +86,7 @@ class BasicConnection(MessageEmitter):
 
     async def execute(self, code):
         """Execute."""
-        fut = self.loop.create_future()
-
-        def executed(result):
-            """Handle result on execution."""
-            if "error" in result:
-                fut.set_exception(Exception(result["error"]))
-            else:
-                fut.set_result(None)
-
-        self.once("executed", executed)
-
-        if self.plugin_config["allow_execution"]:
-            self.emit({"type": "execute", "code": code})
-        else:
-            fut.set_exception(Exception("Connection does not allow execution"))
+        raise PermissionError
 
     def emit(self, msg):
         """Send a message to the plugin site."""
