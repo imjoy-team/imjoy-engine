@@ -71,7 +71,7 @@ async def run_plugin(plugin_file, default_config):
 
 
 def start_runner(args):
-    """Start the plugin runner"""
+    """Start the plugin runner."""
     loop = asyncio.get_event_loop()
 
     default_config = {
