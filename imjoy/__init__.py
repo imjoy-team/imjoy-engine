@@ -2,8 +2,8 @@
 import json
 import os
 
-from imjoy_rpc import __all__ as imjoy_rpc_all
 from imjoy_rpc import *  # noqa F401, F403
+from imjoy_rpc import __all__ as imjoy_rpc_all
 
 # read version information from file
 IMJOY_PACKAGE_DIR = os.path.dirname(__file__)

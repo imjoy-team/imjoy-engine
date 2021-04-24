@@ -19,10 +19,13 @@ except ImportError:
     REQUIREMENTS = [
         "numpy",
         "imjoy-rpc>=0.2.55",
-        'pathlib;python_version<"3.4"',
-        "imjoy-elfinder[jupyter]",
-        "python-socketio[asyncio_client]==5.0.4",
+        "imjoy-elfinder",
+        "pydantic[email]==1.8.1",
+        "python-dotenv==0.17.0",
         "python-engineio==4.0.0",
+        "python-jose==3.2.0",
+        "python-socketio[asyncio_client]==5.0.4",
+        "uvicorn==0.13.4",
     ]
 
 ROOT_DIR = Path(__file__).parent.resolve()

@@ -1,11 +1,12 @@
 """Provide main entrypoint."""
 import json
+import logging
 import os
 import re
 import sys
-import logging
-import yaml
 import urllib.request
+
+import yaml
 from imjoy_rpc import connect_to_server
 
 logging.basicConfig(stream=sys.stdout)
@@ -14,7 +15,7 @@ logger.setLevel(logging.INFO)
 
 
 async def run_plugin(plugin_file, default_config):
-    """load plugin file"""
+    """Load plugin file."""
     if os.path.isfile(plugin_file):
         content = open(plugin_file).read()
     elif plugin_file.startswith("http"):
@@ -29,13 +30,13 @@ async def run_plugin(plugin_file, default_config):
         default_config["name"] = filename[:32]
         fut = connect_to_server(default_config)
         try:
-            exec(content, globals())
+            exec(content, globals())  # pylint: disable=exec-used
             logger.info("Plugin executed")
             await fut
             if opt.quit_on_ready:
                 loop.stop()
-        except Exception as e:
-            logger.error("Failed to execute plugin %s", e)
+        except Exception as err:  # pylint: disable=broad-except
+            logger.error("Failed to execute plugin %s", err)
             loop.stop()
 
     elif plugin_file.endswith(".imjoy.html"):
@@ -51,13 +52,13 @@ async def run_plugin(plugin_file, default_config):
         found = re.findall("<script (.*)>\n(.*)</script>", content, re.DOTALL)[0]
         if "python" in found[0]:
             try:
-                exec(found[1], globals())
+                exec(found[1], globals())  # pylint: disable=exec-used
                 logger.info("Plugin executed")
                 await fut
                 if opt.quit_on_ready:
                     loop.stop()
-            except Exception as e:
-                logger.error("Failed to execute plugin %s", e)
+            except Exception as err:  # pylint: disable=broad-except
+                logger.error("Failed to execute plugin %s", err)
                 loop.stop()
         else:
             raise Exception(
@@ -76,11 +77,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("file", type=str, help="path to a plugin file")
     parser.add_argument(
-        "--server-url", type=str, default=None, help="url to the plugin socketio server"
+        "--server-url",
+        type=str,
+        default=None,
+        help="url to the plugin socketio server",
     )
 
     parser.add_argument(
-        "--token", type=str, default=None, help="token for the plugin socketio server"
+        "--token", type=str, default=None, help="token for the plugin socketio server",
     )
 
     parser.add_argument(
@@ -92,6 +96,7 @@ if __name__ == "__main__":
     opt = parser.parse_args()
 
     def start_plugin():
+        """Start the plugin."""
         default_config = {
             "name": "ImJoy Plugin",
             "server_url": opt.server_url,
