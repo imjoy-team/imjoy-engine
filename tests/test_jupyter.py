@@ -21,7 +21,7 @@ BASE_URL = f"http://localhost:{PORT}"
 def jupyter_server_fixture():
     """Start server as test fixture and tear down after test."""
     proc = subprocess.Popen(
-        [sys.executable, "-m", "imjoy", "--jupyter", "--insecure", f"--port={PORT}",]
+        [sys.executable, "-m", "imjoy", "--jupyter", "--insecure", f"--port={PORT}"]
     )
 
     timeout = 5
@@ -41,6 +41,7 @@ def jupyter_server_fixture():
 
 @pytest.fixture(name="websocket_connection")
 def websocket_connection_fixture(jupyter_server):
+    """Create websocket connection."""
     url = BASE_URL + "/api/kernels"
     response = requests.post(url)
     kernel = json.loads(response.text)
@@ -54,6 +55,7 @@ def websocket_connection_fixture(jupyter_server):
 
 
 def send_execute_request(code):
+    """Send execute request."""
     msg_type = "execute_request"
     content = {"code": code, "silent": False}
     hdr = {
@@ -69,6 +71,7 @@ def send_execute_request(code):
 
 
 def execute(ws, code):
+    """Execute."""
     ws.send(json.dumps(send_execute_request(code)))
     # We ignore all the other messages, we just get the code execution output
     msg_type = ""
@@ -79,14 +82,14 @@ def execute(ws, code):
             if rsp["content"]["status"] == "error":
                 print(rsp["content"]["traceback"])
                 raise RuntimeError("Failed to execute")
-            else:
-                assert rsp["content"]["status"] == "ok"
+
+            assert rsp["content"]["status"] == "ok"
             break
         if msg_type == "stream":
             print(rsp["content"]["text"])
 
 
-test_code = """
+TEST_CODE = """
 import asyncio
 from imjoy_rpc import connect_to_jupyter, api
 
@@ -96,4 +99,5 @@ api.export({})
 
 
 def test_jupyter_rpc(websocket_connection):
-    execute(websocket_connection, test_code)
+    """Test jupyter rpc."""
+    execute(websocket_connection, TEST_CODE)
