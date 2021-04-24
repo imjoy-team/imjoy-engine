@@ -50,18 +50,6 @@ class CoreInterface:
         """Log a plugin error message."""
         logger.error("%s: %s", plugin.name, msg)
 
-    def alert(self, plugin, msg):
-        """Alert."""
-        raise NotImplementedError
-
-    def confirm(self, plugin, msg):
-        """Confirm."""
-        raise NotImplementedError
-
-    def prompt(self, plugin, *arg):
-        """Prompt."""
-        raise NotImplementedError
-
     def generate_token(self, plugin, config):
         """Generate a token."""
         return generate_presigned_token(current_user.get(), config)
@@ -71,14 +59,15 @@ class CoreInterface:
         return {
             "log": self.log,
             "error": self.error,
-            "alert": self.alert,
-            "confirm": self.confirm,
-            "prompt": self.prompt,
             "registerService": self.register_service,
+            "register_service": self.register_service,
             "getService": self.get_service,
+            "get_service": self.get_service,
             "utils": {},
             "getPlugin": self.get_plugin,
+            "get_plugin": self.get_plugin,
             "generateToken": self.generate_token,
+            "generate_token": self.generate_token,
         }
 
     def remove_plugin_services(self, plugin):
