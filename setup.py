@@ -14,11 +14,11 @@ try:
     # pylint: disable=unused-import
     import google.colab.output  # noqa: F401
 
-    REQUIREMENTS = ["numpy", "imjoy-rpc>=0.2.80", "imjoy-elfinder"]
+    REQUIREMENTS = ["numpy", "imjoy-rpc>=0.3.0", "imjoy-elfinder"]
 except ImportError:
     REQUIREMENTS = [
         "numpy",
-        "imjoy-rpc>=0.2.80",
+        "imjoy-rpc>=0.3.0",
         "imjoy-elfinder",
         "pydantic[email]==1.8.1",
         "python-dotenv==0.17.0",
