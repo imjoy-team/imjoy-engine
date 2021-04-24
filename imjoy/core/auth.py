@@ -219,4 +219,4 @@ def generate_presigned_token(user_info, config):
         JWT_SECRET,
         algorithm="HS256",
     )
-    return {"success": True, "result": "#RTC:" + token}
+    return {"success": True, "result": "imjoy@" + token}

@@ -76,17 +76,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("file", type=str, help="path to a plugin file")
     parser.add_argument(
-        "--server-url",
-        type=str,
-        default=None,
-        help="url to the plugin socketio server",
+        "--server-url", type=str, default=None, help="url to the plugin socketio server"
     )
 
     parser.add_argument(
-        "--token",
-        type=str,
-        default=None,
-        help="token for the plugin socketio server",
+        "--token", type=str, default=None, help="token for the plugin socketio server"
     )
 
     parser.add_argument(

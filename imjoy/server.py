@@ -6,7 +6,8 @@ import asyncio
 from enum import Enum
 from os import environ as env
 from typing import Any, Dict, List, Optional, Type, Union
-from imjoy.core.services import Services
+from contextvars import copy_context
+
 
 import socketio
 from dotenv import find_dotenv, load_dotenv
@@ -18,6 +19,7 @@ from pydantic import BaseModel, EmailStr
 from imjoy.core.auth import JWT_SECRET, get_user_info, valid_token
 from imjoy.core.connection import BasicConnection
 from imjoy.core.plugin import DynamicPlugin
+from imjoy.core.services import Services, current_user
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -46,7 +48,7 @@ all_plugins: Dict[str, Dict[str, Any]] = {}  # workspace: {name: plugin}
 
 
 def parse_token(authorization):
-    if authorization.startswith("#RTC:"):
+    if authorization.startswith("imjoy@"):
         parts = authorization.split()
         if parts[0].lower() != "bearer":
             raise Exception("Authorization header must start with" " Bearer")
@@ -57,7 +59,7 @@ def parse_token(authorization):
 
         token = parts[1]
         # generated token
-        token = token.lstrip("#RTC:")
+        token = token.lstrip("imjoy@")
         return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
     else:
         # auth0 token
@@ -126,11 +128,7 @@ def initialize_socketio(sio, services):
         sio.enter_room(sid, plugin_id)
 
         async def send(data):
-            await sio.emit(
-                "plugin_message",
-                data,
-                room=plugin_id,
-            )
+            await sio.emit("plugin_message", data, room=plugin_id)
 
         connection = BasicConnection(send)
         plugin = DynamicPlugin(config, services.get_interface(), connection)
@@ -164,7 +162,9 @@ def initialize_socketio(sio, services):
         if all_plugins[workspace]:
             plugin = all_plugins[workspace].get(name)
             if plugin:
-                plugin.connection.handle_message(data)
+                current_user.set(user_info)
+                ctx = copy_context()
+                ctx.run(plugin.connection.handle_message, data)
                 return {"success": True}
         logger.warning(f"Unhandled message for plugin {plugin_id}")
         return {"success": False, "detail": "Plugin not found"}
@@ -180,7 +180,6 @@ def initialize_socketio(sio, services):
             if user_info.plugins:
                 for k in list(user_info.plugins.keys()):
                     p = user_info.plugins[k]
-                    print("=============", p.api)
                     # TODO: how to allow plugin running when the user disconnected
                     # we will also need to handle the case when the user login again
                     # the plugin should be reclaimed for the user
@@ -251,10 +250,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--port",
-        type=int,
-        default=3000,
-        help="port for the socketio server",
+        "--port", type=int, default=3000, help="port for the socketio server"
     )
 
     opt = parser.parse_args()

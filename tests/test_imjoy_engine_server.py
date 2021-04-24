@@ -14,14 +14,7 @@ PORT = 38283
 async def socketio_server():
     """Start server as test fixture and tear down after test"""
 
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "imjoy.server",
-            f"--port={PORT}",
-        ]
-    )
+    proc = subprocess.Popen([sys.executable, "-m", "imjoy.server", f"--port={PORT}"])
 
     timeout = 5
     while timeout > 0:

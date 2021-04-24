@@ -87,12 +87,13 @@ class DynamicPlugin:
             workspace=self.config.workspace,
             tag=self.config.tag,
         )
-
         self._disconnected = False
         self.initializing = False
         logger.info(
             f"Plugin loaded successfully (workspace={self.workspace}, name={self.name}, description={self.config.description}, api={list(self.api.keys())})"
         )
+        if self.api.setup:
+            asyncio.ensure_future(self.api.setup())
 
     def error(self, *args):
         self._log_history.append({"type": "error", "value": args})

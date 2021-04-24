@@ -14,11 +14,7 @@ try:
     # pylint: disable=unused-import
     import google.colab.output  # noqa: F401
 
-    REQUIREMENTS = [
-        "numpy",
-        "imjoy-rpc>=0.2.55",
-        "imjoy-elfinder",
-    ]
+    REQUIREMENTS = ["numpy", "imjoy-rpc>=0.2.55", "imjoy-elfinder"]
 except ImportError:
     REQUIREMENTS = [
         "numpy",
@@ -51,11 +47,7 @@ setup(
     include_package_data=True,
     install_requires=REQUIREMENTS,
     extras_require={
-        "jupyter": [
-            "jupyter>=1.0.0",
-            "ipykernel>=5.1.4",
-            "imjoy-jupyter-extension",
-        ],
+        "jupyter": ["jupyter>=1.0.0", "ipykernel>=5.1.4", "imjoy-jupyter-extension"],
         "socketio": [
             "python-socketio[asyncio_client]",
             "pyyaml",

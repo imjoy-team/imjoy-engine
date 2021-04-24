@@ -1,11 +1,14 @@
 import logging
 import sys
+from contextvars import ContextVar
 
 from imjoy.core.auth import generate_presigned_token
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
 logger.setLevel(logging.INFO)
+
+current_user = ContextVar("current_user")
 
 
 class Services:
@@ -49,7 +52,8 @@ class Services:
         raise NotImplementedError
 
     def generate_token(self, plugin, config):
-        return generate_presigned_token(config)
+        user_info = current_user.get()
+        return generate_presigned_token(user_info, config)
 
     def get_interface(self):
         return {
