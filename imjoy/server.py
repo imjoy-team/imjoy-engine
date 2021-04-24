@@ -54,7 +54,7 @@ all_plugins: Dict[str, Dict[str, Any]] = {}  # workspace: {name: plugin}
 
 def parse_token(authorization):
     """Parse the token."""
-    if not authorization.startswith("#RTC:"):
+    if not authorization.startswith("imjoy@"):
         # auth0 token
         return get_user_info(valid_token(authorization))
 
@@ -68,7 +68,7 @@ def parse_token(authorization):
 
     token = parts[1]
     # generated token
-    token = token.lstrip("#RTC:")
+    token = token.lstrip("imjoy@")
     return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
 
 
