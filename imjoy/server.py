@@ -282,5 +282,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--port", type=int, default=3000, help="port for the socketio server",
     )
+    parser.add_argument(
+        "--allow-origin", type=str, default="*", help="origins for the socketio server",
+    )
     opt = parser.parse_args()
     start_server(opt)

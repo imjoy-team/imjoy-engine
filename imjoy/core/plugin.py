@@ -148,7 +148,10 @@ class DynamicPlugin:
 
         def remote_ready(_):
             """Handle remote ready."""
-            logger.info("Plugin interface updated")
+            api = self._rpc.get_remote()
+            # this make sure if reconnect, setup will be called again
+            if "setup" in api:
+                asyncio.ensure_future(api.setup())
 
         self._rpc.on("remoteReady", remote_ready)
 

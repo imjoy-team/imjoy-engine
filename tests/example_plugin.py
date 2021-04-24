@@ -13,6 +13,10 @@ class ImJoyPlugin:
 
     async def setup(self):
         """Set up the plugin."""
+        token = await api.generateToken({})
+        assert token['success']
+        print(f'Generated token: {token["result"]}')
+        
         await api.registerService(
             {"name": "echo service", "echo": lambda x: print("echo: " + str(x))}
         )

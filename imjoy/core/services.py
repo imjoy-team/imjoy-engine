@@ -67,7 +67,7 @@ class Services:
 
     def generate_token(self, plugin, config):
         """Generate a token."""
-        return generate_presigned_token(current_user, config)
+        return generate_presigned_token(current_user.get(), config)
 
     def get_interface(self):
         """Return the interface."""
