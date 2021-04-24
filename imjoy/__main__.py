@@ -47,7 +47,8 @@ def main():
             kwargs["token"] = ""
             kwargs["disable_check_xsrf"] = True
             logger.warning(
-                "Running Jupyter notebooks with --insecure flag, please do not use it for production."
+                "Running Jupyter notebooks with --insecure flag, "
+                "please do not use it for production."
             )
 
         app = NotebookApp.instance(**kwargs)
