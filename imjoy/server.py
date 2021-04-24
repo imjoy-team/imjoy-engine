@@ -262,7 +262,7 @@ def setup_socketio_server(
 
 
 def start_server(args):
-    """Start the socketio server"""
+    """Start the socketio server."""
     if args.allow_origin:
         allow_origin = args.allow_origin.split(",")
     else:
