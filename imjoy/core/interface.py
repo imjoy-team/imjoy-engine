@@ -2,7 +2,14 @@
 import logging
 import sys
 
-from imjoy.core import current_user
+from imjoy.core import (
+    TokenConfig,
+    WorkspaceInfo,
+    current_user,
+    current_plugin,
+    current_workspace,
+    all_workspaces,
+)
 from imjoy.core.auth import generate_presigned_token
 
 logging.basicConfig(stream=sys.stdout)
@@ -15,42 +22,54 @@ class CoreInterface:
 
     # pylint: disable=no-self-use
 
-    def __init__(self, plugins=None, imjoy_api=None):
+    def __init__(self, imjoy_api=None):
         """Set up instance."""
-        self._services = []
         self.imjoy_api = imjoy_api
-        self.plugins = plugins
 
-    def register_service(self, plugin, service):
+    def register_service(self, service):
         """Register a service."""
+        plugin = current_plugin.get()
         service.provider = plugin.name
         service.providerId = plugin.id
-        self._services.append(service)
+        plugin.workspace._services.append(service)
 
-    def get_plugin(self, plugin, name):
+    def get_plugin(self, name):
         """Return a plugin."""
-        ws_plugins = self.plugins.get(plugin.workspace.name)
-        if ws_plugins and name in ws_plugins:
-            return ws_plugins[name].api
+        workspace = current_workspace.get()
+
+        if name in workspace._plugins:
+            return workspace._plugins[name].api
         raise Exception("Plugin not found")
 
-    def get_service(self, plugin, name):
+    def get_service(self, name):
         """Return a service."""
+        plugin = current_plugin.get()
         return next(
-            service for service in self._services if service.get("name") == name
+            service
+            for service in plugin.workspace._services
+            if service.get("name") == name
         )
 
-    def log(self, plugin, msg):
+    def log(self, msg):
         """Log a plugin message."""
+        plugin = current_plugin.get()
         logger.info("%s: %s", plugin.name, msg)
 
-    def error(self, plugin, msg):
+    def error(self, msg):
         """Log a plugin error message."""
+        plugin = current_plugin.get()
         logger.error("%s: %s", plugin.name, msg)
 
-    def generate_token(self, plugin, config):
+    def generate_token(self, config: TokenConfig):
         """Generate a token."""
-        return generate_presigned_token(current_user.get(), config)
+
+        token_config = TokenConfig.parse_obj(config)
+        return generate_presigned_token(current_user.get(), token_config)
+
+    def create_workspace(self, config: WorkspaceInfo):
+        workspace = WorkspaceInfo.parse_obj(config)
+        if workspace.name in all_workspaces:
+            raise Exception(f"Workspace {workspace.name} already exists")
 
     def get_interface(self):
         """Return the interface."""
@@ -67,9 +86,3 @@ class CoreInterface:
             "generateToken": self.generate_token,
             "generate_token": self.generate_token,
         }
-
-    def remove_plugin_services(self, plugin):
-        """Remove the plugin services."""
-        for service in self._services.copy():
-            if service.providerId == plugin.id:
-                self._services.remove(service)

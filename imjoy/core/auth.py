@@ -15,7 +15,7 @@ from fastapi import Header, HTTPException, Request
 from jose import jwt
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
-from imjoy.core import UserInfo, VisibilityEnum, TokenConfig, users, workspaces
+from imjoy.core import UserInfo, VisibilityEnum, TokenConfig, all_users, all_workspaces
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
@@ -128,7 +128,7 @@ def get_rsa_key(kid, refresh=False):
 
 
 def simulate_user_token(returned_token, request):
-    """Allow admin users to simulate another user."""
+    """Allow admin all_users to simulate another user."""
     if "user_id" in request.query_params:
         returned_token.credentials["sub"] = request.query_params["user_id"]
     if "email" in request.query_params:
@@ -260,13 +260,13 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
 def check_permission(workspace, user_info):
     """Check user permission for a workspace."""
     if isinstance(workspace, str):
-        workspace = workspaces.get(workspace)
+        workspace = all_workspaces.get(workspace)
         if not workspace:
             logger.warning(f"Workspace {workspace} not found")
             return False
 
     if user_info.parent:
-        parent = users.get(user_info.parent)
+        parent = all_users.get(user_info.parent)
         if not check_permission(workspace, parent):
             return False
 

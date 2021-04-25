@@ -27,14 +27,14 @@ class VisibilityEnum(str, Enum):
 class UserInfo(BaseModel):
     """Represent user info."""
 
-    sessions: List[str]
     id: str
     roles: List[str]
     email: Optional[EmailStr]
     parent: Optional[str]
     scopes: Optional[List[str]]  # a list of workspace
     expires_at: Optional[int]
-    plugins: Optional[Dict[str, Any]]  # id:plugin
+    _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})  # id:plugin
+    _sessions: List[str] = PrivateAttr(default_factory=lambda: [])  # session ids
 
 
 class WorkspaceInfo(BaseModel):
@@ -51,11 +51,13 @@ class WorkspaceInfo(BaseModel):
     deny_list: Optional[List[str]]
     authorizer: Optional[str]
     _authorizer: Optional[Callable] = PrivateAttr(default_factory=lambda: None)
-    _plugins: List[str] = PrivateAttr(default_factory=lambda: [])
+    _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})
+    _services: List[Dict[str, Any]] = PrivateAttr(default_factory=lambda: [])
 
 
-sessions: Dict[str, UserInfo] = {}  # sid:user_info
-users: Dict[str, UserInfo] = {}  # uid:user_info
-all_plugins: Dict[str, Dict[str, Any]] = {}  # workspace: {name: plugin}
 current_user = ContextVar("current_user")
-workspaces: Dict[str, WorkspaceInfo] = {}  # wid:workspace_info
+current_plugin = ContextVar("current_plugin")
+current_workspace = ContextVar("current_workspace")
+all_sessions: Dict[str, UserInfo] = {}  # sid:user_info
+all_users: Dict[str, UserInfo] = {}  # uid:user_info
+all_workspaces: Dict[str, WorkspaceInfo] = {}  # wid:workspace_info

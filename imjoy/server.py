@@ -18,11 +18,12 @@ from imjoy.core import (
     UserInfo,
     VisibilityEnum,
     WorkspaceInfo,
-    users,
-    sessions,
-    all_plugins,
+    all_users,
+    all_sessions,
     current_user,
-    workspaces,
+    current_plugin,
+    current_workspace,
+    all_workspaces,
 )
 from imjoy.core.auth import parse_token, check_permission
 from imjoy.core.connection import BasicConnection
@@ -66,9 +67,8 @@ def initialize_socketio(sio, core_api):
             expires_at = None
             logger.info("Anonymized User connected: %s", uid)
 
-        if uid not in users:
-            users[uid] = UserInfo(
-                sessions=[sid],
+        if uid not in all_users:
+            all_users[uid] = UserInfo(
                 id=uid,
                 email=email,
                 parent=parent,
@@ -76,24 +76,23 @@ def initialize_socketio(sio, core_api):
                 scopes=scopes,
                 expires_at=expires_at,
             )
-        else:
-            users[uid].sessions.append(sid)
-        sessions[sid] = users[uid]
+        all_users[uid]._sessions.append(sid)
+        all_sessions[sid] = all_users[uid]
 
     @sio.event
     async def register_plugin(sid, config):
-        user_info = sessions[sid]
+        user_info = all_sessions[sid]
         ws = config.get("workspace") or user_info.id
         config["workspace"] = ws
-        if ws in workspaces:
-            workspace = workspaces[ws]
+        if ws in all_workspaces:
+            workspace = all_workspaces[ws]
         else:
             if ws == user_info.id:
                 # create the user workspace automatically
                 workspace = WorkspaceInfo(
                     name=ws, owners=[user_info.id], visibility=VisibilityEnum.protected
                 )
-                workspaces[ws] = workspace
+                all_workspaces[ws] = workspace
             else:
                 return {"success": False, "detail": f"Workspace {ws} does not exist."}
 
@@ -117,69 +116,70 @@ def initialize_socketio(sio, core_api):
 
         connection = BasicConnection(send)
         plugin = DynamicPlugin(config, core_api.get_interface(), connection, workspace)
-        if user_info.plugins:
-            user_info.plugins[plugin.id] = plugin
-        else:
-            user_info.plugins = {plugin.id: plugin}
 
-        if ws in all_plugins:
-            ws_plugins = all_plugins[ws]
-        else:
-            ws_plugins = {}
-            all_plugins[ws] = ws_plugins
-        if plugin.name in ws_plugins:
+        user_info._plugins[plugin.id] = plugin
+        if plugin.name in workspace._plugins:
             # kill the plugin if already exist
             asyncio.ensure_future(plugin.terminate(True))
-            del user_info.plugins[plugin.id]
-        ws_plugins[plugin.name] = plugin
+            del user_info._plugins[plugin.id]
+        workspace._plugins[plugin.name] = plugin
         logger.info("New plugin registered successfully (%s)", plugin_id)
         return {"success": True, "plugin_id": plugin_id}
 
     @sio.event
     async def plugin_message(sid, data):
-        user_info = sessions[sid]
+        user_info = all_sessions[sid]
         data["context"] = {"user_info": user_info}
         plugin_id = data["plugin_id"]
         ws, name = os.path.split(plugin_id)
-        if ws not in workspaces:
+        if ws not in all_workspaces:
             return {"success": False, "detail": f"Workspace not found: {ws}"}
-        workspace = workspaces[ws]
+        workspace = all_workspaces[ws]
         if not check_permission(workspace, user_info):
             logger.error(
                 "Permission denied: workspace=%s, user_id=%s", workspace, user_info.id
             )
             return {"success": False, "detail": "Permission denied"}
-        if all_plugins[ws]:
-            plugin = all_plugins[ws].get(name)
-            if plugin:
-                current_user.set(user_info)
-                ctx = copy_context()
-                ctx.run(plugin.connection.handle_message, data)
-                return {"success": True}
-        logger.warning("Unhandled message for plugin %s", plugin_id)
-        return {"success": False, "detail": "Plugin not found"}
+
+        plugin = workspace._plugins.get(name)
+        if not plugin:
+            logger.warning(f"Plugin {name} not found in workspace {workspace.name}")
+            return {
+                "success": False,
+                "detail": f"Plugin {name} not found in workspace {workspace.name}",
+            }
+
+        current_user.set(user_info)
+        current_plugin.set(plugin)
+        current_workspace.set(workspace)
+        ctx = copy_context()
+        ctx.run(plugin.connection.handle_message, data)
+        return {"success": True}
 
     @sio.event
     async def disconnect(sid):
         """Event handler called when the client is disconnected."""
-        user_info = sessions[sid]
-        users[user_info.id].sessions.remove(sid)
-        # if the user has no more sessions
-        if not users[user_info.id].sessions:
-            del users[user_info.id]
-            if user_info.plugins:
-                for plugin_name in list(user_info.plugins):
-                    plugin = user_info.plugins[plugin_name]
-                    # TODO: how to allow plugin running when the user disconnected
-                    # we will also need to handle the case when the user login again
-                    # the plugin should be reclaimed for the user
-                    asyncio.ensure_future(plugin.terminate())
-                    del user_info.plugins[plugin_name]
-                    del all_plugins[plugin.workspace.name][plugin.name]
-                    if not all_plugins[plugin.workspace.name]:
-                        del all_plugins[plugin.workspace.name]
-                    core_api.remove_plugin_services(plugin)
-        del sessions[sid]
+        user_info = all_sessions[sid]
+        all_users[user_info.id]._sessions.remove(sid)
+        # if the user has no more all_sessions
+        if not all_users[user_info.id]._sessions:
+            del all_users[user_info.id]
+            for pid in list(user_info._plugins.keys()):
+                plugin = user_info._plugins[pid]
+                # TODO: how to allow plugin running when the user disconnected
+                # we will also need to handle the case when the user login again
+                # the plugin should be reclaimed for the user
+                del plugin.workspace._plugins[plugin.name]
+                asyncio.ensure_future(plugin.terminate())
+                del user_info._plugins[pid]
+
+                # TODO: if a workspace has no plugins anymore we should destroy it completely
+                # Importantly, if we want to recycle the workspace name,
+                # we need to make sure we don't mess up with the permission with the plugins of the previous owners
+                for service in plugin.workspace._services.copy():
+                    if service.providerId == plugin.id:
+                        plugin.workspace._services.remove(service)
+        del all_sessions[sid]
 
 
 def create_application(allow_origins) -> FastAPI:
@@ -207,8 +207,8 @@ def create_application(allow_origins) -> FastAPI:
         return {
             "name": "ImJoy Core Server",
             "version": VERSION,
-            "users": {u: users[u].sessions for u in users},
-            "all_plugins": {k: list(all_plugins[k].keys()) for k in all_plugins},
+            "all_users": {u: all_users[u]._sessions for u in all_users},
+            "all_workspaces": {w.name: len(w.plugins) for w in all_workspaces},
         }
 
     return app
@@ -228,7 +228,7 @@ def setup_socketio_server(
 
     app.mount(mount_location, _app)
     app.sio = sio
-    core_api = CoreInterface(plugins=all_plugins)
+    core_api = CoreInterface()
     initialize_socketio(sio, core_api)
     return sio
 
