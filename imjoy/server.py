@@ -143,7 +143,9 @@ def initialize_socketio(sio, core_api):
 
         async def send(data):
             await sio.emit(
-                "plugin_message", data, room=plugin_id,
+                "plugin_message",
+                data,
+                room=plugin_id,
             )
 
         connection = BasicConnection(send)
@@ -277,13 +279,22 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--host", type=str, default="127.0.0.1", help="host for the socketio server",
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="host for the socketio server",
     )
     parser.add_argument(
-        "--port", type=int, default=3000, help="port for the socketio server",
+        "--port",
+        type=int,
+        default=3000,
+        help="port for the socketio server",
     )
     parser.add_argument(
-        "--allow-origin", type=str, default="*", help="origins for the socketio server",
+        "--allow-origin",
+        type=str,
+        default="*",
+        help="origins for the socketio server",
     )
     opt = parser.parse_args()
     start_server(opt)
