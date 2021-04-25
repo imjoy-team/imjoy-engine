@@ -1,6 +1,7 @@
 """Provide setup function to prepare the engine."""
 import argparse
 import os
+
 from imjoy import __version__
 
 
@@ -16,27 +17,14 @@ def parse_cmd_line(args=None):
     )
     parser.add_argument("--debug", action="store_true", help="debug mode")
     parser.add_argument(
-        "--serve",
-        type=str,
-        default=None,
-        help="serve in production mode from the specified port",
+        "--insecure",
+        action="store_true",
+        help="disable authentication token and xsrf. DO NOT USE IN PRODUCTION!!!",
     )
     parser.add_argument(
-        "--plugin-dir", type=str, default=None, help="path to a plugin folder"
+        "--serve", action="store_true", help="start the socketio server backend",
     )
-    parser.add_argument(
-        "--plugin-file", type=str, default=None, help="path to a plugin file"
-    )
-    parser.add_argument(
-        "--plugin-server",
-        type=str,
-        default=None,
-        help="url to the plugin socketio server",
-    )
-
-    parser.add_argument(
-        "--host", type=str, default="127.0.0.1", help="jupyter server host"
-    )
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="server host")
     parser.add_argument(
         "--base-url",
         type=str,
@@ -58,7 +46,7 @@ def parse_cmd_line(args=None):
             "to prevent unintended access from other website"
         ),
     )
-    parser.add_argument("--port", type=str, default="9527", help="socketio port")
+    parser.add_argument("--port", type=str, default="9527", help="server port")
     parser.add_argument(
         "--workspace",
         type=str,
