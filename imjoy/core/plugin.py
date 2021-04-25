@@ -35,7 +35,10 @@ class DynamicPlugin:
         self.running = False
         self.terminating = False
 
-        self._bind_interface(interface)
+        # Note: we don't need to bind the interface to the plugin as we do in the js version
+        # We will use context variables `current_plugin` to obtain the current plugin
+        self._initial_interface = dotdict(interface)
+        self._initial_interface._intf = True
         self.initialize_if_needed(self.connection, self.config)
 
         def initialized(data):
@@ -49,20 +52,6 @@ class DynamicPlugin:
 
         self.connection.on("initialized", initialized)
         self.connection.connect()
-
-    def _bind_interface(self, interface):
-        self._initial_interface = dotdict(_rintf=True)
-        for key in interface:
-            if callable(interface[key]):
-                self._initial_interface[key] = partial(interface[key], self)
-            elif isinstance(interface[key], dict):
-                utils = dotdict()
-                for util in interface[key]:
-                    if callable(utils[util]):
-                        utils[util] = partial(interface[key][util], self)
-                interface[key] = utils
-            else:
-                self._initial_interface[key] = interface[key]
 
     async def _setup_rpc(self, connection, plugin_config):
         """Set up rpc."""
