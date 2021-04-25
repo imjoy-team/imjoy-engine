@@ -13,6 +13,7 @@ from imjoy_rpc import connect_to_server
 pytestmark = pytest.mark.asyncio
 
 PORT = 38283
+SERVER_URL = f"http://127.0.0.1:{PORT}"
 
 
 @pytest.fixture(name="socketio_server")
@@ -52,9 +53,12 @@ async def test_connect_to_server(socketio_server):
             """Run the plugin."""
             await self._ws.log("hello world")
 
-    server_url = f"http://127.0.0.1:{PORT}"
-    ws = await connect_to_server({"name": "my plugin", "server_url": server_url})
-    ws.export(ImJoyPlugin(ws))
+    with pytest.raises(Exception, match=r".*Workspace test does not exist.*"):
+        ws = await connect_to_server(
+            {"name": "my plugin", "workspace": "test", "server_url": SERVER_URL}
+        )
+    ws = await connect_to_server({"name": "my plugin", "server_url": SERVER_URL})
+    await ws.export(ImJoyPlugin(ws))
 
 
 def test_plugin_runner(socketio_server):
@@ -70,3 +74,87 @@ def test_plugin_runner(socketio_server):
         ]
     )
     proc.wait()
+
+
+async def test_workspace(socketio_server):
+    """Test the plugin runner."""
+    api = await connect_to_server({"name": "my plugin", "server_url": SERVER_URL})
+    with pytest.raises(
+        Exception, match=r".*Scopes must be empty or contains only the workspace name*"
+    ):
+        await api.generate_token({"scopes": ["test-workspace"]})
+    ret = await api.generate_token()
+    assert "id" in ret and "token" in ret
+    assert ret["token"].startswith("imjoy@")
+
+    ws = await api.create_workspace(
+        {
+            "name": "test-workspace",
+            "owners": ["user1@imjoy.io", "user2@imjoy.io"],
+            "allow_list": [],
+            "deny_list": [],
+            "visibility": "protected",  # or public
+        }
+    )
+    await ws.log("hello")
+    await ws.register_service(
+        {
+            "name": "test_service",
+            "type": "#test",
+        }
+    )
+    service = await ws.get_services({"type": "#test"})
+    assert len(service) == 1
+
+    # we should not get it because api is in another workspace
+    ss2 = await api.get_services({"type": "#test"})
+    assert len(ss2) == 0
+
+    # let's generate a token for the test-workspace
+    ret = await ws.generate_token()
+    token = ret["token"]
+
+    # now if we connect directly to the workspace
+    # we should be able to get the test-workspace services
+    api2 = await connect_to_server(
+        {
+            "name": "my plugin 2",
+            "workspace": "test-workspace",
+            "server_url": SERVER_URL,
+            "token": token,
+        }
+    )
+    assert api2.config["workspace"] == "test-workspace"
+    await api2.export({"foo": "bar"})
+    ss3 = await api2.get_services({"type": "#test"})
+    assert len(ss3) == 1
+
+    plugin = await api2.get_plugin("my plugin 2")
+    assert plugin.foo == "bar"
+
+    with pytest.raises(Exception, match=r".*Plugin my plugin 2 not found.*"):
+        await api.get_plugin("my plugin 2")
+
+    with pytest.raises(
+        Exception, match=r".*Workspace authorizer is not supported yet.*"
+    ):
+        await api.create_workspace(
+            {
+                "name": "my-workspace",
+                "owners": ["user1@imjoy.io", "user2@imjoy.io"],
+                "allow_list": [],
+                "deny_list": [],
+                "visibility": "protected",  # or public
+                "authorizer": "my-plugin::my_authorizer",
+            }
+        )
+
+    ws2 = await api.get_workspace("test-workspace")
+    assert ws.config == ws2.config
+
+    await ws2.set({"docs": "https://imjoy.io"})
+    with pytest.raises(Exception, match=r".*Changing workspace name is not allowed.*"):
+        await ws2.set({"name": "new-name"})
+
+    with pytest.raises(Exception):
+        await ws2.set({"covers": [], "non-exist-key": 999})
