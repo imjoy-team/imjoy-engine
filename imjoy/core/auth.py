@@ -262,7 +262,7 @@ def check_permission(workspace, user_info):
     if isinstance(workspace, str):
         workspace = all_workspaces.get(workspace)
         if not workspace:
-            logger.warning(f"Workspace {workspace} not found")
+            logger.warning("Workspace %s not found", workspace)
             return False
 
     if user_info.parent:

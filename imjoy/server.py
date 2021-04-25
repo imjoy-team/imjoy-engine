@@ -37,7 +37,7 @@ if ENV_FILE:
 
 def initialize_socketio(sio, core_api):
     """Initialize socketio."""
-    # pylint: disable=too-many-statements, unused-variable
+    # pylint: disable=too-many-statements, unused-variable, protected-access
 
     @sio.event
     async def connect(sid, environ):
@@ -143,7 +143,7 @@ def initialize_socketio(sio, core_api):
 
         plugin = workspace._plugins.get(name)
         if not plugin:
-            logger.warning(f"Plugin {name} not found in workspace {workspace.name}")
+            logger.warning("Plugin %s not found in workspace %s", name, workspace.name)
             return {
                 "success": False,
                 "detail": f"Plugin {name} not found in workspace {workspace.name}",
@@ -186,7 +186,7 @@ def initialize_socketio(sio, core_api):
 
 def create_application(allow_origins) -> FastAPI:
     """Set up the server application."""
-    # pylint: disable=unused-variable
+    # pylint: disable=unused-variable, protected-access
 
     app = FastAPI(
         title="ImJoy Core Server",

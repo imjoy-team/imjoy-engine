@@ -20,7 +20,7 @@ logger.setLevel(logging.INFO)
 class CoreInterface:
     """Represent the interface of the ImJoy core."""
 
-    # pylint: disable=no-self-use
+    # pylint: disable=no-self-use, protected-access
 
     def __init__(self, imjoy_api=None):
         """Set up instance."""
