@@ -53,8 +53,15 @@ async def test_connect_to_server(socketio_server):
             await self._ws.log("hello world")
 
     server_url = f"http://127.0.0.1:{PORT}"
+
+    with pytest.raises(Exception, match=r".*Workspace 998 does not exist.*"):
+        ws = await connect_to_server(
+            {"name": "my plugin", "workspace": "998", "server_url": server_url}
+        )
     ws = await connect_to_server({"name": "my plugin", "server_url": server_url})
-    ws.export(ImJoyPlugin(ws))
+    await ws.export(ImJoyPlugin(ws))
+    token = await ws.generate_token({"scopes": []})
+    assert token.startswith("imjoy@")
 
 
 def test_plugin_runner(socketio_server):

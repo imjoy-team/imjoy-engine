@@ -18,11 +18,12 @@ class DynamicPlugin:
 
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, config, interface, connection):
+    def __init__(self, config, interface, connection, workspace):
         """Set up instance."""
         self.loop = asyncio.get_event_loop()
         self.config = dotdict(config)
-        self.workspace = self.config.workspace
+        assert self.config.workspace == workspace.name
+        self.workspace = workspace
         self.id = self.config.id or str(uuid.uuid4())  # pylint: disable=invalid-name
         self.name = self.config.name
         self.initializing = False
@@ -104,7 +105,7 @@ class DynamicPlugin:
         logger.info(
             "Plugin loaded successfully (workspace=%s, "
             "name=%s, description=%s, api=%s)",
-            self.workspace,
+            self.config.workspace,
             self.name,
             self.config.description,
             list(self.api),
@@ -256,7 +257,9 @@ class DynamicPlugin:
         """Terminate."""
         try:
             if self.api and self.api.exit and callable(self.api.exit):
-                logger.info("Terminating plugin %s/%s", self.workspace, self.name)
+                logger.info(
+                    "Terminating plugin %s/%s", self.config.workspace, self.name
+                )
                 self.api.exit()
         finally:
             logger.info("Plugin %s terminated.", self.config.name)

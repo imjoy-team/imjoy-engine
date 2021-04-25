@@ -2,14 +2,14 @@
 import logging
 import sys
 from contextvars import ContextVar
+from typing import Dict
 
+from imjoy.core import WorkspaceInfo, current_user, workspaces
 from imjoy.core.auth import generate_presigned_token
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
 logger.setLevel(logging.INFO)
-
-current_user = ContextVar("current_user")
 
 
 class CoreInterface:
@@ -31,7 +31,7 @@ class CoreInterface:
 
     def get_plugin(self, plugin, name):
         """Return a plugin."""
-        ws_plugins = self.plugins.get(plugin.workspace)
+        ws_plugins = self.plugins.get(plugin.workspace.name)
         if ws_plugins and name in ws_plugins:
             return ws_plugins[name].api
         raise Exception("Plugin not found")

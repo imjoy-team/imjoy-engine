@@ -15,6 +15,8 @@ from fastapi import Header, HTTPException, Request
 from jose import jwt
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
+from imjoy.core import UserInfo, VisibilityEnum, TokenConfig, users, workspaces
+
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
 logger.setLevel(logging.INFO)
@@ -203,28 +205,46 @@ def valid_token(authorization: str, request: Optional[Request] = None):
         raise HTTPException(status_code=401, detail=traceback.format_exc()) from err
 
 
-def generate_presigned_token(user_info, config):
+def parse_token(authorization):
+    """Parse the token."""
+    parts = authorization.split()
+    if parts[0].lower() != "bearer":
+        raise Exception("Authorization header must start with" " Bearer")
+    if len(parts) == 1:
+        raise Exception("Token not found")
+    if len(parts) > 2:
+        raise Exception("Authorization header must be 'Bearer' token")
+
+    token = parts[1]
+    if not token.startswith("imjoy@"):
+        # auth0 token
+        return get_user_info(valid_token(token))
+    # generated token
+    token = token.lstrip("imjoy@")
+    return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+
+
+def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
     """Generate presigned tokens.
 
     This will generate a token which will be connected as a child user.
     Child user may generate more child user token if it has admin permission.
     """
-    scope = config.get("scope")
-    if scope and user_info.scopes and scope not in user_info.scopes:
-        return {
-            "success": False,
-            "detail": f"User have no permission to scope: {scope}",
-        }
+    scopes = config.scopes
+    for scope in scopes:
+        if not check_permission(scope, user_info):
+            raise PermissionError(f"User has no permission to scope: {scope}")
+
     # always generate a new user id
     uid = str(uuid.uuid4())
-    expires_in = config.get("expires_in")
+    expires_in = config.expires_in
     if expires_in:
         expires_at = time.time() + expires_in
     else:
         expires_at = None
     token = jwt.encode(
         {
-            "scopes": [scope] if scope else None,
+            "scopes": scopes,
             "expires_at": expires_at,
             "user_id": uid,
             "parent": user_info.parent if user_info.parent else user_info.id,
@@ -234,4 +254,33 @@ def generate_presigned_token(user_info, config):
         JWT_SECRET,
         algorithm="HS256",
     )
-    return {"success": True, "result": "imjoy@" + token}
+    return "imjoy@" + token
+
+
+def check_permission(workspace, user_info):
+    """Check permission."""
+    if isinstance(workspace, str):
+        workspace = workspaces.get(workspace)
+        if not workspace:
+            logger.warning(f"Workspace {workspace} not found")
+            return False
+
+    if user_info.parent:
+        parent = users.get(user_info.parent)
+        if not check_permission(workspace, parent):
+            return False
+
+    if workspace.name == user_info.id:
+        return True
+
+    if workspace.name not in user_info.scopes:
+        return False
+
+    if workspace.visibility == VisibilityEnum.public:
+        if user_info.email not in workspace.deny_list:
+            return True
+    elif workspace.visibility == VisibilityEnum.protected:
+        if user_info.email in workspace.allow_list:
+            return True
+
+    return False

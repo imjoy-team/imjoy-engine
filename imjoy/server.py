@@ -3,7 +3,6 @@ import asyncio
 import os
 import uuid
 from contextvars import copy_context
-from enum import Enum
 from os import environ as env
 from typing import Any, Dict, List, Optional, Union
 
@@ -14,69 +13,26 @@ from fastapi import FastAPI
 from fastapi.logger import logger
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt
-from pydantic import BaseModel, EmailStr  # pylint: disable=no-name-in-module
 
 from imjoy import __version__ as VERSION
-from imjoy.core.auth import JWT_SECRET, get_user_info, valid_token
+from imjoy.core import (
+    UserInfo,
+    VisibilityEnum,
+    WorkspaceInfo,
+    users,
+    sessions,
+    all_plugins,
+    current_user,
+    workspaces,
+)
+from imjoy.core.auth import parse_token, check_permission
 from imjoy.core.connection import BasicConnection
+from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
-from imjoy.core.interface import CoreInterface, current_user
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
-
-
-class VisibilityEnum(str, Enum):
-    """Represent the visibility of the workspace."""
-
-    public = "public"
-    protected = "protected"
-
-
-class UserInfo(BaseModel):
-    """Represent user info."""
-
-    sessions: List[str]
-    id: str
-    roles: List[str]
-    email: Optional[EmailStr]
-    parent: Optional[str]
-    scopes: Optional[List[str]]  # a list of workspace
-    expires_at: Optional[int]
-    plugins: Optional[Dict[str, Any]]  # id:plugin
-
-
-sessions: Dict[str, UserInfo] = {}  # sid:user_info
-users: Dict[str, UserInfo] = {}  # uid:user_info
-all_plugins: Dict[str, Dict[str, Any]] = {}  # workspace: {name: plugin}
-
-
-def parse_token(authorization):
-    """Parse the token."""
-    if not authorization.startswith("imjoy@"):
-        # auth0 token
-        return get_user_info(valid_token(authorization))
-
-    parts = authorization.split()
-    if parts[0].lower() != "bearer":
-        raise Exception("Authorization header must start with" " Bearer")
-    if len(parts) == 1:
-        raise Exception("Token not found")
-    if len(parts) > 2:
-        raise Exception("Authorization header must be 'Bearer' token")
-
-    token = parts[1]
-    # generated token
-    token = token.lstrip("imjoy@")
-    return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-
-
-def check_permission(workspace, user_info):
-    """Check permission."""
-    if workspace == user_info.id:
-        return True
-    return False
 
 
 def initialize_socketio(sio, core_api):
@@ -128,36 +84,50 @@ def initialize_socketio(sio, core_api):
     @sio.event
     async def register_plugin(sid, config):
         user_info = sessions[sid]
-        workspace = config.get("workspace") or user_info.id
-        config["workspace"] = workspace
-        # if not check_permission(workspace, user_info):
-        #     return {
-        #         "success": False, "detail": "
-        #         "f"Permission denied for workspace: {workspace}"
-        #     }
+        ws = config.get("workspace") or user_info.id
+        config["workspace"] = ws
+        if ws in workspaces:
+            workspace = workspaces[ws]
+        else:
+            if ws == user_info.id:
+                # create the user workspace automatically
+                workspace = WorkspaceInfo(
+                    name=ws, owners=[user_info.id], visibility=VisibilityEnum.protected
+                )
+                workspaces[ws] = workspace
+            else:
+                return {"success": False, "detail": f"Workspace {ws} does not exist."}
+
+        if not check_permission(workspace, user_info):
+            return {
+                "success": False,
+                "detail": f"Permission denied for workspace: {ws}",
+            }
 
         name = config["name"].replace("/", "-")  # prevent hacking of the plugin name
-        plugin_id = f"{workspace}/{name}"
+        plugin_id = f"{ws}/{name}"
         config["id"] = plugin_id
         sio.enter_room(sid, plugin_id)
 
         async def send(data):
             await sio.emit(
-                "plugin_message", data, room=plugin_id,
+                "plugin_message",
+                data,
+                room=plugin_id,
             )
 
         connection = BasicConnection(send)
-        plugin = DynamicPlugin(config, core_api.get_interface(), connection)
+        plugin = DynamicPlugin(config, core_api.get_interface(), connection, workspace)
         if user_info.plugins:
             user_info.plugins[plugin.id] = plugin
         else:
             user_info.plugins = {plugin.id: plugin}
 
-        if workspace in all_plugins:
-            ws_plugins = all_plugins[workspace]
+        if ws in all_plugins:
+            ws_plugins = all_plugins[ws]
         else:
             ws_plugins = {}
-            all_plugins[workspace] = ws_plugins
+            all_plugins[ws] = ws_plugins
         if plugin.name in ws_plugins:
             # kill the plugin if already exist
             asyncio.ensure_future(plugin.terminate(True))
@@ -171,14 +141,17 @@ def initialize_socketio(sio, core_api):
         user_info = sessions[sid]
         data["context"] = {"user_info": user_info}
         plugin_id = data["plugin_id"]
-        workspace, name = os.path.split(plugin_id)
-        # if not check_permission(workspace, user_info):
-        #     logger.error(
-        #         "Permission denied: workspace=%s, user_id=%s", workspace, user_info.id
-        #     )
-        #     return {"success": False, "detail": "Permission denied"}
-        if all_plugins[workspace]:
-            plugin = all_plugins[workspace].get(name)
+        ws, name = os.path.split(plugin_id)
+        if ws not in workspaces:
+            return {"success": False, "detail": f"Workspace not found: {ws}"}
+        workspace = workspaces[ws]
+        if not check_permission(workspace, user_info):
+            logger.error(
+                "Permission denied: workspace=%s, user_id=%s", workspace, user_info.id
+            )
+            return {"success": False, "detail": "Permission denied"}
+        if all_plugins[ws]:
+            plugin = all_plugins[ws].get(name)
             if plugin:
                 current_user.set(user_info)
                 ctx = copy_context()
@@ -203,9 +176,9 @@ def initialize_socketio(sio, core_api):
                     # the plugin should be reclaimed for the user
                     asyncio.ensure_future(plugin.terminate())
                     del user_info.plugins[plugin_name]
-                    del all_plugins[plugin.workspace][plugin.name]
-                    if not all_plugins[plugin.workspace]:
-                        del all_plugins[plugin.workspace]
+                    del all_plugins[plugin.workspace.name][plugin.name]
+                    if not all_plugins[plugin.workspace.name]:
+                        del all_plugins[plugin.workspace.name]
                     core_api.remove_plugin_services(plugin)
         del sessions[sid]
 
@@ -277,13 +250,22 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--host", type=str, default="127.0.0.1", help="host for the socketio server",
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="host for the socketio server",
     )
     parser.add_argument(
-        "--port", type=int, default=3000, help="port for the socketio server",
+        "--port",
+        type=int,
+        default=3000,
+        help="port for the socketio server",
     )
     parser.add_argument(
-        "--allow-origin", type=str, default="*", help="origins for the socketio server",
+        "--allow-origin",
+        type=str,
+        default="*",
+        help="origins for the socketio server",
     )
     opt = parser.parse_args()
     start_server(opt)
