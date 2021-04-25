@@ -50,8 +50,8 @@ class CoreInterface:
         ret = []
         for service in workspace._services:
             match = True
-            for k in query:
-                if service[k] != query[k]:
+            for key in query:
+                if service[key] != query[key]:
                     match = False
             if match:
                 ret.append(service)
@@ -109,13 +109,13 @@ class CoreInterface:
 
         # make sure all the keys are valid
         # TODO: verify the type
-        for k in config:
-            if k.startswith("_") or not hasattr(workspace, k):
-                raise KeyError(f"Invalid key: {k}")
+        for key in config:
+            if key.startswith("_") or not hasattr(workspace, key):
+                raise KeyError(f"Invalid key: {key}")
 
-        for k in config:
-            if not k.startswith("_") and hasattr(workspace, k):
-                setattr(workspace, k, config[k])
+        for key in config:
+            if not key.startswith("_") and hasattr(workspace, key):
+                setattr(workspace, key, config[key])
         # make sure we add the user's email to owners
         _id = user_info.email or user_info.id
         if _id not in workspace.owners:
@@ -132,8 +132,8 @@ class CoreInterface:
 
         interface = self.get_interface()
         bound_interface = {}
-        for k in interface:
-            if callable(interface[k]):
+        for key in interface:
+            if callable(interface[key]):
 
                 def wrap_func(func, *args, **kwargs):
                     workspace_bk = current_workspace.get()
@@ -147,10 +147,10 @@ class CoreInterface:
                         current_workspace.set(workspace_bk)
                     return ret
 
-                bound_interface[k] = partial(wrap_func, interface[k])
-                bound_interface[k].__name__ = k  # required for imjoy-rpc
+                bound_interface[key] = partial(wrap_func, interface[key])
+                bound_interface[key].__name__ = key  # required for imjoy-rpc
             else:
-                bound_interface[k] = interface[k]
+                bound_interface[key] = interface[key]
         bound_interface["config"] = {"workspace": name}
         bound_interface["set"] = partial(self._update_workspace, name)
         bound_interface["_rintf"] = True
