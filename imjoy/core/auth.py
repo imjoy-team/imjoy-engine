@@ -259,6 +259,7 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
 
 def check_permission(workspace, user_info):
     """Check user permission for a workspace."""
+    # pylint: disable=too-many-return-statements
     if isinstance(workspace, str):
         workspace = all_workspaces.get(workspace)
         if not workspace:

@@ -103,8 +103,8 @@ async def test_workspace(socketio_server):
             "type": "#test",
         }
     )
-    ss = await ws.get_services({"type": "#test"})
-    assert len(ss) == 1
+    service = await ws.get_services({"type": "#test"})
+    assert len(service) == 1
 
     # we should not get it because api is in another workspace
     ss2 = await api.get_services({"type": "#test"})
@@ -129,8 +129,8 @@ async def test_workspace(socketio_server):
     ss3 = await api2.get_services({"type": "#test"})
     assert len(ss3) == 1
 
-    p = await api2.get_plugin("my plugin 2")
-    assert p.foo == "bar"
+    plugin = await api2.get_plugin("my plugin 2")
+    assert plugin.foo == "bar"
 
     with pytest.raises(Exception, match=r".*Plugin my plugin 2 not found.*"):
         await api.get_plugin("my plugin 2")

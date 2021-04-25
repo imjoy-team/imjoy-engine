@@ -141,8 +141,8 @@ class CoreInterface:
                     try:
                         current_workspace.set(workspace)
                         ret = func(*args, **kwargs)
-                    except Exception as ex:
-                        raise ex
+                    except Exception as exp:
+                        raise exp
                     finally:
                         current_workspace.set(workspace_bk)
                     return ret
