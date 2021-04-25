@@ -173,9 +173,11 @@ def initialize_socketio(sio, core_api):
                 asyncio.ensure_future(plugin.terminate())
                 del user_info._plugins[pid]
 
-                # TODO: if a workspace has no plugins anymore we should destroy it completely
+                # TODO: if a workspace has no plugins anymore
+                # we should destroy it completely
                 # Importantly, if we want to recycle the workspace name,
-                # we need to make sure we don't mess up with the permission with the plugins of the previous owners
+                # we need to make sure we don't mess up with the permission
+                # with the plugins of the previous owners
                 for service in plugin.workspace._services.copy():
                     if service.providerId == plugin.id:
                         plugin.workspace._services.remove(service)

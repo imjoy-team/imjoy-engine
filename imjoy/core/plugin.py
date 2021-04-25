@@ -3,7 +3,6 @@ import asyncio
 import logging
 import sys
 import uuid
-from functools import partial
 
 from imjoy_rpc.rpc import RPC
 from imjoy_rpc.utils import ContextLocal, dotdict
@@ -35,8 +34,10 @@ class DynamicPlugin:
         self.running = False
         self.terminating = False
 
-        # Note: we don't need to bind the interface to the plugin as we do in the js version
-        # We will use context variables `current_plugin` to obtain the current plugin
+        # Note: we don't need to bind the interface
+        # to the plugin as we do in the js version
+        # We will use context variables `current_plugin`
+        # to obtain the current plugin
         self._initial_interface = dotdict(interface)
         self._initial_interface._intf = True
         self.initialize_if_needed(self.connection, self.config)

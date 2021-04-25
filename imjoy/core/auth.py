@@ -248,7 +248,7 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
             "expires_at": expires_at,
             "user_id": uid,
             "parent": user_info.parent if user_info.parent else user_info.id,
-            "email": None,
+            "email": user_info.email,  # inherit the email address
             "roles": [],
         },
         JWT_SECRET,

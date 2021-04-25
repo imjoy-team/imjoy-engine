@@ -62,14 +62,19 @@ class CoreInterface:
 
     def generate_token(self, config: TokenConfig):
         """Generate a token."""
-
         token_config = TokenConfig.parse_obj(config)
         return generate_presigned_token(current_user.get(), token_config)
 
     def create_workspace(self, config: WorkspaceInfo):
+        """Create a new workspace."""
         workspace = WorkspaceInfo.parse_obj(config)
         if workspace.name in all_workspaces:
             raise Exception(f"Workspace {workspace.name} already exists")
+        user_info = current_user.get()
+        # make sure we add the user's email to owners
+        if user_info.email not in workspace.owners:
+            workspace.owners.append(user_info.email)
+        all_workspaces[workspace.name] = workspace
 
     def get_interface(self):
         """Return the interface."""
