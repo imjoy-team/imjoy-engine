@@ -248,13 +248,13 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
             "expires_at": expires_at,
             "user_id": uid,
             "parent": user_info.parent if user_info.parent else user_info.id,
-            "email": user_info.email,  # inherit the email address
+            "email": config.email,
             "roles": [],
         },
         JWT_SECRET,
         algorithm="HS256",
     )
-    return "imjoy@" + token
+    return {"token": "imjoy@" + token, "id": uid}
 
 
 def check_permission(workspace, user_info):
@@ -265,16 +265,28 @@ def check_permission(workspace, user_info):
             logger.warning("Workspace %s not found", workspace)
             return False
 
-    if user_info.parent:
-        parent = all_users.get(user_info.parent)
-        if not check_permission(workspace, parent):
-            return False
-
     if workspace.name == user_info.id:
         return True
 
+    if user_info.parent:
+        parent = all_users.get(user_info.parent)
+        if not parent:
+            return False
+        if not check_permission(workspace, parent):
+            return False
+        # if the parent has access
+        # and the workspace is in the scopes
+        # then we allow the access
+        if workspace.name in user_info.scopes:
+            return True
+
     if workspace.name not in user_info.scopes:
         return False
+
+    _id = user_info.email or user_info.id
+
+    if _id in workspace.owners:
+        return True
 
     if workspace.visibility == VisibilityEnum.public:
         if user_info.email not in workspace.deny_list:

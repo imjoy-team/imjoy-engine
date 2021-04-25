@@ -40,6 +40,9 @@ class DynamicPlugin:
         # to obtain the current plugin
         self._initial_interface = dotdict(interface)
         self._initial_interface._intf = True
+        self._initial_interface.config = self.config.copy()
+        if "token" in self._initial_interface.config:
+            del self._initial_interface.config["token"]
         self.initialize_if_needed(self.connection, self.config)
 
         def initialized(data):

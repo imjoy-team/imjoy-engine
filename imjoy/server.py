@@ -96,7 +96,7 @@ def initialize_socketio(sio, core_api):
             else:
                 return {"success": False, "detail": f"Workspace {ws} does not exist."}
 
-        if not check_permission(workspace, user_info):
+        if user_info.id != ws and not check_permission(workspace, user_info):
             return {
                 "success": False,
                 "detail": f"Permission denied for workspace: {ws}",
@@ -129,13 +129,12 @@ def initialize_socketio(sio, core_api):
     @sio.event
     async def plugin_message(sid, data):
         user_info = all_sessions[sid]
-        data["context"] = {"user_info": user_info}
         plugin_id = data["plugin_id"]
         ws, name = os.path.split(plugin_id)
         if ws not in all_workspaces:
             return {"success": False, "detail": f"Workspace not found: {ws}"}
         workspace = all_workspaces[ws]
-        if not check_permission(workspace, user_info):
+        if user_info.id != ws and not check_permission(workspace, user_info):
             logger.error(
                 "Permission denied: workspace=%s, user_id=%s", workspace, user_info.id
             )

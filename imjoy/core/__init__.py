@@ -15,6 +15,7 @@ class TokenConfig(BaseModel):
 
     scopes: List[str]
     expires_in: Optional[int]
+    email: Optional[EmailStr]
 
 
 class VisibilityEnum(str, Enum):
@@ -51,7 +52,7 @@ class WorkspaceInfo(BaseModel):
     deny_list: Optional[List[str]]
     authorizer: Optional[str]
     _authorizer: Optional[Callable] = PrivateAttr(default_factory=lambda: None)
-    _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})
+    _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})  # name: plugin
     _services: List[Dict[str, Any]] = PrivateAttr(default_factory=lambda: [])
 
 

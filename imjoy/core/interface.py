@@ -1,16 +1,18 @@
 """Provide interface functions for the core."""
 import logging
 import sys
+from functools import partial
+from typing import Optional
 
 from imjoy.core import (
     TokenConfig,
     WorkspaceInfo,
-    current_user,
-    current_plugin,
-    current_workspace,
     all_workspaces,
+    current_plugin,
+    current_user,
+    current_workspace,
 )
-from imjoy.core.auth import generate_presigned_token
+from imjoy.core.auth import check_permission, generate_presigned_token
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
@@ -26,29 +28,34 @@ class CoreInterface:
         """Set up instance."""
         self.imjoy_api = imjoy_api
 
-    def register_service(self, service):
+    def register_service(self, service: dict):
         """Register a service."""
         plugin = current_plugin.get()
+        workspace = current_workspace.get()
         service.provider = plugin.name
         service.providerId = plugin.id
-        plugin.workspace._services.append(service)
+        workspace._services.append(service)
 
     def get_plugin(self, name):
-        """Return a plugin."""
+        """Return a plugin by its name."""
         workspace = current_workspace.get()
 
         if name in workspace._plugins:
             return workspace._plugins[name].api
-        raise Exception("Plugin not found")
+        raise Exception(f"Plugin {name} not found")
 
-    def get_service(self, name):
-        """Return a service."""
-        plugin = current_plugin.get()
-        return next(
-            service
-            for service in plugin.workspace._services
-            if service.get("name") == name
-        )
+    def get_services(self, query: dict):
+        """Return a list of services based on the query."""
+        workspace = current_workspace.get()
+        ret = []
+        for service in workspace._services:
+            match = True
+            for k in query:
+                if service[k] != query[k]:
+                    match = False
+            if match:
+                ret.append(service)
+        return ret
 
     def log(self, msg):
         """Log a plugin message."""
@@ -60,34 +67,112 @@ class CoreInterface:
         plugin = current_plugin.get()
         logger.error("%s: %s", plugin.name, msg)
 
-    def generate_token(self, config: TokenConfig):
-        """Generate a token."""
+    def generate_token(self, config: Optional[dict] = None):
+        """Generate a token for the current workspace."""
+        workspace = current_workspace.get()
+        config = config or {}
+        if "scopes" in config and config["scopes"] != [workspace.name]:
+            raise Exception("Scopes must be empty or contains only the workspace name.")
+        config["scopes"] = [workspace.name]
         token_config = TokenConfig.parse_obj(config)
         return generate_presigned_token(current_user.get(), token_config)
 
-    def create_workspace(self, config: WorkspaceInfo):
+    def create_workspace(self, config: dict):
         """Create a new workspace."""
         workspace = WorkspaceInfo.parse_obj(config)
         if workspace.name in all_workspaces:
-            raise Exception(f"Workspace {workspace.name} already exists")
+            raise Exception(f"Workspace {workspace.name} already exists.")
+        if workspace.authorizer:
+            raise Exception("Workspace authorizer is not supported yet.")
         user_info = current_user.get()
         # make sure we add the user's email to owners
-        if user_info.email not in workspace.owners:
-            workspace.owners.append(user_info.email)
+        _id = user_info.email or user_info.id
+        if _id not in workspace.owners:
+            workspace.owners.append(_id)
+        user_info.scopes.append(workspace.name)
         all_workspaces[workspace.name] = workspace
+        return self.get_workspace(workspace.name)
+
+    def _update_workspace(self, name, config: dict):
+        """Bind the context to the generated workspace."""
+        if not name:
+            raise Exception("Workspace name is not specified.")
+        if name not in all_workspaces:
+            raise Exception(f"Workspace {name} not found")
+        workspace = all_workspaces[name]
+        user_info = current_user.get()
+        if not check_permission(workspace, user_info):
+            raise PermissionError(f"Permission denied for workspace {name}")
+
+        if "name" in config:
+            raise Exception("Changing workspace name is not allowed.")
+
+        # make sure all the keys are valid
+        # TODO: verify the type
+        for k in config:
+            if k.startswith("_") or not hasattr(workspace, k):
+                raise KeyError(f"Invalid key: {k}")
+
+        for k in config:
+            if not k.startswith("_") and hasattr(workspace, k):
+                setattr(workspace, k, config[k])
+        # make sure we add the user's email to owners
+        _id = user_info.email or user_info.id
+        if _id not in workspace.owners:
+            workspace.owners.append(_id)
+
+    def get_workspace(self, name: str):
+        """Bind the context to the generated workspace."""
+        if name not in all_workspaces:
+            raise Exception(f"Workspace {name} not found")
+        workspace = all_workspaces[name]
+        user_info = current_user.get()
+        if not check_permission(workspace, user_info):
+            raise PermissionError(f"Permission denied for workspace {name}")
+
+        interface = self.get_interface()
+        bound_interface = {}
+        for k in interface:
+            if callable(interface[k]):
+
+                def wrap_func(func, *args, **kwargs):
+                    workspace_bk = current_workspace.get()
+                    ret = None
+                    try:
+                        current_workspace.set(workspace)
+                        ret = func(*args, **kwargs)
+                    except Exception as ex:
+                        raise ex
+                    finally:
+                        current_workspace.set(workspace_bk)
+                    return ret
+
+                bound_interface[k] = partial(wrap_func, interface[k])
+                bound_interface[k].__name__ = k  # required for imjoy-rpc
+            else:
+                bound_interface[k] = interface[k]
+        bound_interface["config"] = {"workspace": name}
+        bound_interface["set"] = partial(self._update_workspace, name)
+        bound_interface["_rintf"] = True
+        return bound_interface
 
     def get_interface(self):
         """Return the interface."""
         return {
+            "_rintf": True,
             "log": self.log,
             "error": self.error,
             "registerService": self.register_service,
             "register_service": self.register_service,
-            "getService": self.get_service,
-            "get_service": self.get_service,
+            "getServices": self.get_services,
+            "get_services": self.get_services,
             "utils": {},
             "getPlugin": self.get_plugin,
             "get_plugin": self.get_plugin,
             "generateToken": self.generate_token,
             "generate_token": self.generate_token,
+            "create_workspace": self.create_workspace,
+            "createWorkspace": self.create_workspace,
+            "get_workspace": self.get_workspace,
+            "getWorkspace": self.get_workspace,
         }
