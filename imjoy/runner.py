@@ -96,7 +96,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--token", type=str, default=None, help="token for the plugin socketio server",
+        "--token",
+        type=str,
+        default=None,
+        help="token for the plugin socketio server",
     )
 
     parser.add_argument(
