@@ -258,7 +258,7 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
 
 
 def check_permission(workspace, user_info):
-    """Check permission."""
+    """Check user permission for a workspace."""
     if isinstance(workspace, str):
         workspace = workspaces.get(workspace)
         if not workspace:

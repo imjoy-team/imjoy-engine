@@ -4,7 +4,7 @@ import os
 import uuid
 from contextvars import copy_context
 from os import environ as env
-from typing import Any, Dict, List, Optional, Union
+from typing import Union
 
 import socketio
 import uvicorn
@@ -12,7 +12,6 @@ from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
 from fastapi.logger import logger
 from fastapi.middleware.cors import CORSMiddleware
-from jose import jwt
 
 from imjoy import __version__ as VERSION
 from imjoy.core import (

@@ -11,7 +11,7 @@ from pydantic import (  # pylint: disable=no-name-in-module
 
 
 class TokenConfig(BaseModel):
-    """Represent a token configuration"""
+    """Represent a token configuration."""
 
     scopes: List[str]
     expires_in: Optional[int]

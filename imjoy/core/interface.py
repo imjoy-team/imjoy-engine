@@ -1,10 +1,8 @@
 """Provide interface functions for the core."""
 import logging
 import sys
-from contextvars import ContextVar
-from typing import Dict
 
-from imjoy.core import WorkspaceInfo, current_user, workspaces
+from imjoy.core import current_user
 from imjoy.core.auth import generate_presigned_token
 
 logging.basicConfig(stream=sys.stdout)
