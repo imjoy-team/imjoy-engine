@@ -209,7 +209,9 @@ def create_application(allow_origins) -> FastAPI:
             "name": "ImJoy Core Server",
             "version": VERSION,
             "all_users": {u: all_users[u]._sessions for u in all_users},
-            "all_workspaces": {w.name: len(w._plugins) for w in all_workspaces.values()},
+            "all_workspaces": {
+                w.name: len(w._plugins) for w in all_workspaces.values()
+            },
         }
 
     return app
