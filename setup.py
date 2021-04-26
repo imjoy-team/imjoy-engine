@@ -1,4 +1,4 @@
-"""Set up the ImJoy-Engine imjoy package."""
+"""Set up the imjoy engine package."""
 import json
 from pathlib import Path
 
