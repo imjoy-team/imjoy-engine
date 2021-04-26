@@ -18,14 +18,15 @@ try:
 except ImportError:
     REQUIREMENTS = [
         "numpy",
-        "imjoy-rpc>=0.3.0",
-        "imjoy-elfinder",
-        "pydantic[email]==1.8.1",
-        "python-dotenv==0.17.0",
+        "imjoy-rpc>=0.3.4",
+        "pydantic[email]>=1.8.1",
+        "python-dotenv>=0.17.0",
         "python-engineio==4.0.0",
         "python-jose==3.2.0",
         "python-socketio[asyncio_client]==5.0.4",
-        "uvicorn==0.13.4",
+        "pyyaml",
+        "fastapi>=0.63.0",
+        "uvicorn>=0.13.4",
     ]
 
 ROOT_DIR = Path(__file__).parent.resolve()
@@ -51,12 +52,6 @@ setup(
     install_requires=REQUIREMENTS,
     extras_require={
         "jupyter": ["jupyter>=1.0.0", "ipykernel>=5.1.4", "imjoy-jupyter-extension"],
-        "socketio": [
-            "python-socketio[asyncio_client]",
-            "pyyaml",
-            "aiohttp",
-            "aiohttp_cors",
-        ],
     },
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},
