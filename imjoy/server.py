@@ -84,13 +84,17 @@ def initialize_socketio(sio, core_api):
         user_info = all_sessions[sid]
         ws = config.get("workspace") or user_info.id
         config["workspace"] = ws
+        config["name"] = config.get("name") or str(uuid.uuid4())
         if ws in all_workspaces:
             workspace = all_workspaces[ws]
         else:
             if ws == user_info.id:
                 # create the user workspace automatically
                 workspace = WorkspaceInfo(
-                    name=ws, owners=[user_info.id], visibility=VisibilityEnum.protected
+                    name=ws,
+                    owners=[user_info.id],
+                    visibility=VisibilityEnum.protected,
+                    persistent=(config.get("persistent") is True),
                 )
                 all_workspaces[ws] = workspace
             else:
@@ -169,6 +173,9 @@ def initialize_socketio(sio, core_api):
                 # we will also need to handle the case when the user login again
                 # the plugin should be reclaimed for the user
                 del plugin.workspace._plugins[plugin.name]
+                # if there is no plugins in the workspace then we remove it
+                if not plugin.workspace._plugins and not plugin.workspace.persistent:
+                    del all_workspaces[plugin.workspace.name]
                 asyncio.ensure_future(plugin.terminate())
                 del user_info._plugins[pid]
 
@@ -209,7 +216,9 @@ def create_application(allow_origins) -> FastAPI:
             "name": "ImJoy Core Server",
             "version": VERSION,
             "all_users": {u: all_users[u]._sessions for u in all_users},
-            "all_workspaces": {w.name: len(w.plugins) for w in all_workspaces},
+            "all_workspaces": {
+                w.name: len(w._plugins) for w in all_workspaces.values()
+            },
         }
 
     return app

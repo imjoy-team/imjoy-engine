@@ -75,7 +75,6 @@ def start_runner(args):
     loop = asyncio.get_event_loop()
 
     default_config = {
-        "name": "ImJoy Plugin",
         "server_url": args.server_url,
         "token": args.token,
     }

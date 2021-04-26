@@ -79,6 +79,7 @@ class CoreInterface:
 
     def create_workspace(self, config: dict):
         """Create a new workspace."""
+        config["persistent"] = config.get("persistent") or False
         workspace = WorkspaceInfo.parse_obj(config)
         if workspace.name in all_workspaces:
             raise Exception(f"Workspace {workspace.name} already exists.")
