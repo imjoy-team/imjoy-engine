@@ -1,5 +1,3 @@
-aiohttp==3.7.4.post0
-aiohttp_cors==0.7.0
 fastapi==0.63.0
 imjoy-jupyter-extension==0.2.14
 imjoy-rpc==0.3.4
