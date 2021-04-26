@@ -25,7 +25,8 @@ except ImportError:
         "python-jose==3.2.0",
         "python-socketio[asyncio_client]==5.0.4",
         "pyyaml",
-        "fastapi>=0.63.0" "uvicorn>=0.13.4",
+        "fastapi>=0.63.0",
+        "uvicorn>=0.13.4",
     ]
 
 ROOT_DIR = Path(__file__).parent.resolve()
