@@ -94,7 +94,7 @@ def initialize_socketio(sio, core_api):
                     name=ws,
                     owners=[user_info.id],
                     visibility=VisibilityEnum.protected,
-                    persistent=(config.get("persistent") == True),
+                    persistent=(config.get("persistent") is True),
                 )
                 all_workspaces[ws] = workspace
             else:
