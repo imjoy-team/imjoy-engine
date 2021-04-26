@@ -42,6 +42,7 @@ class WorkspaceInfo(BaseModel):
     """Represent a workspace."""
 
     name: str
+    persistent: bool
     owners: List[str]
     visibility: VisibilityEnum
     description: Optional[str]

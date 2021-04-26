@@ -62,6 +62,9 @@ async def test_connect_to_server(socketio_server):
     ws = await connect_to_server({"name": "my plugin", "server_url": SERVER_URL})
     await ws.export(ImJoyPlugin(ws))
 
+    ws = await connect_to_server({"server_url": SERVER_URL})
+    assert len(ws.config.name) == 36
+
 
 def test_plugin_runner(socketio_server):
     """Test the plugin runner."""
