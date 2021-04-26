@@ -1,4 +1,4 @@
-"""Set up the ImJoy-Engine imjoy package."""
+"""Set up the imjoy engine package."""
 import json
 from pathlib import Path
 
@@ -18,7 +18,7 @@ try:
 except ImportError:
     REQUIREMENTS = [
         "numpy",
-        "imjoy-rpc>=0.3.5",
+        "imjoy-rpc>=0.3.6",
         "pydantic[email]>=1.8.1",
         "python-dotenv>=0.17.0",
         "python-engineio==4.0.0",

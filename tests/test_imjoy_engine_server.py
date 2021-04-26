@@ -137,6 +137,11 @@ async def test_workspace(socketio_server):
     plugin = await api2.get_plugin("my plugin 2")
     assert plugin.foo == "bar"
 
+    await api2.export({"foo2": "bar2"})
+    plugin = await api2.get_plugin("my plugin 2")
+    assert plugin.foo is None
+    assert plugin.foo2 == "bar2"
+
     with pytest.raises(Exception, match=r".*Plugin my plugin 2 not found.*"):
         await api.get_plugin("my plugin 2")
 
