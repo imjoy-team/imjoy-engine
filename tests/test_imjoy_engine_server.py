@@ -19,21 +19,23 @@ SERVER_URL = f"http://127.0.0.1:{PORT}"
 @pytest.fixture(name="socketio_server")
 def socketio_server_fixture():
     """Start server as test fixture and tear down after test."""
-    proc = subprocess.Popen([sys.executable, "-m", "imjoy.server", f"--port={PORT}"])
+    with subprocess.Popen(
+        [sys.executable, "-m", "imjoy.server", f"--port={PORT}"]
+    ) as proc:
 
-    timeout = 5
-    while timeout > 0:
-        try:
-            response = requests.get(f"http://127.0.0.1:{PORT}/")
-            if response.ok:
-                break
-        except RequestException:
-            pass
-        timeout -= 0.1
-        time.sleep(0.1)
-    yield
-    proc.terminate()
-    proc.wait()
+        timeout = 5
+        while timeout > 0:
+            try:
+                response = requests.get(f"http://127.0.0.1:{PORT}/")
+                if response.ok:
+                    break
+            except RequestException:
+                pass
+            timeout -= 0.1
+            time.sleep(0.1)
+        yield
+
+        proc.terminate()
 
 
 async def test_connect_to_server(socketio_server):
@@ -63,7 +65,7 @@ async def test_connect_to_server(socketio_server):
 
 def test_plugin_runner(socketio_server):
     """Test the plugin runner."""
-    proc = subprocess.Popen(
+    with subprocess.Popen(
         [
             sys.executable,
             "-m",
@@ -72,8 +74,8 @@ def test_plugin_runner(socketio_server):
             "--quit-on-ready",
             os.path.join(os.path.dirname(__file__), "example_plugin.py"),
         ]
-    )
-    proc.wait()
+    ):
+        pass
 
 
 async def test_workspace(socketio_server):
