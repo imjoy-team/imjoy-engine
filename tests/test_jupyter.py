@@ -20,23 +20,23 @@ BASE_URL = f"http://localhost:{PORT}"
 @pytest.fixture(name="jupyter_server")
 def jupyter_server_fixture():
     """Start server as test fixture and tear down after test."""
-    proc = subprocess.Popen(
+    with subprocess.Popen(
         [sys.executable, "-m", "imjoy", "--jupyter", "--insecure", f"--port={PORT}"]
-    )
+    ) as proc:
 
-    timeout = 5
-    while timeout > 0:
-        try:
-            response = requests.get(BASE_URL + "/api/kernels")
-            if response.ok:
-                break
-        except RequestException:
-            pass
-        timeout -= 0.1
-        time.sleep(0.1)
-    yield
-    proc.terminate()
-    proc.wait()
+        timeout = 5
+        while timeout > 0:
+            try:
+                response = requests.get(BASE_URL + "/api/kernels")
+                if response.ok:
+                    break
+            except RequestException:
+                pass
+            timeout -= 0.1
+            time.sleep(0.1)
+        yield
+
+        proc.terminate()
 
 
 @pytest.fixture(name="websocket_connection")

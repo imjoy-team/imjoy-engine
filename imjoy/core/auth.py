@@ -107,12 +107,12 @@ def get_rsa_key(kid, refresh=False):
     """Return an rsa key."""
     global JWKS  # pylint: disable=global-statement
     if JWKS is None or refresh:
-        jsonurl = urlopen(
+        with urlopen(
             f"https://{AUTH0_DOMAIN}/.well-known/jwks.json",
             # pylint: disable=protected-access
             context=ssl._create_unverified_context(),
-        )
-        JWKS = json.loads(jsonurl.read())
+        ) as jsonurl:
+            JWKS = json.loads(jsonurl.read())
     rsa_key = {}
     for key in JWKS["keys"]:
         if key["kid"] == kid:
