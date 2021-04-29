@@ -109,7 +109,10 @@ async def test_workspace(socketio_server):
     )
     await ws.log("hello")
     await ws.register_service(
-        {"name": "test_service", "type": "#test",}
+        {
+            "name": "test_service",
+            "type": "#test",
+        }
     )
     service = await ws.get_services({"type": "#test"})
     assert len(service) == 1
