@@ -76,9 +76,15 @@ def test_plugin_runner(socketio_server):
             f"--server-url=http://127.0.0.1:{PORT}",
             "--quit-on-ready",
             os.path.join(os.path.dirname(__file__), "example_plugin.py"),
-        ]
-    ):
-        pass
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ) as proc:
+        out, err = proc.communicate()
+        assert err.decode("utf8") == ""
+        output = out.decode("utf8")
+        assert "Generated token: imjoy@" in output
+        assert "echo: a message" in output
 
 
 async def test_workspace(socketio_server):

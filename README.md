@@ -2,10 +2,10 @@
 # ImJoy Plugin Engine
 The plugin engine used for running python plugins in ImJoy (https://imjoy.io).
 
-This library is mainly based on jupyter notebook server, with additonal libraries and convenient settings.
+This library is mainly based on jupyter notebook server, with additional libraries and convenient settings.
 
 ## Installation
-* If you don't have a conda environemnt, download and install [Miniconda with Python 3.7](https://conda.io/miniconda.html) (or [Anaconda with Python 3.7](https://www.anaconda.com/download/) if you prefer a full installation).
+* If you don't have a conda environment, download and install [Miniconda with Python 3.7](https://conda.io/miniconda.html) (or [Anaconda with Python 3.7](https://www.anaconda.com/download/) if you prefer a full installation).
 
 * Start a **Terminal**(Mac and Linux) or **Anaconda Prompt**(Windows), then run the following command:
 
@@ -26,6 +26,26 @@ To use it after the installation:
 
 
 Please note that if you are trying to use the ImJoy Plugin Engine running on a remote server, please use the ImJoy web App served on your server (`http://YOUR_REMOTE_IP:9527`) instead of `https://imjoy.io`. This is because most browsers do not allow a web application served through `https` to connect to an unsecured server (your remote server). Alternatively, you can use a proxy to enable `https` for the plugin engine. Then you will be able to use it with `https://imjoy.io`.
+
+
+## Connecting to a ImJoy Engine Server
+```python
+import webbrowser
+from imjoy_rpc import connect_to_server, launch_plugin
+
+def new_client_join(ws):
+    viewer = await ws.createWindow(src="https://kaibu.org")
+
+async def main():
+    api = await connect_to_server(server_url="https://api.imjoy.io/")
+    api.on('join', new_client_join)
+    tk = await api.generate_token()
+    name = api.config['name']
+    token = tk['token']
+    url = f"https://imjoy.io/lite?server_url=https://api.imjoy.io&token={token}&name={name}"
+    print(url)
+    webbrowser.open(url)
+```
 
 
 ## More details and FAQs in [Docs](https://imjoy.io/docs/#/user_manual)

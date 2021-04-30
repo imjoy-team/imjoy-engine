@@ -8,6 +8,7 @@ import sys
 import urllib.request
 
 import yaml
+import imjoy_rpc
 from imjoy_rpc import connect_to_server
 
 logging.basicConfig(stream=sys.stdout)
@@ -30,12 +31,14 @@ async def run_plugin(plugin_file, default_config):
     if plugin_file.endswith(".py"):
         filename, _ = os.path.splitext(os.path.basename(plugin_file))
         default_config["name"] = filename[:32]
-        fut = connect_to_server(default_config)
+        api = await connect_to_server(default_config)
         try:
+            # patch imjoy_rpc api
+            imjoy_rpc.api = api
             exec(content, globals())  # pylint: disable=exec-used
             logger.info("Plugin executed")
-            await fut
             if opt.quit_on_ready:
+                await asyncio.sleep(1)
                 loop.stop()
         except Exception as err:  # pylint: disable=broad-except
             logger.error("Failed to execute plugin %s", err)
@@ -49,15 +52,17 @@ async def run_plugin(plugin_file, default_config):
         elif "yaml" in found[0]:
             plugin_config = yaml.safe_load(found[1])
         default_config.update(plugin_config)
-        fut = connect_to_server(default_config)
+        api = await connect_to_server(default_config)
         # load script
         found = re.findall("<script (.*)>\n(.*)</script>", content, re.DOTALL)[0]
         if "python" in found[0]:
             try:
+                # patch imjoy_rpc api
+                imjoy_rpc.api = api
                 exec(found[1], globals())  # pylint: disable=exec-used
                 logger.info("Plugin executed")
-                await fut
                 if opt.quit_on_ready:
+                    await asyncio.sleep(1)
                     loop.stop()
             except Exception as err:  # pylint: disable=broad-except
                 logger.error("Failed to execute plugin %s", err)
