@@ -34,6 +34,7 @@ class CoreInterface:
         workspace = current_workspace.get()
         service.provider = plugin.name
         service.providerId = plugin.id
+        service._rintf = True
         workspace._services.append(service)
 
     def get_plugin(self, name):
