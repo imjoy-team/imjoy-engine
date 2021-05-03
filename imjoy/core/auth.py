@@ -281,9 +281,6 @@ def check_permission(workspace, user_info):
         if workspace.name in user_info.scopes:
             return True
 
-    if workspace.name not in user_info.scopes:
-        return False
-
     _id = user_info.email or user_info.id
 
     if _id in workspace.owners:
@@ -295,5 +292,11 @@ def check_permission(workspace, user_info):
     elif workspace.visibility == VisibilityEnum.protected:
         if user_info.email in workspace.allow_list:
             return True
+
+    if "admin" in user_info.roles:
+        logger.info(
+            "Allowing access to %s for admin user %s", workspace.name, user_info.id
+        )
+        return True
 
     return False
