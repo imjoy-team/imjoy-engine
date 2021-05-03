@@ -50,7 +50,7 @@ def initialize_socketio(sio, core_api):
                 email = user_info["email"]
                 roles = user_info["roles"]
                 parent = user_info.get("parent")
-                scopes = user_info.get("scopes")
+                scopes = user_info.get("scopes") or []
                 expires_at = user_info.get("expires_at")
             except Exception as err:  # pylint: disable=broad-except
                 logger.exception("Authentication failed: %s", err)

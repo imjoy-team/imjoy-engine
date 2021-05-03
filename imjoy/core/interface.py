@@ -90,6 +90,7 @@ class CoreInterface:
         _id = user_info.email or user_info.id
         if _id not in workspace.owners:
             workspace.owners.append(_id)
+        workspace.owners = [o.strip() for o in workspace.owners if o.strip()]
         user_info.scopes.append(workspace.name)
         all_workspaces[workspace.name] = workspace
         return self.get_workspace(workspace.name)
@@ -121,6 +122,7 @@ class CoreInterface:
         _id = user_info.email or user_info.id
         if _id not in workspace.owners:
             workspace.owners.append(_id)
+        workspace.owners = [o.strip() for o in workspace.owners if o.strip()]
 
     def get_workspace(self, name: str):
         """Bind the context to the generated workspace."""
