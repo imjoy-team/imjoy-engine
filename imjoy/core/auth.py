@@ -218,7 +218,7 @@ def parse_token(authorization):
     token = parts[1]
     if not token.startswith("imjoy@"):
         # auth0 token
-        return get_user_info(valid_token(token))
+        return get_user_info(valid_token(authorization))
     # generated token
     token = token.lstrip("imjoy@")
     return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
