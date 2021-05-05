@@ -3,7 +3,6 @@ import logging
 import sys
 
 from imjoy.options import parse_cmd_line
-from imjoy.server import start_server
 from imjoy.utils import read_or_generate_token, write_token
 
 logging.basicConfig(stream=sys.stdout)
@@ -15,6 +14,8 @@ def main():
     """Run main."""
     opt = parse_cmd_line()
     if opt.serve:
+        from imjoy.server import start_server
+
         start_server(opt)
     elif opt.jupyter:
         sys.argv = sys.argv[:1]
