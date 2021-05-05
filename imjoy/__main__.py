@@ -14,6 +14,7 @@ def main():
     """Run main."""
     opt = parse_cmd_line()
     if opt.serve:
+        # pylint: disable=import-outside-toplevel
         from imjoy.server import start_server
 
         start_server(opt)
