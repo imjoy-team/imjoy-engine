@@ -36,7 +36,7 @@ def parse_cmd_line(args=None):
     parser.add_argument(
         "--allow-origin",
         type=str,
-        default="https://lib.imjoy.io",
+        default="*",
         help="the allow origin header to prevent unintended access from other website",
     )
     parser.add_argument(
