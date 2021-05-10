@@ -1,7 +1,7 @@
 fastapi==0.63.0
 imjoy-jupyter-extension==0.2.14
 imjoy-rpc==0.3.7
-ipykernel==5.5.3
+ipykernel==5.5.4
 jupyter==1.0.0
 numpy==1.19.5  # needs to stay compatible with latest tensorflow
 pydantic[email]==1.8.1
