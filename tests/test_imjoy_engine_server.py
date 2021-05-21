@@ -87,6 +87,60 @@ def test_plugin_runner(socketio_server):
         assert "echo: a message" in output
 
 
+async def test_plugin_runner_workspace(socketio_server):
+    """Test the plugin runner with workspace."""
+    api = await connect_to_server(
+        {"name": "my second plugin", "server_url": SERVER_URL}
+    )
+    ret = await api.generate_token()
+    assert "id" in ret and "token" in ret
+    assert ret["token"].startswith("imjoy@")
+
+    # The following code without passing the token should fail
+    # Here we assert the output message contains "permission denied"
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "imjoy.runner",
+            f"--server-url=http://127.0.0.1:{PORT}",
+            f"--workspace={api.config['workspace']}",
+            # f"--token={ret['token']}",
+            "--quit-on-ready",
+            os.path.join(os.path.dirname(__file__), "example_plugin.py"),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ) as proc:
+        out, err = proc.communicate()
+        assert proc.returncode == 1
+        assert err.decode("utf8") == ""
+        output = out.decode("utf8")
+        assert "Permission denied for workspace:" in output
+
+    # now with the token, it should pass
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "imjoy.runner",
+            f"--server-url=http://127.0.0.1:{PORT}",
+            f"--workspace={api.config['workspace']}",
+            f"--token={ret['token']}",
+            "--quit-on-ready",
+            os.path.join(os.path.dirname(__file__), "example_plugin.py"),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ) as proc:
+        out, err = proc.communicate()
+        assert proc.returncode == 0
+        assert err.decode("utf8") == ""
+        output = out.decode("utf8")
+        assert "Generated token: imjoy@" in output
+        assert "echo: a message" in output
+
+
 async def test_workspace(socketio_server):
     """Test the plugin runner."""
     api = await connect_to_server({"name": "my plugin", "server_url": SERVER_URL})

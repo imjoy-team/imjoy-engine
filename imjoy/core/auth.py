@@ -287,10 +287,10 @@ def check_permission(workspace, user_info):
         return True
 
     if workspace.visibility == VisibilityEnum.public:
-        if user_info.email not in workspace.deny_list:
+        if workspace.deny_list and user_info.email not in workspace.deny_list:
             return True
     elif workspace.visibility == VisibilityEnum.protected:
-        if user_info.email in workspace.allow_list:
+        if workspace.allow_list and user_info.email in workspace.allow_list:
             return True
 
     if "admin" in user_info.roles:
