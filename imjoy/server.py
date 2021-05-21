@@ -197,7 +197,8 @@ def create_application(allow_origins) -> FastAPI:
     app = FastAPI(
         title="ImJoy Core Server",
         description=(
-            "A server for managing imjoy plugins and enabling remote procedure calls"
+            "A server for managing imjoy plugins and \
+                enabling remote procedure calls"
         ),
         version=VERSION,
     )
