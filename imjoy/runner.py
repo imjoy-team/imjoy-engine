@@ -28,20 +28,17 @@ async def run_plugin(plugin_file, default_config):
         plugin_file = plugin_file.split("?")[0]
     else:
         raise Exception("Invalid input plugin file path: {}".format(plugin_file))
+
     if plugin_file.endswith(".py"):
         filename, _ = os.path.splitext(os.path.basename(plugin_file))
         default_config["name"] = filename[:32]
         api = await connect_to_server(default_config)
-        try:
-            # patch imjoy_rpc api
-            imjoy_rpc.api = api
-            exec(content, globals())  # pylint: disable=exec-used
-            logger.info("Plugin executed")
-            if opt.quit_on_ready:
-                await asyncio.sleep(1)
-                loop.stop()
-        except Exception as err:  # pylint: disable=broad-except
-            logger.error("Failed to execute plugin %s", err)
+        # patch imjoy_rpc api
+        imjoy_rpc.api = api
+        exec(content, globals())  # pylint: disable=exec-used
+        logger.info("Plugin executed")
+        if opt.quit_on_ready:
+            await asyncio.sleep(1)
             loop.stop()
 
     elif plugin_file.endswith(".imjoy.html"):
@@ -56,23 +53,19 @@ async def run_plugin(plugin_file, default_config):
         # load script
         found = re.findall("<script (.*)>\n(.*)</script>", content, re.DOTALL)[0]
         if "python" in found[0]:
-            try:
-                # patch imjoy_rpc api
-                imjoy_rpc.api = api
-                exec(found[1], globals())  # pylint: disable=exec-used
-                logger.info("Plugin executed")
-                if opt.quit_on_ready:
-                    await asyncio.sleep(1)
-                    loop.stop()
-            except Exception as err:  # pylint: disable=broad-except
-                logger.error("Failed to execute plugin %s", err)
+            # patch imjoy_rpc api
+            imjoy_rpc.api = api
+            exec(found[1], globals())  # pylint: disable=exec-used
+            logger.info("Plugin executed")
+            if opt.quit_on_ready:
+                await asyncio.sleep(1)
                 loop.stop()
         else:
-            raise Exception(
+            raise RuntimeError(
                 "Invalid script type ({}) in file {}".format(found[0], plugin_file)
             )
     else:
-        raise Exception("Invalid script file type ({})".format(plugin_file))
+        raise RuntimeError("Invalid script file type ({})".format(plugin_file))
 
 
 async def start(args):
@@ -84,7 +77,7 @@ async def start(args):
             "token": args.token,
         }
         await run_plugin(args.file, default_config)
-    except Exception:
+    except Exception: # pylint: disable=broad-except
         logger.exception("Failed to run plugin.")
         loop = asyncio.get_event_loop()
         loop.stop()
