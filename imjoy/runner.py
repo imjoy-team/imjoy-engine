@@ -69,7 +69,7 @@ async def run_plugin(plugin_file, default_config):
 
 
 async def start(args):
-    """Run the plugin"""
+    """Run the plugin."""
     try:
         default_config = {
             "server_url": args.server_url,
