@@ -77,7 +77,7 @@ async def start(args):
             "token": args.token,
         }
         await run_plugin(args.file, default_config)
-    except Exception: # pylint: disable=broad-except
+    except Exception:  # pylint: disable=broad-except
         logger.exception("Failed to run plugin.")
         loop = asyncio.get_event_loop()
         loop.stop()
