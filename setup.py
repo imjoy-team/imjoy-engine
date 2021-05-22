@@ -18,7 +18,7 @@ try:
 except ImportError:
     REQUIREMENTS = [
         "numpy",
-        "imjoy-rpc>=0.3.7",
+        "imjoy-rpc>=0.3.11",
         "pydantic[email]>=1.8.1",
         "typing-extensions>=3.7.4.3",  # required by pydantic
         "python-dotenv>=0.17.0",
