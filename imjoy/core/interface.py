@@ -4,6 +4,8 @@ import sys
 from functools import partial
 from typing import Optional
 
+import pkg_resources
+
 from imjoy.core import (
     TokenConfig,
     WorkspaceInfo,
@@ -13,6 +15,7 @@ from imjoy.core import (
     current_workspace,
 )
 from imjoy.core.auth import check_permission, generate_presigned_token
+from imjoy.utils import dotdict
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
@@ -26,7 +29,36 @@ class CoreInterface:
 
     def __init__(self, imjoy_api=None):
         """Set up instance."""
-        self.imjoy_api = imjoy_api
+        imjoy_api = imjoy_api or {}
+        print("===>", imjoy_api)
+        self.imjoy_api = dotdict(
+            {
+                "_rintf": True,
+                "log": self.log,
+                "error": self.error,
+                "registerService": self.register_service,
+                "register_service": self.register_service,
+                "getServices": self.get_services,
+                "get_services": self.get_services,
+                "utils": {},
+                "getPlugin": self.get_plugin,
+                "get_plugin": self.get_plugin,
+                "generateToken": self.generate_token,
+                "generate_token": self.generate_token,
+                "create_workspace": self.create_workspace,
+                "createWorkspace": self.create_workspace,
+                "get_workspace": self.get_workspace,
+                "getWorkspace": self.get_workspace,
+            }
+        )
+        self.imjoy_api.update(imjoy_api)
+
+        # run server extensions
+        for entry_point in pkg_resources.iter_entry_points(
+            "imjoy_core_server_extension"
+        ):
+            setup_extension = entry_point.load()
+            setup_extension(self.imjoy_api)
 
     def register_service(self, service: dict):
         """Register a service."""
@@ -162,21 +194,4 @@ class CoreInterface:
 
     def get_interface(self):
         """Return the interface."""
-        return {
-            "_rintf": True,
-            "log": self.log,
-            "error": self.error,
-            "registerService": self.register_service,
-            "register_service": self.register_service,
-            "getServices": self.get_services,
-            "get_services": self.get_services,
-            "utils": {},
-            "getPlugin": self.get_plugin,
-            "get_plugin": self.get_plugin,
-            "generateToken": self.generate_token,
-            "generate_token": self.generate_token,
-            "create_workspace": self.create_workspace,
-            "createWorkspace": self.create_workspace,
-            "get_workspace": self.get_workspace,
-            "getWorkspace": self.get_workspace,
-        }
+        return self.imjoy_api.copy()
