@@ -12,6 +12,8 @@ from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
 from fastapi.logger import logger
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from imjoy import __version__ as VERSION
 from imjoy.core import (
@@ -78,6 +80,11 @@ def initialize_socketio(sio, core_api):
             )
         all_users[uid]._sessions.append(sid)
         all_sessions[sid] = all_users[uid]
+
+    @sio.event
+    async def echo(sid, data):
+        """echo service for testing"""
+        return data
 
     @sio.event
     async def register_plugin(sid, config):
@@ -241,6 +248,22 @@ def setup_socketio_server(
     app.sio = sio
     core_api = CoreInterface()
     initialize_socketio(sio, core_api)
+
+    @app.get("/liveness")
+    async def liveness(req: Request) -> JSONResponse:
+        try:
+            loop = asyncio.get_event_loop()
+            fut = loop.create_future()
+
+            def done():
+                fut.set_result()
+
+            await sio.emit("liveness", callback=done)
+            await fut
+        except Exception:  # pylint: disable=broad-except
+            return JSONResponse({"status": "DOWN"}, status_code=503)
+        return JSONResponse({"status": "OK"})
+
     return sio
 
 
