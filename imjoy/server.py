@@ -83,7 +83,7 @@ def initialize_socketio(sio, core_api):
 
     @sio.event
     async def echo(sid, data):
-        """echo service for testing"""
+        """Echo service for testing."""
         return data
 
     @sio.event
