@@ -30,7 +30,6 @@ class CoreInterface:
     def __init__(self, imjoy_api=None):
         """Set up instance."""
         imjoy_api = imjoy_api or {}
-        print("===>", imjoy_api)
         self.imjoy_api = dotdict(
             {
                 "_rintf": True,
