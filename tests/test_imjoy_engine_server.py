@@ -23,10 +23,10 @@ def socketio_server_fixture():
         [sys.executable, "-m", "imjoy.server", f"--port={PORT}"]
     ) as proc:
 
-        timeout = 5
+        timeout = 10
         while timeout > 0:
             try:
-                response = requests.get(f"http://127.0.0.1:{PORT}/")
+                response = requests.get(f"http://127.0.0.1:{PORT}/liveness")
                 if response.ok:
                     break
             except RequestException:
