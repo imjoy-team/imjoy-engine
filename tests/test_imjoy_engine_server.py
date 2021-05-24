@@ -116,7 +116,7 @@ def test_plugin_runner(socketio_server):
         assert "echo: a message" in output
 
 
-def test_plugin_runner(socketio_subpath_server):
+def test_plugin_runner_subpath(socketio_subpath_server):
     """Test the plugin runner with subpath server."""
     with subprocess.Popen(
         [
