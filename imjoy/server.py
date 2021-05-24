@@ -238,9 +238,9 @@ def setup_socketio_server(
     allow_origins: Union[str, list] = "*",
 ) -> None:
     """Set up the socketio server."""
-    socketio_path = (base_path + "/socket.io").replace("//", "/")
+    socketio_path = base_path.rstrip("/") + "/socket.io"
 
-    @app.get((base_path + "/liveness").replace("//", "/"))
+    @app.get(base_path.rstrip("/") + "/liveness")
     async def liveness(req: Request) -> JSONResponse:
         try:
             await sio.emit("liveness")
