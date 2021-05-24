@@ -58,6 +58,12 @@ def parse_cmd_line(args=None):
     parser.add_argument(
         "-v", "--version", action="version", version="%(prog)s " + __version__
     )
+    parser.add_argument(
+        "--base-path",
+        type=str,
+        default="/",
+        help="the base path for the server",
+    )
 
     opt = parser.parse_args(args=args)
 

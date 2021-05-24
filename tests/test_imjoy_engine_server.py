@@ -13,6 +13,7 @@ from imjoy_rpc import connect_to_server
 pytestmark = pytest.mark.asyncio
 
 PORT = 38283
+PORT2 = 38223
 SERVER_URL = f"http://127.0.0.1:{PORT}"
 
 
@@ -31,8 +32,36 @@ def socketio_server_fixture():
                     break
             except RequestException:
                 pass
-            timeout -= 1
-            time.sleep(1)
+            timeout -= 0.1
+            time.sleep(0.1)
+        yield
+
+        proc.terminate()
+
+
+@pytest.fixture(name="socketio_subpath_server")
+def socketio_subpath_server_fixture():
+    """Start server (under /my/engine) as test fixture and tear down after test."""
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "imjoy.server",
+            f"--port={PORT2}",
+            "--base-path=/my/engine",
+        ]
+    ) as proc:
+
+        timeout = 10
+        while timeout > 0:
+            try:
+                response = requests.get(f"http://127.0.0.1:{PORT2}/my/engine/liveness")
+                if response.ok:
+                    break
+            except RequestException:
+                pass
+            timeout -= 0.1
+            time.sleep(0.1)
         yield
 
         proc.terminate()
@@ -74,6 +103,27 @@ def test_plugin_runner(socketio_server):
             "-m",
             "imjoy.runner",
             f"--server-url=http://127.0.0.1:{PORT}",
+            "--quit-on-ready",
+            os.path.join(os.path.dirname(__file__), "example_plugin.py"),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ) as proc:
+        out, err = proc.communicate()
+        assert err.decode("utf8") == ""
+        output = out.decode("utf8")
+        assert "Generated token: imjoy@" in output
+        assert "echo: a message" in output
+
+
+def test_plugin_runner_subpath(socketio_subpath_server):
+    """Test the plugin runner with subpath server."""
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "imjoy.runner",
+            f"--server-url=http://127.0.0.1:{PORT2}/my/engine",
             "--quit-on-ready",
             os.path.join(os.path.dirname(__file__), "example_plugin.py"),
         ],
