@@ -197,7 +197,7 @@ def initialize_socketio(sio, core_api):
         del all_sessions[sid]
 
 
-def create_application(allow_origins) -> FastAPI:
+def create_application(allow_origins, base_path) -> FastAPI:
     """Set up the server application."""
     # pylint: disable=unused-variable, protected-access
 
@@ -218,7 +218,7 @@ def create_application(allow_origins) -> FastAPI:
         allow_headers=["Content-Type", "Authorization"],
     )
 
-    @app.get("/")
+    @app.get(base_path)
     async def root():
         return {
             "name": "ImJoy Core Server",
@@ -234,13 +234,13 @@ def create_application(allow_origins) -> FastAPI:
 
 def setup_socketio_server(
     app: FastAPI,
-    mount_location: str = "/",
-    socketio_path: str = "socket.io",
+    base_path: str = "/",
     allow_origins: Union[str, list] = "*",
 ) -> None:
     """Set up the socketio server."""
+    socketio_path = (base_path + "/socket.io").replace("//", "/")
 
-    @app.get("/liveness")
+    @app.get((base_path + "/liveness").replace("//", "/"))
     async def liveness(req: Request) -> JSONResponse:
         try:
             await sio.emit("liveness")
@@ -254,7 +254,7 @@ def setup_socketio_server(
 
     _app = socketio.ASGIApp(socketio_server=sio, socketio_path=socketio_path)
 
-    app.mount(mount_location, _app)
+    app.mount("/", _app)
     app.sio = sio
     core_api = CoreInterface()
     initialize_socketio(sio, core_api)
@@ -268,8 +268,10 @@ def start_server(args):
         allow_origin = args.allow_origin.split(",")
     else:
         allow_origin = env.get("ALLOW_ORIGINS", "*").split(",")
-    application = create_application(allow_origin)
-    setup_socketio_server(application, allow_origins=allow_origin)
+    application = create_application(allow_origin, args.base_path)
+    setup_socketio_server(
+        application, base_path=args.base_path, allow_origins=allow_origin
+    )
     if args.host == "127.0.0.1" or args.host == "localhost":
         print(
             "***Note: If you want to enable access from another host,\
@@ -299,6 +301,12 @@ if __name__ == "__main__":
         type=str,
         default="*",
         help="origins for the socketio server",
+    )
+    parser.add_argument(
+        "--base-path",
+        type=str,
+        default="/",
+        help="the base path for the server",
     )
     opt = parser.parse_args()
     start_server(opt)
