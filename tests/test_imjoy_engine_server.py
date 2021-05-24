@@ -31,8 +31,8 @@ def socketio_server_fixture():
                     break
             except RequestException:
                 pass
-            timeout -= 0.1
-            time.sleep(0.1)
+            timeout -= 1
+            time.sleep(1)
         yield
 
         proc.terminate()

@@ -3,10 +3,13 @@ import logging
 import sys
 from functools import partial
 from typing import Optional
+import uuid
 
 import pkg_resources
 
 from imjoy.core import (
+    UserInfo,
+    VisibilityEnum,
     TokenConfig,
     WorkspaceInfo,
     all_workspaces,
@@ -15,7 +18,9 @@ from imjoy.core import (
     current_workspace,
 )
 from imjoy.core.auth import check_permission, generate_presigned_token
+from imjoy.core.plugin import DynamicPlugin
 from imjoy.utils import dotdict
+from imjoy.core.connection import BasicConnection
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
@@ -56,16 +61,44 @@ class CoreInterface:
         for entry_point in pkg_resources.iter_entry_points(
             "imjoy_core_server_extension"
         ):
-            setup_extension = entry_point.load()
-            setup_extension(self.imjoy_api)
+            user_info = UserInfo(
+                id=entry_point.name,
+                email=None,
+                parent=None,
+                roles=[],
+                scopes=[],
+                expires_at=None,
+            )
+            workspace = WorkspaceInfo(
+                name=str(uuid.uuid4()) + entry_point.name,
+                owners=[user_info.id],
+                visibility=VisibilityEnum.protected,
+                persistent=False,
+            )
+            connection = BasicConnection(lambda x: x)
+            plugin = DynamicPlugin(
+                {"workspace": workspace.name, "name": entry_point.name},
+                self.get_interface(),
+                connection,
+                workspace,
+            )
+            current_user.set(user_info)
+            current_workspace.set(workspace)
+            current_plugin.set(plugin)
+            try:
+                setup_extension = entry_point.load()
+                setup_extension(self.imjoy_api)
+            except Exception:
+                logger.exception("Failed to setup extension: %s", entry_point.name)
+                raise
 
     def register_service(self, service: dict):
         """Register a service."""
         plugin = current_plugin.get()
         workspace = current_workspace.get()
-        service.provider = plugin.name
-        service.providerId = plugin.id
-        service._rintf = True
+        service["provider"] = plugin.name
+        service["providerId"] = plugin.id
+        service["_rintf"] = True
         workspace._services.append(service)
 
     def get_plugin(self, name):
