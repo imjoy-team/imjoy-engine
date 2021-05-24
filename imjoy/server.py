@@ -239,30 +239,25 @@ def setup_socketio_server(
     allow_origins: Union[str, list] = "*",
 ) -> None:
     """Set up the socketio server."""
+
+    @app.get("/liveness")
+    async def liveness(req: Request) -> JSONResponse:
+        try:
+            await sio.emit("liveness")
+        except Exception:  # pylint: disable=broad-except
+            return JSONResponse({"status": "DOWN"}, status_code=503)
+        return JSONResponse({"status": "OK"})
+
     if allow_origins == ["*"]:
         allow_origins = "*"
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=allow_origins)
+
     _app = socketio.ASGIApp(socketio_server=sio, socketio_path=socketio_path)
 
     app.mount(mount_location, _app)
     app.sio = sio
     core_api = CoreInterface()
     initialize_socketio(sio, core_api)
-
-    @app.get("/liveness")
-    async def liveness(req: Request) -> JSONResponse:
-        try:
-            loop = asyncio.get_event_loop()
-            fut = loop.create_future()
-
-            def done():
-                fut.set_result()
-
-            await sio.emit("liveness", callback=done)
-            await fut
-        except Exception:  # pylint: disable=broad-except
-            return JSONResponse({"status": "DOWN"}, status_code=503)
-        return JSONResponse({"status": "OK"})
 
     return sio
 
