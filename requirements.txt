@@ -9,4 +9,4 @@ python-dotenv==0.17.1
 python-jose==3.3.0
 python-socketio[asyncio_client]==5.0.4  # pin for now to solve unknown connection issue
 pyyaml==5.4.1
-uvicorn==0.13.4
+uvicorn==0.14.0
