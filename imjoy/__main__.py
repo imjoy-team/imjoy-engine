@@ -56,7 +56,7 @@ def main():
         app = NotebookApp.instance(**kwargs)
         app.initialize()
         if app.port != int(opt.port):
-            print("\nWARNING: using a different port: {}.\n".format(app.port))
+            print(f"\nWARNING: using a different port: {app.port}.\n")
         write_token(app.token)
         app._token_generated = True  # pylint: disable=protected-access
         app.start()

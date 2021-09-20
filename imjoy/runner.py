@@ -20,14 +20,15 @@ async def run_plugin(plugin_file, default_config):
     """Load plugin file."""
     loop = asyncio.get_event_loop()
     if os.path.isfile(plugin_file):
-        content = open(plugin_file).read()
+        with open(plugin_file, encoding="utf-8") as fil:
+            content = fil.read()
     elif plugin_file.startswith("http"):
         with urllib.request.urlopen(plugin_file) as response:
             content = response.read().decode("utf-8")
         # remove query string
         plugin_file = plugin_file.split("?")[0]
     else:
-        raise Exception("Invalid input plugin file path: {}".format(plugin_file))
+        raise Exception(f"Invalid input plugin file path: {plugin_file}")
 
     if plugin_file.endswith(".py"):
         filename, _ = os.path.splitext(os.path.basename(plugin_file))
@@ -62,10 +63,10 @@ async def run_plugin(plugin_file, default_config):
                 loop.stop()
         else:
             raise RuntimeError(
-                "Invalid script type ({}) in file {}".format(found[0], plugin_file)
+                f"Invalid script type ({found[0]}) in file {plugin_file}"
             )
     else:
-        raise RuntimeError("Invalid script file type ({})".format(plugin_file))
+        raise RuntimeError(f"Invalid script file type ({plugin_file})")
 
 
 async def start(args):
