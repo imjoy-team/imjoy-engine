@@ -23,7 +23,7 @@ except ImportError:
         "typing-extensions>=3.7.4.3",  # required by pydantic
         "python-dotenv>=0.17.0",
         "python-engineio==4.0.0",
-        "python-jose==3.2.0",
+        "python-jose==3.3.0",
         "python-socketio[asyncio_client]==5.0.4",
         "pyyaml",
         "fastapi>=0.63.0",
