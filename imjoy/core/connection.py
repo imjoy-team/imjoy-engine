@@ -86,6 +86,7 @@ class BasicConnection(MessageEmitter):
 
     async def execute(self, code):
         """Execute."""
+        # pylint: disable=no-self-use
         raise PermissionError
 
     def emit(self, msg):

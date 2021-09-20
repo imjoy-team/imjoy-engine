@@ -37,7 +37,7 @@ def _show_elfinder_colab(root_dir="/content", port=8765, height=600, width="100%
         def start_elfinder():
             global _SERVER_THREAD  # pylint: disable=global-statement
             try:
-                main(["--root-dir={}".format(root_dir), "--port={}".format(port)])
+                main([f"--root-dir={root_dir}", f"--port={port}"])
             except OSError:
                 print("ImJoy-elFinder server already started.")
             _SERVER_THREAD = thread
@@ -53,7 +53,8 @@ def _show_elfinder_colab(root_dir="/content", port=8765, height=600, width="100%
 def _show_elfinder_jupyter(url="/elfinder", height=600, width="100%"):
     from IPython import display  # pylint: disable=import-outside-toplevel
 
-    code = """(async (url, width, height, element) => {
+    code = (
+        """(async (url, width, height, element) => {
         element.appendChild(document.createTextNode(''));
         const iframe = document.createElement('iframe');
         iframe.src = url;
@@ -61,8 +62,8 @@ def _show_elfinder_jupyter(url="/elfinder", height=600, width="100%"):
         iframe.width = width;
         iframe.style.border = 0;
         element.appendChild(iframe);
-        })""" + "({url}, {width}, {height}, element[0])".format(
-        url=json.dumps(url), width=json.dumps(width), height=json.dumps(height)
+        })"""
+        + f"({json.dumps(url)}, {json.dumps(width)}, {json.dumps(height)}, element[0])"
     )
     display.display(display.Javascript(code))
 
@@ -88,11 +89,11 @@ def read_or_generate_token(token_path=None):
     token_path = token_path or os.path.join(os.path.expanduser("~"), ".jupyter_token")
     # read token from file if exists
     try:
-        with open(token_path, "r") as fil:
+        with open(token_path, "r", encoding="utf-8") as fil:
             token = fil.read()
     except FileNotFoundError:
         token = str(uuid.uuid4())
-        with open(token_path, "w") as fil:
+        with open(token_path, "w", encoding="utf-8") as fil:
             fil.write(token)
 
     return token
@@ -101,7 +102,7 @@ def read_or_generate_token(token_path=None):
 def write_token(token, token_path=None):
     """Write token."""
     token_path = token_path or os.path.join(os.path.expanduser("~"), ".jupyter_token")
-    with open(token_path, "w") as fil:
+    with open(token_path, "w", encoding="utf-8") as fil:
         fil.write(token)
 
 

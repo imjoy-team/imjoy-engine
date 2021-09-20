@@ -68,7 +68,7 @@ def parse_cmd_line(args=None):
     opt = parser.parse_args(args=args)
 
     if opt.base_url is None or opt.base_url == "":
-        opt.base_url = "http://{}:{}".format(opt.host, opt.port)
+        opt.base_url = f"http://{opt.host}:{opt.port}"
 
     if opt.base_url.endswith("/"):
         opt.base_url = opt.base_url[:-1]

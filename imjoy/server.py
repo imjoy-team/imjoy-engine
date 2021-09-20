@@ -223,7 +223,9 @@ def create_application(allow_origins, base_path) -> FastAPI:
         return {
             "name": "ImJoy Core Server",
             "version": VERSION,
-            "all_users": {u: all_users[u]._sessions for u in all_users},
+            "all_users": {
+                uid: user_info._sessions for uid, user_info in all_users.items()
+            },
             "all_workspaces": {
                 w.name: len(w._plugins) for w in all_workspaces.values()
             },
@@ -272,7 +274,7 @@ def start_server(args):
     setup_socketio_server(
         application, base_path=args.base_path, allow_origins=allow_origin
     )
-    if args.host == "127.0.0.1" or args.host == "localhost":
+    if args.host in ("127.0.0.1", "localhost"):
         print(
             "***Note: If you want to enable access from another host,\
                  please start with `--host=0.0.0.0`.***"
