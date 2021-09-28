@@ -1,0 +1,28 @@
+
+
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>ImJoy Plugin Template</title>
+  <meta name="description" content="Template for ImJoy plugin">
+  <meta name="author" content="Wei OUYANG">
+  <!-- <link rel="icon" href="/favicon.ico">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png"> -->
+  <script src="https://cdn.jsdelivr.net/npm/imjoy-rpc@latest/dist/imjoy-rpc-socketio.min.js"></script>
+</head>
+
+<body>
+    <script>
+        const config = Object.fromEntries(new URLSearchParams(window.location.search))
+        config.server_url = "{{ server_url }}"
+        imjoyRPCSocketIO.connectToServer(config).then(async (api)=>{
+            {{ script | safe }}
+        }).catch(console.error)
+    </script>
+</body>
+</html>

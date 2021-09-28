@@ -39,9 +39,8 @@ def new_client_join(ws):
 async def main():
     api = await connect_to_server(server_url="https://api.imjoy.io/")
     api.on('join', new_client_join)
-    tk = await api.generate_token()
+    token = await api.generate_token()
     name = api.config['name']
-    token = tk['token']
     url = f"https://imjoy.io/lite?server_url=https://api.imjoy.io&token={token}&name={name}"
     print(url)
     webbrowser.open(url)

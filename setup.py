@@ -21,6 +21,8 @@ except ImportError:
         "imjoy-rpc>=0.3.12",
         "pydantic[email]>=1.8.2",
         "typing-extensions>=3.7.4.3",  # required by pydantic
+        "aiofiles==0.7.0",
+        "jinja2==3.0.1",
         "python-dotenv>=0.17.0",
         "python-engineio==4.0.0",
         "python-jose==3.3.0",
@@ -53,6 +55,7 @@ setup(
     install_requires=REQUIREMENTS,
     extras_require={
         "jupyter": ["jupyter>=1.0.0", "ipykernel>=5.1.4", "imjoy-jupyter-extension"],
+        "server-apps": ["pyppeteer>=0.2.6"],
     },
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},

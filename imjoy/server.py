@@ -31,6 +31,7 @@ from imjoy.core.auth import parse_token, check_permission
 from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
+from imjoy.apps import ServerAppController
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -196,6 +197,8 @@ def initialize_socketio(sio, core_api):
                         plugin.workspace._services.remove(service)
         del all_sessions[sid]
 
+    core_api.set_ready()
+
 
 def create_application(allow_origins, base_path) -> FastAPI:
     """Set up the server application."""
@@ -236,10 +239,14 @@ def create_application(allow_origins, base_path) -> FastAPI:
 
 def setup_socketio_server(
     app: FastAPI,
+    port: int,
     base_path: str = "/",
     allow_origins: Union[str, list] = "*",
 ) -> None:
     """Set up the socketio server."""
+    app_controller = ServerAppController(port=port)
+    app.include_router(app_controller.router)
+
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
     @app.get(base_path.rstrip("/") + "/liveness")
@@ -258,7 +265,9 @@ def setup_socketio_server(
 
     app.mount("/", _app)
     app.sio = sio
-    core_api = CoreInterface()
+
+    core_api = CoreInterface(app_controller=app_controller)
+
     initialize_socketio(sio, core_api)
 
     return sio
@@ -272,7 +281,10 @@ def start_server(args):
         allow_origin = env.get("ALLOW_ORIGINS", "*").split(",")
     application = create_application(allow_origin, args.base_path)
     setup_socketio_server(
-        application, base_path=args.base_path, allow_origins=allow_origin
+        application,
+        port=int(args.port),
+        base_path=args.base_path,
+        allow_origins=allow_origin,
     )
     if args.host in ("127.0.0.1", "localhost"):
         print(

@@ -84,9 +84,13 @@ async def test_connect_to_server(socketio_server):
             """Run the plugin."""
             await self._ws.log("hello world")
 
-    with pytest.raises(Exception, match=r".*Workspace test does not exist.*"):
+    # test workspace is an exception, so it can pass directly
+    ws = await connect_to_server(
+        {"name": "my plugin", "workspace": "test", "server_url": SERVER_URL}
+    )
+    with pytest.raises(Exception, match=r".*Workspace test2 does not exist.*"):
         ws = await connect_to_server(
-            {"name": "my plugin", "workspace": "test", "server_url": SERVER_URL}
+            {"name": "my plugin", "workspace": "test2", "server_url": SERVER_URL}
         )
     ws = await connect_to_server({"name": "my plugin", "server_url": SERVER_URL})
     await ws.export(ImJoyPlugin(ws))
@@ -112,7 +116,7 @@ def test_plugin_runner(socketio_server):
         out, err = proc.communicate()
         assert err.decode("utf8") == ""
         output = out.decode("utf8")
-        assert "Generated token: imjoy@" in output
+        assert "Generated token: " in output and "@imjoy@" in output
         assert "echo: a message" in output
 
 
@@ -133,7 +137,7 @@ def test_plugin_runner_subpath(socketio_subpath_server):
         out, err = proc.communicate()
         assert err.decode("utf8") == ""
         output = out.decode("utf8")
-        assert "Generated token: imjoy@" in output
+        assert "Generated token: " in output and "@imjoy@" in output
         assert "echo: a message" in output
 
 
@@ -142,9 +146,8 @@ async def test_plugin_runner_workspace(socketio_server):
     api = await connect_to_server(
         {"name": "my second plugin", "server_url": SERVER_URL}
     )
-    ret = await api.generate_token()
-    assert "id" in ret and "token" in ret
-    assert ret["token"].startswith("imjoy@")
+    token = await api.generate_token()
+    assert "@imjoy@" in token
 
     # The following code without passing the token should fail
     # Here we assert the output message contains "permission denied"
@@ -155,7 +158,7 @@ async def test_plugin_runner_workspace(socketio_server):
             "imjoy.runner",
             f"--server-url=http://127.0.0.1:{PORT}",
             f"--workspace={api.config['workspace']}",
-            # f"--token={ret['token']}",
+            # f"--token={token}",
             "--quit-on-ready",
             os.path.join(os.path.dirname(__file__), "example_plugin.py"),
         ],
@@ -176,7 +179,7 @@ async def test_plugin_runner_workspace(socketio_server):
             "imjoy.runner",
             f"--server-url=http://127.0.0.1:{PORT}",
             f"--workspace={api.config['workspace']}",
-            f"--token={ret['token']}",
+            f"--token={token}",
             "--quit-on-ready",
             os.path.join(os.path.dirname(__file__), "example_plugin.py"),
         ],
@@ -187,7 +190,7 @@ async def test_plugin_runner_workspace(socketio_server):
         assert proc.returncode == 0
         assert err.decode("utf8") == ""
         output = out.decode("utf8")
-        assert "Generated token: imjoy@" in output
+        assert "Generated token: " in output and "@imjoy@" in output
         assert "echo: a message" in output
 
 
@@ -198,9 +201,8 @@ async def test_workspace(socketio_server):
         Exception, match=r".*Scopes must be empty or contains only the workspace name*"
     ):
         await api.generate_token({"scopes": ["test-workspace"]})
-    ret = await api.generate_token()
-    assert "id" in ret and "token" in ret
-    assert ret["token"].startswith("imjoy@")
+    token = await api.generate_token()
+    assert "@imjoy@" in token
 
     ws = await api.create_workspace(
         {
@@ -226,8 +228,7 @@ async def test_workspace(socketio_server):
     assert len(ss2) == 0
 
     # let's generate a token for the test-workspace
-    ret = await ws.generate_token()
-    token = ret["token"]
+    token = await ws.generate_token()
 
     # now if we connect directly to the workspace
     # we should be able to get the test-workspace services
@@ -278,3 +279,38 @@ async def test_workspace(socketio_server):
 
     with pytest.raises(Exception):
         await ws2.set({"covers": [], "non-exist-key": 999})
+
+
+TEST_APP = """
+api.log('awesome!connected!');
+api.export({
+    setup(){
+        console.log('initialized')
+    }
+    add(a, b){
+        return a+b
+    }
+})
+"""
+
+
+async def test_server_apps(socketio_server):
+    """Test the server apps."""
+    api = await connect_to_server({"name": "test client", "server_url": SERVER_URL})
+    workspace = api.config["workspace"]
+    token = await api.generate_token()
+
+    controller = await api.get_app_controller()
+    app_id = await controller.deploy(TEST_APP)
+    apps = await controller.list_apps()
+    assert app_id in apps
+    try:
+        assert isinstance(app_id, str)
+        name = await controller.start(app_id, workspace, token)
+        # await api.get_plugin(name)
+        await controller.stop(name)
+    except Exception:
+        raise
+    finally:
+        await controller.undeploy(app_id)
+        await controller.close()

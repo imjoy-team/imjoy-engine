@@ -4,6 +4,7 @@ import sys
 from functools import partial
 from typing import Optional
 import uuid
+import asyncio
 
 import pkg_resources
 
@@ -27,19 +28,36 @@ logger = logging.getLogger("imjoy-core")
 logger.setLevel(logging.INFO)
 
 
+# Add test workspace
+all_workspaces["test"] = WorkspaceInfo.parse_obj(
+    {
+        "name": "test",
+        "persistent": True,
+        "owners": ["admin"],
+        "allow_list": [],
+        "deny_list": [],
+        "visibility": "public",
+    }
+)
+
+
 class CoreInterface:
     """Represent the interface of the ImJoy core."""
 
     # pylint: disable=no-self-use, protected-access
 
-    def __init__(self, imjoy_api=None):
+    def __init__(self, imjoy_api=None, app_controller=None):
         """Set up instance."""
+        self.app_controller = app_controller
         imjoy_api = imjoy_api or {}
+        self._ready_fut = asyncio.Future()
         self.imjoy_api = dotdict(
             {
                 "_rintf": True,
                 "log": self.log,
                 "error": self.error,
+                "getAppController": self.get_app_controller,
+                "get_app_controller": self.get_app_controller,
                 "registerService": self.register_service,
                 "register_service": self.register_service,
                 "getServices": self.get_services,
@@ -92,6 +110,17 @@ class CoreInterface:
                 logger.exception("Failed to setup extension: %s", entry_point.name)
                 raise
 
+    def set_ready(self):
+        self._ready_fut.set_result(None)
+
+    def wait_until_ready(self):
+        """Wait until the server is ready"""
+        return self._ready_fut
+
+    def get_app_controller(self):
+        """Provide the server app controller."""
+        return self.app_controller.get_public_api()
+
     def register_service(self, service: dict):
         """Register a service."""
         plugin = current_plugin.get()
@@ -140,7 +169,8 @@ class CoreInterface:
             raise Exception("Scopes must be empty or contains only the workspace name.")
         config["scopes"] = [workspace.name]
         token_config = TokenConfig.parse_obj(config)
-        return generate_presigned_token(current_user.get(), token_config)
+        token = generate_presigned_token(current_user.get(), token_config)
+        return token
 
     def create_workspace(self, config: dict):
         """Create a new workspace."""

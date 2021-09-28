@@ -1,5 +1,6 @@
 *.DS_Store
 *.app
+apps/
 node_modules
 package.json
 package-lock.json

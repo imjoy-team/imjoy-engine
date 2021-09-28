@@ -216,11 +216,11 @@ def parse_token(authorization):
         raise Exception("Authorization header must be 'Bearer' token")
 
     token = parts[1]
-    if not token.startswith("imjoy@"):
+    if "@imjoy@" not in token:
         # auth0 token
         return get_user_info(valid_token(authorization))
     # generated token
-    token = token.lstrip("imjoy@")
+    token = token.split("@imjoy@")[1]
     return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
 
 
@@ -254,7 +254,7 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
         JWT_SECRET,
         algorithm="HS256",
     )
-    return {"token": "imjoy@" + token, "id": uid}
+    return uid + "@imjoy@" + token
 
 
 def check_permission(workspace, user_info):
@@ -265,6 +265,10 @@ def check_permission(workspace, user_info):
         if not workspace:
             logger.warning("Workspace %s not found", workspace)
             return False
+
+    # Make an exception for test workspace
+    if workspace.name == "test":
+        return True
 
     if workspace.name == user_info.id:
         return True
