@@ -1,4 +1,5 @@
 """Test the imjoy engine server."""
+import asyncio
 import os
 import subprocess
 import sys
@@ -6,8 +7,8 @@ import time
 
 import pytest
 import requests
-from requests import RequestException
 from imjoy_rpc import connect_to_server
+from requests import RequestException
 
 # All test coroutines will be treated as marked.
 pytestmark = pytest.mark.asyncio
@@ -289,7 +290,7 @@ api.export({
         await api.log("initialized")
     },
     async execute(){
-        await api.log("hello")
+        return 123
     }
 })
 """
@@ -308,8 +309,11 @@ async def test_server_apps(socketio_server):
     try:
         assert isinstance(app_id, str)
         name = await controller.start(app_id, workspace, token)
+        await asyncio.sleep(0.1)
         plugin = await api.get_plugin(name)
         assert "execute" in plugin
+        device = await plugin.execute()
+        print("============", device)
         await controller.stop(name)
     except Exception:
         raise

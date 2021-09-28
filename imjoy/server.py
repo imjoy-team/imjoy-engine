@@ -38,7 +38,28 @@ if ENV_FILE:
     load_dotenv(ENV_FILE)
 
 
-def initialize_socketio(sio, core_api):
+class EventBus:
+    """An event bus class."""
+
+    def __init__(self):
+        """Initialize the event bus."""
+        self._callbacks = {}
+
+    def on(self, event_name, f):
+        """Register an event callback."""
+        self._callbacks[event_name] = self._callbacks.get(event_name, []) + [f]
+        return f
+
+    def emit(self, event_name, *data):
+        """Trigger an event."""
+        [f(*data) for f in self._callbacks.get(event_name, [])]
+
+    def off(self, event_name, f):
+        """Remove an event callback."""
+        self._callbacks.get(event_name, []).remove(f)
+
+
+def initialize_socketio(sio, core_api, event_bus: EventBus):
     """Initialize socketio."""
     # pylint: disable=too-many-statements, unused-variable, protected-access
 
@@ -81,6 +102,7 @@ def initialize_socketio(sio, core_api):
             )
         all_users[uid]._sessions.append(sid)
         all_sessions[sid] = all_users[uid]
+        event_bus.emit("plugin_connected", {"uid": uid, "sid": sid})
 
     @sio.event
     async def echo(sid, data):
@@ -136,6 +158,11 @@ def initialize_socketio(sio, core_api):
             del user_info._plugins[plugin.id]
         workspace._plugins[plugin.name] = plugin
         logger.info("New plugin registered successfully (%s)", plugin_id)
+
+        event_bus.emit(
+            "plugin_registered",
+            {"plugin_id": plugin_id, "name": plugin.name, "workspace": workspace.name},
+        )
         return {"success": True, "plugin_id": plugin_id}
 
     @sio.event
@@ -196,6 +223,7 @@ def initialize_socketio(sio, core_api):
                     if service.providerId == plugin.id:
                         plugin.workspace._services.remove(service)
         del all_sessions[sid]
+        event_bus.emit("plugin_disconnected", {"sid": sid})
 
     core_api.set_ready()
 
@@ -244,7 +272,8 @@ def setup_socketio_server(
     allow_origins: Union[str, list] = "*",
 ) -> None:
     """Set up the socketio server."""
-    app_controller = ServerAppController(port=port)
+    event_bus = EventBus()
+    app_controller = ServerAppController(event_bus, port=port)
     app.include_router(app_controller.router)
 
     socketio_path = base_path.rstrip("/") + "/socket.io"
@@ -268,7 +297,7 @@ def setup_socketio_server(
 
     core_api = CoreInterface(app_controller=app_controller)
 
-    initialize_socketio(sio, core_api)
+    initialize_socketio(sio, core_api, event_bus)
 
     return sio
 

@@ -1,17 +1,19 @@
+import asyncio
 import os
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.logger import logger
-
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-os.environ["PYPPETEER_CHROMIUM_REVISION"] = "901912"
+# To use a newer version of chromium,
+# visit here: https://chromium.cypress.io/win/ to find the revision
+# Current version is: https://chromium.cypress.io/linux/beta/95.0.4638.17
+os.environ["PYPPETEER_CHROMIUM_REVISION"] = "920005"
 
-from pyppeteer import launch, defaultArgs  # noqa: E402
-
+from pyppeteer import defaultArgs, launch  # noqa: E402
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -23,7 +25,7 @@ class ServerAppController:
 
     instance_counter: int = 0
 
-    def __init__(self, port: int, in_docker=False, app_dir: str = "./apps"):
+    def __init__(self, event_bus, port: int, in_docker=False, app_dir: str = "./apps"):
         """Initialize the class."""
         self.browser = None
         self.browser_pages = {}
@@ -33,6 +35,7 @@ class ServerAppController:
         self.port = port
         self.in_docker = in_docker
         self.server_url = f"http://127.0.0.1:{self.port}"
+        self.event_bus = event_bus
         self.router = APIRouter()
 
         @self.router.get(
@@ -70,12 +73,14 @@ class ServerAppController:
         """Initialize the app controller."""
         args = defaultArgs()
         args.append("--site-per-process")
+        # args.append("--enable-unsafe-webgpu")
+        # args.append("--enable-features=Vulkan,UseSkiaRenderer")
         # so it works in the docker image
         if self.in_docker:
             args.append("--no-sandbox")
         executablePath = None  # "/usr/bin/chromium"
         self.browser = await launch(args=args, executablePath=executablePath)
-        logger.info("Chrome version: %s", await self.browser.version())
+        logger.error("Chrome version: %s", await self.browser.version())
 
     async def close(self):
         """Close the app controller."""
@@ -119,7 +124,6 @@ class ServerAppController:
             await self.initialize()
         # context = await self.browser.createIncognitoBrowserContext()
         page = await self.browser.newPage()
-        await page.setJavaScriptEnabled(True)
         self.capture_logs_from_browser_tabs(page)
         # TODO: dispose await context.close()
         name = "app-" + str(uuid.uuid4())
@@ -128,14 +132,28 @@ class ServerAppController:
             + f"name={name}&workspace={workspace}"
             + (f"&token={token}" if token else "")
         )
-        response = await page.goto(url)
-        await page.screenshot({"path": "./example.png"})
-        assert (
-            response.status == 200
-        ), f"Failed to start server app instance, status: {response.status}"
-        self.browser_pages[name] = page
 
-        return name
+        fut = asyncio.Future()
+
+        def registered(config):
+            if config["name"] == name:
+                fut.set_result(name)
+                self.event_bus.off("plugin_registered", registered)
+
+        # TODO: handle timeout
+        self.event_bus.on("plugin_registered", registered)
+        try:
+            response = await page.goto(url)
+            # await page.screenshot({"path": "./example.png"})
+            assert (
+                response.status == 200
+            ), f"Failed to start server app instance, status: {response.status}"
+            self.browser_pages[name] = page
+        except Exception:
+            self.event_bus.off("plugin_registered", registered)
+            raise
+
+        return await fut
 
     async def stop(self, name):
         """Stop a server app instance."""
