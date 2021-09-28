@@ -281,14 +281,15 @@ async def test_workspace(socketio_server):
         await ws2.set({"covers": [], "non-exist-key": 999})
 
 
-TEST_APP = """
+TEST_APP_CODE = """
 api.log('awesome!connected!');
+
 api.export({
-    setup(){
-        console.log('initialized')
-    }
-    add(a, b){
-        return a+b
+    async setup(){
+        await api.log("initialized")
+    },
+    async execute(){
+        await api.log("hello")
     }
 })
 """
@@ -301,13 +302,14 @@ async def test_server_apps(socketio_server):
     token = await api.generate_token()
 
     controller = await api.get_app_controller()
-    app_id = await controller.deploy(TEST_APP)
+    app_id = await controller.deploy(TEST_APP_CODE)
     apps = await controller.list_apps()
     assert app_id in apps
     try:
         assert isinstance(app_id, str)
         name = await controller.start(app_id, workspace, token)
-        # await api.get_plugin(name)
+        plugin = await api.get_plugin(name)
+        assert "execute" in plugin
         await controller.stop(name)
     except Exception:
         raise

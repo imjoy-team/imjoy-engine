@@ -63,6 +63,8 @@ class CoreInterface:
                 "getServices": self.get_services,
                 "get_services": self.get_services,
                 "utils": {},
+                "getPlugins": self.get_plugins,
+                "get_plugins": self.get_plugins,
                 "getPlugin": self.get_plugin,
                 "get_plugin": self.get_plugin,
                 "generateToken": self.generate_token,
@@ -129,6 +131,11 @@ class CoreInterface:
         service["providerId"] = plugin.id
         service["_rintf"] = True
         workspace._services.append(service)
+
+    def get_plugins(self):
+        """Return all plugin in the workspace."""
+        workspace = current_workspace.get()
+        return [workspace._plugins[name].api for name in workspace._plugins]
 
     def get_plugin(self, name):
         """Return a plugin by its name."""

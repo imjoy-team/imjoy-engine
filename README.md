@@ -69,3 +69,10 @@ Please submit your bug report or feature request to [ImJoy/issues ](https://gith
 ```
 
 - Run `tox` to run all tests and lint, including checking that `black` doesn't change any files.
+
+
+Install chrome in Ubuntu 20.04 for the browser apps:
+```
+sudo add-apt-repository ppa:xtradeb/apps
+sudo apt install chromium
+```

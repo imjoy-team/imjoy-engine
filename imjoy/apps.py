@@ -4,10 +4,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.logger import logger
 
-# from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pyppeteer import launch
+
+os.environ["PYPPETEER_CHROMIUM_REVISION"] = "901912"
+
+from pyppeteer import launch, defaultArgs  # noqa: E402
+
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -19,7 +23,7 @@ class ServerAppController:
 
     instance_counter: int = 0
 
-    def __init__(self, port: int, app_dir: str = "./apps"):
+    def __init__(self, port: int, in_docker=False, app_dir: str = "./apps"):
         """Initialize the class."""
         self.browser = None
         self.browser_pages = {}
@@ -27,6 +31,7 @@ class ServerAppController:
         self.controller_id = str(ServerAppController.instance_counter)
         ServerAppController.instance_counter += 1
         self.port = port
+        self.in_docker = in_docker
         self.server_url = f"http://127.0.0.1:{self.port}"
         self.router = APIRouter()
 
@@ -50,9 +55,27 @@ class ServerAppController:
                 },
             )
 
+    def capture_logs_from_browser_tabs(self, page):
+        page.on(
+            "targetcreated",
+            lambda target: logger.error("Target created: %s", str(target)),
+        )
+        page.on(
+            "console", lambda target: logger.error("Console message: %s", target.text)
+        )
+        page.on("error", lambda target: logger.error("Error: %s", target.text))
+        page.on("pageerror", lambda target: logger.error("Page error: %s", target))
+
     async def initialize(self):
         """Initialize the app controller."""
-        self.browser = await launch()
+        args = defaultArgs()
+        args.append("--site-per-process")
+        # so it works in the docker image
+        if self.in_docker:
+            args.append("--no-sandbox")
+        executablePath = None  # "/usr/bin/chromium"
+        self.browser = await launch(args=args, executablePath=executablePath)
+        logger.info("Chrome version: %s", await self.browser.version())
 
     async def close(self):
         """Close the app controller."""
@@ -94,14 +117,19 @@ class ServerAppController:
         """Start a server app instance."""
         if self.browser is None:
             await self.initialize()
+        # context = await self.browser.createIncognitoBrowserContext()
         page = await self.browser.newPage()
+        await page.setJavaScriptEnabled(True)
+        self.capture_logs_from_browser_tabs(page)
+        # TODO: dispose await context.close()
         name = "app-" + str(uuid.uuid4())
         url = (
             f"{self.server_url}/apps/{self.controller_id}/{id}?"
-            + f"name={name}&workspace={workspace}&token={token}"
+            + f"name={name}&workspace={workspace}"
+            + (f"&token={token}" if token else "")
         )
-
         response = await page.goto(url)
+        await page.screenshot({"path": "./example.png"})
         assert (
             response.status == 200
         ), f"Failed to start server app instance, status: {response.status}"

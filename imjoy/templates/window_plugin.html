@@ -13,13 +13,14 @@
   <!-- <link rel="icon" href="/favicon.ico">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png"> -->
-  <script src="https://cdn.jsdelivr.net/npm/imjoy-rpc@latest/dist/imjoy-rpc-socketio.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/imjoy-rpc@0.3.19/dist/imjoy-rpc-socketio.min.js"></script>
 </head>
 
 <body>
     <script>
         const config = Object.fromEntries(new URLSearchParams(window.location.search))
-        config.server_url = "{{ server_url }}"
+        config.server_url = config.server_url || "{{ server_url }}"
+        config.server_token=config.token
         imjoyRPCSocketIO.connectToServer(config).then(async (api)=>{
             {{ script | safe }}
         }).catch(console.error)
