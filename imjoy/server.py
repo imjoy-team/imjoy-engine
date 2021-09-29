@@ -225,7 +225,7 @@ def initialize_socketio(sio, core_api, event_bus: EventBus):
         del all_sessions[sid]
         event_bus.emit("plugin_disconnected", {"sid": sid})
 
-    core_api.set_ready()
+    event_bus.emit("socketio_ready", None)
 
 
 def create_application(allow_origins, base_path) -> FastAPI:
@@ -268,13 +268,17 @@ def create_application(allow_origins, base_path) -> FastAPI:
 def setup_socketio_server(
     app: FastAPI,
     port: int,
+    enable_server_apps: bool = True,
     base_path: str = "/",
     allow_origins: Union[str, list] = "*",
 ) -> None:
     """Set up the socketio server."""
     event_bus = EventBus()
-    app_controller = ServerAppController(event_bus, port=port)
-    app.include_router(app_controller.router)
+    if enable_server_apps:
+        app_controller = ServerAppController(event_bus, port=port)
+        app.include_router(app_controller.router)
+    else:
+        app_controller = None
 
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
