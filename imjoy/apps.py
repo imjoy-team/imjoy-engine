@@ -8,12 +8,7 @@ from fastapi.logger import logger
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-# To use a newer version of chromium,
-# visit here: https://chromium.cypress.io/win/ to find the revision
-# Current version is: https://chromium.cypress.io/linux/beta/95.0.4638.17
-os.environ["PYPPETEER_CHROMIUM_REVISION"] = "920005"
-
-from pyppeteer import defaultArgs, launch  # noqa: E402
+from playwright.async_api import async_playwright
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -71,16 +66,8 @@ class ServerAppController:
 
     async def initialize(self):
         """Initialize the app controller."""
-        args = defaultArgs()
-        args.append("--site-per-process")
-        # args.append("--enable-unsafe-webgpu")
-        # args.append("--enable-features=Vulkan,UseSkiaRenderer")
-        # so it works in the docker image
-        if self.in_docker:
-            args.append("--no-sandbox")
-        executablePath = None  # "/usr/bin/chromium"
-        self.browser = await launch(args=args, executablePath=executablePath)
-        logger.error("Chrome version: %s", await self.browser.version())
+        playwright = await async_playwright().start()
+        self.browser = await playwright.chromium.launch()
 
     async def close(self):
         """Close the app controller."""
@@ -123,7 +110,7 @@ class ServerAppController:
         if self.browser is None:
             await self.initialize()
         # context = await self.browser.createIncognitoBrowserContext()
-        page = await self.browser.newPage()
+        page = await self.browser.new_page()
         self.capture_logs_from_browser_tabs(page)
         # TODO: dispose await context.close()
         name = "app-" + str(uuid.uuid4())

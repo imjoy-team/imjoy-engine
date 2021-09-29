@@ -312,8 +312,8 @@ async def test_server_apps(socketio_server):
         await asyncio.sleep(0.1)
         plugin = await api.get_plugin(name)
         assert "execute" in plugin
-        device = await plugin.execute()
-        print("============", device)
+        result = await plugin.execute()
+        assert result == 123
         await controller.stop(name)
     except Exception:
         raise
