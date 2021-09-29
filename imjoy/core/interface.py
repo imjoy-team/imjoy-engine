@@ -4,8 +4,6 @@ import sys
 from functools import partial
 from typing import Optional
 import uuid
-import asyncio
-
 import pkg_resources
 
 from imjoy.core import (
@@ -50,7 +48,6 @@ class CoreInterface:
         """Set up instance."""
         self.app_controller = app_controller
         imjoy_api = imjoy_api or {}
-        self._ready_fut = asyncio.Future()
         self.imjoy_api = dotdict(
             {
                 "_rintf": True,
@@ -112,16 +109,12 @@ class CoreInterface:
                 logger.exception("Failed to setup extension: %s", entry_point.name)
                 raise
 
-    def set_ready(self):
-        self._ready_fut.set_result(None)
-
-    def wait_until_ready(self):
-        """Wait until the server is ready"""
-        return self._ready_fut
-
     def get_app_controller(self):
         """Provide the server app controller."""
-        return self.app_controller.get_public_api()
+        if self.app_controller:
+            return self.app_controller.get_public_api()
+        else:
+            raise Exception("Server app controller was disabled")
 
     def register_service(self, service: dict):
         """Register a service."""
