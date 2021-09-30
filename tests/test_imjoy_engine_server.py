@@ -311,33 +311,35 @@ async def test_server_apps(socketio_server):
     token = await api.generate_token()
 
     controller = await api.get_app_controller()
-    app_id = await controller.deploy(TEST_APP_CODE, "window-plugin.html")
-    apps = await controller.list_apps()
-    assert app_id in apps
     try:
-        config = await controller.start(app_id, workspace, token)
-        plugin = await api.get_plugin(config.name)
-        assert "execute" in plugin
-        result = await plugin.execute(2, 4)
-        assert result == 6
-        webgpu_available = await plugin.check_webgpu()
-        assert webgpu_available is True
-        await controller.stop(config.name)
-
-        config = await controller.start(app_id, workspace, token)
-        plugin = await api.get_plugin(config.name)
-        assert "execute" in plugin
-        result = await plugin.execute(2, 4)
-        assert result == 6
-        webgpu_available = await plugin.check_webgpu()
-        assert webgpu_available is True
-        await controller.stop(config.name)
-
-        source = (Path(__file__).parent / "testWindowPlugin1.imjoy.html").open().read()
-        app_id = await controller.deploy(source)
-        apps = await controller.list_apps()
+        app_id = await controller.deploy(TEST_APP_CODE, "public", "window-plugin.html")
+        apps = await controller.list_apps("public")
         assert app_id in apps
         config = await controller.start(app_id, workspace, token)
+        plugin = await api.get_plugin(config.name)
+        assert "execute" in plugin
+        result = await plugin.execute(2, 4)
+        assert result == 6
+        webgpu_available = await plugin.check_webgpu()
+        assert webgpu_available is True
+        await controller.stop(config.name)
+
+        config = await controller.start(app_id, workspace, token)
+        plugin = await api.get_plugin(config.name)
+        assert "execute" in plugin
+        result = await plugin.execute(2, 4)
+        assert result == 6
+        webgpu_available = await plugin.check_webgpu()
+        assert webgpu_available is True
+        await controller.stop(config.name)
+
+        await controller.undeploy("Test Window Plugin", "public")
+        source = (Path(__file__).parent / "testWindowPlugin1.imjoy.html").open().read()
+        pid = await controller.deploy(source, "public", "imjoy")
+        assert pid == "public/Test Window Plugin"
+        apps = await controller.list_apps("public")
+        assert pid in apps
+        config = await controller.start(pid, workspace, token)
         plugin = await api.get_plugin(config.name)
         assert "add2" in plugin
         result = await plugin.add2(4)
@@ -347,5 +349,5 @@ async def test_server_apps(socketio_server):
     except Exception:
         raise
     finally:
-        await controller.undeploy(app_id)
+        await controller.undeploy(app_id, "public")
         await controller.close()

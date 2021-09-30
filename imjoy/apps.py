@@ -62,7 +62,7 @@ class ServerAppController:
         self.jinja_env = Environment(
             loader=PackageLoader("imjoy"), autoescape=select_autoescape()
         )
-
+        self.templates_dir = Path(__file__).parent / "templates"
         self.router = Router()
         # we mount it under root, then the router will be mounted under /apps
         self.router.mount("/", StaticFiles(directory=self.apps_dir), name="apps")
@@ -91,9 +91,10 @@ class ServerAppController:
         if self.in_docker:
             args.append("--no-sandbox")
         self.browser = await playwright.chromium.launch(args=args)
-        await self.undeploy("imjoy-plugin-parser")
-        await self.deploy(template="imjoy-plugin-parser.html", id="imjoy-plugin-parser")
-        self.plugin_parser = await self.launch_as_root(
+        await self.undeploy("imjoy-plugin-parser", "root")
+        source = (self.templates_dir / "imjoy-plugin-parser.html").open().read()
+        await self.deploy(source, "root", id="imjoy-plugin-parser")
+        self.plugin_parser = await self._launch_as_root(
             "imjoy-plugin-parser", workspace="root"
         )
 
@@ -117,22 +118,25 @@ class ServerAppController:
         controller["_rintf"] = True
         return controller
 
-    async def list_apps(self):
+    async def list_apps(self, user_id):
         """List the deployed apps."""
-        return os.listdir(self.apps_dir)
+        return [
+            user_id + "/" + app_name
+            for app_name in os.listdir(self.apps_dir / user_id)
+            if not app_name.startswith(".")
+        ]
 
-    async def deploy(self, source=None, template="imjoy", id=None):
+    async def deploy(self, source, user_id, template=None, id=None, overwrite=False):
         """Deploy a server app."""
-        id = id or str(uuid.uuid4())
-        if (self.apps_dir / id).exists():
-            raise Exception(f"Another app with the same id ({id}) already exists.")
-
-        os.makedirs(self.apps_dir / id, exist_ok=True)
-
         if template == "imjoy":
             if not source:
                 raise Exception("Source should be provided for imjoy plugin.")
             config = await self.plugin_parser.parsePluginCode(source)
+            if id and id != config.name:
+                raise Exception(
+                    f"You cannot specify a different id ({id}) for ImJoy plugin, it has to be `{config.name}`."
+                )
+            id = config.name
             try:
                 temp = self.jinja_env.get_template(config.type + "-plugin.html")
                 source = temp.render(script=config.script)
@@ -140,25 +144,31 @@ class ServerAppController:
                 raise Exception(
                     f"Failed to compile the imjoy plugin, error: {traceback.format_exc()}"
                 )
-
         elif template:
             temp = self.jinja_env.get_template(template)
             source = temp.render(script=source)
         elif not source:
             raise Exception("Source or template should be provided.")
 
-        with open(self.apps_dir / id / "index.html", "w") as fil:
+        id = id or str(uuid.uuid4())
+        if (self.apps_dir / user_id / id).exists() and not overwrite:
+            raise Exception(
+                f"Another app with the same id ({id}) already exists in the user's app space {user_id}."
+            )
+
+        os.makedirs(self.apps_dir / user_id / id, exist_ok=True)
+
+        with open(self.apps_dir / user_id / id / "index.html", "w") as fil:
             fil.write(source)
 
-        return id
+        return user_id + "/" + id
 
-    async def undeploy(self, id):
+    async def undeploy(self, id, user_id):
         """Deploy a server app."""
-        if (self.apps_dir / id).exists():
-            shutil.rmtree(self.apps_dir / id, ignore_errors=True)
-            return {"success": True}
+        if (self.apps_dir / user_id / id).exists():
+            shutil.rmtree(self.apps_dir / user_id / id, ignore_errors=True)
         else:
-            return {"success": False, "detail": f"Server app not found: {id}"}
+            raise Exception(f"Server app not found: {id}")
 
     async def start(self, id: str, workspace: str, token: str = None):
         """Start a server app instance."""
@@ -169,6 +179,8 @@ class ServerAppController:
         self._capture_logs_from_browser_tabs(page)
         # TODO: dispose await context.close()
         name = "app-" + str(uuid.uuid4())
+        if "/" not in id:
+            id = workspace + "/" + id
         url = (
             f"{self.server_url}/apps/{id}/index.html?"
             + f"name={name}&workspace={workspace}&server_url={self.server_url}"
@@ -197,7 +209,7 @@ class ServerAppController:
 
         return await fut
 
-    async def launch_as_root(self, app_name, workspace="root"):
+    async def _launch_as_root(self, app_name, workspace="root"):
         """Launch an app as root user."""
         rws = self.core_interface.get_workspace_as_root(workspace)
         token = rws.generate_token()
@@ -210,9 +222,5 @@ class ServerAppController:
         """Stop a server app instance."""
         if name in self.browser_pages:
             await self.browser_pages[name].close()
-            return {"success": True}
         else:
-            return {
-                "success": False,
-                "detail": f"Server app instance not found: {name}",
-            }
+            raise Exception(f"Server app instance not found: {name}")
