@@ -91,9 +91,8 @@ class ServerAppController:
         if self.in_docker:
             args.append("--no-sandbox")
         self.browser = await playwright.chromium.launch(args=args)
-        await self.undeploy("imjoy-plugin-parser", "root")
         source = (self.templates_dir / "imjoy-plugin-parser.html").open().read()
-        await self.deploy(source, "root", id="imjoy-plugin-parser")
+        await self.deploy(source, "root", id="imjoy-plugin-parser", overwrite=True)
         self.plugin_parser = await self._launch_as_root(
             "imjoy-plugin-parser", workspace="root"
         )
@@ -163,10 +162,14 @@ class ServerAppController:
 
         return user_id + "/" + id
 
-    async def undeploy(self, id, user_id):
+    async def undeploy(self, id):
         """Deploy a server app."""
-        if (self.apps_dir / user_id / id).exists():
-            shutil.rmtree(self.apps_dir / user_id / id, ignore_errors=True)
+        if "/" not in id:
+            raise Exception(
+                f"Invalid app id: {id}, the correct format is `user-id/app-id`"
+            )
+        if (self.apps_dir / id).exists():
+            shutil.rmtree(self.apps_dir / id, ignore_errors=True)
         else:
             raise Exception(f"Server app not found: {id}")
 

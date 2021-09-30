@@ -332,7 +332,7 @@ async def test_server_apps(socketio_server):
         assert webgpu_available is True
         await controller.stop(config.name)
 
-        await controller.undeploy("Test Window Plugin", "public")
+        await controller.undeploy("public/Test Window Plugin")
         source = (Path(__file__).parent / "testWindowPlugin1.imjoy.html").open().read()
         pid = await controller.deploy(source, "public", "imjoy")
         assert pid == "public/Test Window Plugin"
@@ -348,5 +348,5 @@ async def test_server_apps(socketio_server):
     except Exception:
         raise
     finally:
-        await controller.undeploy(app_id, "public")
+        await controller.undeploy(app_id)
         await controller.close()
