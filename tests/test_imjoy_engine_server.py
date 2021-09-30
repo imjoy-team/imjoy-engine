@@ -312,7 +312,7 @@ async def test_server_apps(socketio_server):
     controller = await api.get_app_controller()
     try:
         app_id = await controller.deploy(TEST_APP_CODE, "public", "window-plugin.html")
-        apps = await controller.list_apps("public")
+        apps = await controller.list("public")
         assert app_id in apps
         config = await controller.start(app_id, workspace, token)
         plugin = await api.get_plugin(config.name)
@@ -336,7 +336,7 @@ async def test_server_apps(socketio_server):
         source = (Path(__file__).parent / "testWindowPlugin1.imjoy.html").open().read()
         pid = await controller.deploy(source, "public", "imjoy")
         assert pid == "public/Test Window Plugin"
-        apps = await controller.list_apps("public")
+        apps = await controller.list("public")
         assert pid in apps
         config = await controller.start(pid, workspace, token)
         plugin = await api.get_plugin(config.name)
@@ -349,4 +349,3 @@ async def test_server_apps(socketio_server):
         raise
     finally:
         await controller.undeploy(app_id)
-        await controller.close()

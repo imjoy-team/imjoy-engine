@@ -107,17 +107,19 @@ class ServerAppController:
         if not self.browser:
             await self.initialize()
 
+        # TODO: check permission for each function
         controller = {
-            m: getattr(self, m)
-            for m in dir(self)
-            if not m.startswith("__") and callable(getattr(self, m))
+            "deploy": self.deploy,
+            "undeploy": self.undeploy,
+            "start": self.start,
+            "stop": self.stop,
+            "list": self.list,
         }
-        del controller["router"]
-        del controller["get_public_api"]
+
         controller["_rintf"] = True
         return controller
 
-    async def list_apps(self, user_id):
+    async def list(self, user_id):
         """List the deployed apps."""
         return [
             user_id + "/" + app_name
