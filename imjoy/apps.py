@@ -92,9 +92,9 @@ class ServerAppController:
             args.append("--no-sandbox")
         self.browser = await playwright.chromium.launch(args=args)
         await self.deploy(template="imjoy-plugin-parser.html", id="imjoy-plugin-parser")
-        name = await self.start("imjoy-plugin-parser", "public")
+        config = await self.start("imjoy-plugin-parser", "public")
         self.plugin_parser = await self.core_interface.get_plugin_as_root(
-            name, "public"
+            config.name, "public"
         )
 
     async def close(self):
@@ -177,7 +177,7 @@ class ServerAppController:
         def registered(plugin):
             if plugin.name == name:
                 # return the plugin api
-                fut.set_result(name)
+                fut.set_result(plugin.config)
                 self.event_bus.off("plugin_registered", registered)
 
         # TODO: Handle timeout
