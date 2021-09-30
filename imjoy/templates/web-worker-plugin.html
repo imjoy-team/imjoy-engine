@@ -9,19 +9,25 @@
 </head>
 
 <body>
-    <script id="worker" type="javascript/worker">
-        importScripts("https://cdn.jsdelivr.net/npm/imjoy-rpc@0.3.19/dist/imjoy-rpc-socketio.min.js")
-        const config = Object.fromEntries(new URLSearchParams(window.location.search))
-        config.server_token=config.token
-        imjoyRPCSocketIO.connectToServer(config).then(async (api)=>{
-            {{ script | safe }}
-        }).catch(console.error)
-    </script>
+<script id="worker" type="javascript/worker">
+importScripts("https://cdn.jsdelivr.net/npm/imjoy-rpc@0.3.19/dist/imjoy-rpc-socketio.min.js")
+self.onmessage = function(e) {
+const config = e.data
+config.server_token=config.token
+imjoyRPCSocketIO.connectToServer(config).then(async (api)=>{
+{{ script | safe }}
+}).catch(console.error)
+}
+</script>
     <script>
         const blob = new Blob([
           document.querySelector('#worker').textContent
         ], { type: "text/javascript" })
         const worker = new Worker(window.URL.createObjectURL(blob));
+        worker.onerror = console.error
+        worker.onmessage = console.log
+        const config = Object.fromEntries(new URLSearchParams(window.location.search))
+        worker.postMessage(config); 
     </script>
 </body>
 </html>

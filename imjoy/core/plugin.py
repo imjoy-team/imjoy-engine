@@ -169,7 +169,7 @@ class DynamicPlugin:
 
     async def _execute_plugin(self):
         """Execute plugin."""
-        raise NotImplementedError
+        logger.warn("Skipping plugin execution.")
 
     def _send_interface(self):
         """Send the interface."""

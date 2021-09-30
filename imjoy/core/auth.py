@@ -247,7 +247,7 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
         {
             "scopes": scopes,
             "expires_at": expires_at,
-            "user_id": parent + '/' + uid,
+            "user_id": parent + "/" + uid,
             "parent": parent,
             "email": config.email,
             "roles": [],
