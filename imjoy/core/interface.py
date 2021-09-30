@@ -26,12 +26,12 @@ logger = logging.getLogger("imjoy-core")
 logger.setLevel(logging.INFO)
 
 
-# Add test workspace
-all_workspaces["test"] = WorkspaceInfo.parse_obj(
+# Add public workspace
+all_workspaces["public"] = WorkspaceInfo.parse_obj(
     {
-        "name": "test",
+        "name": "public",
         "persistent": True,
-        "owners": ["admin"],
+        "owners": ["root"],
         "allow_list": [],
         "deny_list": [],
         "visibility": "public",
@@ -53,15 +53,13 @@ class CoreInterface:
                 "_rintf": True,
                 "log": self.log,
                 "error": self.error,
-                "getAppController": self.get_app_controller,
-                "get_app_controller": self.get_app_controller,
                 "registerService": self.register_service,
                 "register_service": self.register_service,
                 "getServices": self.get_services,
                 "get_services": self.get_services,
                 "utils": {},
-                "getPlugins": self.get_plugins,
-                "get_plugins": self.get_plugins,
+                "listPlugins": self.list_plugins,
+                "list_plugins": self.list_plugins,
                 "getPlugin": self.get_plugin,
                 "get_plugin": self.get_plugin,
                 "generateToken": self.generate_token,
@@ -109,12 +107,28 @@ class CoreInterface:
                 logger.exception("Failed to setup extension: %s", entry_point.name)
                 raise
 
-    def get_app_controller(self):
-        """Provide the server app controller."""
-        if self.app_controller:
-            return self.app_controller.get_public_api()
-        else:
-            raise Exception("Server app controller was disabled")
+        # Create root user
+        self.root_user = UserInfo(
+            id="root",
+            email=None,
+            parent=None,
+            roles=[],
+            scopes=[],
+            expires_at=None,
+        )
+        # Create root workspace
+        self.root_workspace = WorkspaceInfo(
+            name="root",
+            owners=["root"],
+            visibility=VisibilityEnum.protected,
+            persistent=True,
+        )
+        all_workspaces["root"] = self.root_workspace
+
+    def register_interface(self, name, func):
+        """Register a interface function."""
+        assert callable(func)
+        self.imjoy_api[name] = func
 
     def register_service(self, service: dict):
         """Register a service."""
@@ -125,17 +139,17 @@ class CoreInterface:
         service["_rintf"] = True
         workspace._services.append(service)
 
-    def get_plugins(self):
-        """Return all plugin in the workspace."""
+    def list_plugins(self):
+        """List all plugins in the workspace."""
         workspace = current_workspace.get()
-        return [workspace._plugins[name].api for name in workspace._plugins]
+        return [name for name in workspace._plugins]
 
-    def get_plugin(self, name):
+    async def get_plugin(self, name):
         """Return a plugin by its name."""
         workspace = current_workspace.get()
 
         if name in workspace._plugins:
-            return workspace._plugins[name].api
+            return await workspace._plugins[name].get_api()
         raise Exception(f"Plugin {name} not found")
 
     def get_services(self, query: dict):
@@ -253,6 +267,20 @@ class CoreInterface:
         bound_interface["set"] = partial(self._update_workspace, name)
         bound_interface["_rintf"] = True
         return bound_interface
+
+    def get_workspace_as_root(self, name="root"):
+        """Get a workspace api as root user."""
+        current_user.set(self.root_user)
+        return dotdict(self.get_workspace(name))
+
+    async def get_plugin_as_root(self, name, workspace):
+        """Get a plugin api as root user."""
+        current_user.set(self.root_user)
+        if workspace not in all_workspaces:
+            raise Exception(f"Workspace {workspace} does not exist.")
+        workspace = all_workspaces[workspace]
+        current_workspace.set(workspace)
+        return dotdict(await self.get_plugin(name))
 
     def get_interface(self):
         """Return the interface."""

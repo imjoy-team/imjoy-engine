@@ -59,7 +59,7 @@ class EventBus:
         self._callbacks.get(event_name, []).remove(f)
 
 
-def initialize_socketio(sio, core_api, event_bus: EventBus):
+def initialize_socketio(sio, core_interface, event_bus: EventBus):
     """Initialize socketio."""
     # pylint: disable=too-many-statements, unused-variable, protected-access
 
@@ -90,6 +90,10 @@ def initialize_socketio(sio, core_api, event_bus: EventBus):
             scopes = []
             expires_at = None
             logger.info("Anonymized User connected: %s", uid)
+
+        if uid == "root":
+            logger.info("Root user is not allowed to connect remotely")
+            return False
 
         if uid not in all_users:
             all_users[uid] = UserInfo(
@@ -149,7 +153,9 @@ def initialize_socketio(sio, core_api, event_bus: EventBus):
             )
 
         connection = BasicConnection(send)
-        plugin = DynamicPlugin(config, core_api.get_interface(), connection, workspace)
+        plugin = DynamicPlugin(
+            config, core_interface.get_interface(), connection, workspace
+        )
 
         user_info._plugins[plugin.id] = plugin
         if plugin.name in workspace._plugins:
@@ -161,7 +167,7 @@ def initialize_socketio(sio, core_api, event_bus: EventBus):
 
         event_bus.emit(
             "plugin_registered",
-            {"plugin_id": plugin_id, "name": plugin.name, "workspace": workspace.name},
+            plugin,
         )
         return {"success": True, "plugin_id": plugin_id}
 
@@ -274,9 +280,12 @@ def setup_socketio_server(
 ) -> None:
     """Set up the socketio server."""
     event_bus = EventBus()
+    core_interface = CoreInterface()
+
     if enable_server_apps:
-        app_controller = ServerAppController(event_bus, port=port)
-        app.include_router(app_controller.router)
+        app_controller = ServerAppController(event_bus, core_interface, port=port)
+        # app.include_router(app_controller.router)
+        app.mount("/apps", app_controller.router)
     else:
         app_controller = None
 
@@ -299,9 +308,7 @@ def setup_socketio_server(
     app.mount("/", _app)
     app.sio = sio
 
-    core_api = CoreInterface(app_controller=app_controller)
-
-    initialize_socketio(sio, core_api, event_bus)
+    initialize_socketio(sio, core_interface, event_bus)
 
     return sio
 

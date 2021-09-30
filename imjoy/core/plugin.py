@@ -33,6 +33,7 @@ class DynamicPlugin:
         self.api = None
         self.running = False
         self.terminating = False
+        self._api_fut = asyncio.Future()
 
         # Note: we don't need to bind the interface
         # to the plugin as we do in the js version
@@ -56,6 +57,10 @@ class DynamicPlugin:
 
         self.connection.on("initialized", initialized)
         self.connection.connect()
+
+    async def get_api(self):
+        """Get the plugin api."""
+        return await self._api_fut
 
     async def _setup_rpc(self, connection, plugin_config):
         """Set up rpc."""
@@ -103,6 +108,7 @@ class DynamicPlugin:
             self.config.description,
             list(self.api),
         )
+        self._api_fut.set_result(self.api)
 
     def error(self, *args):
         """Log an error."""
