@@ -328,8 +328,8 @@ def start_server(args):
     )
     if args.host in ("127.0.0.1", "localhost"):
         print(
-            "***Note: If you want to enable access from another host,\
-                 please start with `--host=0.0.0.0`.***"
+            "***Note: If you want to enable access from another host, "
+            "please start with `--host=0.0.0.0`.***"
         )
     uvicorn.run(application, host=args.host, port=int(args.port))
 

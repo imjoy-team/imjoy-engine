@@ -242,12 +242,13 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
         expires_at = time.time() + expires_in
     else:
         expires_at = None
+    parent = user_info.parent if user_info.parent else user_info.id
     token = jwt.encode(
         {
             "scopes": scopes,
             "expires_at": expires_at,
-            "user_id": uid,
-            "parent": user_info.parent if user_info.parent else user_info.id,
+            "user_id": parent + '/' + uid,
+            "parent": parent,
             "email": config.email,
             "roles": [],
         },
