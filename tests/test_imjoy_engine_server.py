@@ -1,5 +1,4 @@
 """Test the imjoy engine server."""
-import asyncio
 import os
 import subprocess
 import sys
