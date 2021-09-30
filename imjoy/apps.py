@@ -92,10 +92,7 @@ class ServerAppController:
             args.append("--no-sandbox")
         self.browser = await playwright.chromium.launch(args=args)
         await self.deploy(template="imjoy-plugin-parser.html", id="imjoy-plugin-parser")
-        config = await self.start("imjoy-plugin-parser", "public")
-        self.plugin_parser = await self.core_interface.get_plugin_as_root(
-            config.name, "public"
-        )
+        self.plugin_parser = await self.launch_as_root("imjoy-plugin-parser", workspace="root")
 
     async def close(self):
         """Close the app controller."""
@@ -194,6 +191,15 @@ class ServerAppController:
             raise
 
         return await fut
+
+    async def launch_as_root(self, app_name, workspace="root"):
+        """Launch an app as root user."""
+        rws = self.core_interface.get_workspace_as_root(workspace)
+        token = rws.generate_token()
+        config = await self.start(app_name, workspace, token=token)
+        return await self.core_interface.get_plugin_as_root(
+            config.name, config.workspace
+        )
 
     async def stop(self, name):
         """Stop a server app instance."""

@@ -266,8 +266,12 @@ def check_permission(workspace, user_info):
             logger.warning("Workspace %s not found", workspace)
             return False
 
-    # Make exceptions for root user and test workspace
-    if user_info.id == "root" or workspace.name == "public":
+    # Make exceptions for root user, the children of root and test workspace
+    if (
+        user_info.id == "root"
+        or user_info.parent == "root"
+        or workspace.name == "public"
+    ):
         return True
 
     if workspace.name == user_info.id:
