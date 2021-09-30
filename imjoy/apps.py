@@ -91,8 +91,11 @@ class ServerAppController:
         if self.in_docker:
             args.append("--no-sandbox")
         self.browser = await playwright.chromium.launch(args=args)
+        await self.undeploy("imjoy-plugin-parser")
         await self.deploy(template="imjoy-plugin-parser.html", id="imjoy-plugin-parser")
-        self.plugin_parser = await self.launch_as_root("imjoy-plugin-parser", workspace="root")
+        self.plugin_parser = await self.launch_as_root(
+            "imjoy-plugin-parser", workspace="root"
+        )
 
     async def close(self):
         """Close the app controller."""
@@ -121,6 +124,9 @@ class ServerAppController:
     async def deploy(self, source=None, template="imjoy", id=None):
         """Deploy a server app."""
         id = id or str(uuid.uuid4())
+        if (self.apps_dir / id).exists():
+            raise Exception(f"Another app with the same id ({id}) already exists.")
+
         os.makedirs(self.apps_dir / id, exist_ok=True)
 
         if template == "imjoy":
@@ -181,7 +187,6 @@ class ServerAppController:
         self.event_bus.on("plugin_registered", registered)
         try:
             response = await page.goto(url)
-            # await page.screenshot({"path": "./example.png"})
             assert (
                 response.status == 200
             ), f"Failed to start server app instance, status: {response.status}, url: {url}"
