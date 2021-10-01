@@ -14,7 +14,7 @@ window = self;
 
 self.onmessage = function(e) {
 const config = e.data
-importScripts("https://cdn.jsdelivr.net/npm/imjoy-rpc@0.3.21/dist/imjoy-rpc-socketio.min.js")
+importScripts("https://cdn.jsdelivr.net/npm/imjoy-rpc@0.3.22/dist/imjoy-rpc-socketio.min.js")
 imjoyRPCSocketIO.connectToServer(config).then(async (api)=>{
 {{ script | safe }}
 }).catch(console.error)
