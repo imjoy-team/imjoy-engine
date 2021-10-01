@@ -6,9 +6,7 @@ import shutil
 import traceback
 
 from starlette.routing import Router
-from fastapi import APIRouter, HTTPException, Request
 from fastapi.logger import logger
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from playwright.async_api import async_playwright
@@ -66,6 +64,7 @@ class ServerAppController:
         self.router = Router()
         # we mount it under root, then the router will be mounted under /apps
         self.router.mount("/", StaticFiles(directory=self.apps_dir), name="apps")
+        # TODO: support http proxy for function executions
 
     def _capture_logs_from_browser_tabs(self, page):
         page.on(
