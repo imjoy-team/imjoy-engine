@@ -2,8 +2,6 @@
 *.app
 apps/
 node_modules
-package.json
-package-lock.json
 __ImJoy__
 # Byte-compiled / optimized / DLL files
 __pycache__/
