@@ -140,7 +140,9 @@ class ServerAppController:
             id = config.name
             try:
                 temp = self.jinja_env.get_template(config.type + "-plugin.html")
-                source = temp.render(script=config.script)
+                source = temp.render(
+                    script=config.script, requirements=config.requirements
+                )
             except Exception:
                 raise Exception(
                     f"Failed to compile the imjoy plugin, error: {traceback.format_exc()}"

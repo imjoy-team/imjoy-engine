@@ -31,14 +31,10 @@ Please note that if you are trying to use the ImJoy Plugin Engine running on a r
 ## Connecting to a ImJoy Engine Server
 ```python
 import webbrowser
-from imjoy_rpc import connect_to_server, launch_plugin
-
-def new_client_join(ws):
-    viewer = await ws.createWindow(src="https://kaibu.org")
+from imjoy_rpc import connect_to_server
 
 async def main():
     api = await connect_to_server(server_url="https://api.imjoy.io/")
-    api.on('join', new_client_join)
     token = await api.generate_token()
     name = api.config['name']
     url = f"https://imjoy.io/lite?server_url=https://api.imjoy.io&token={token}&name={name}"

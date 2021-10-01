@@ -363,6 +363,24 @@ async def test_server_apps(socketio_server):
         assert result == 6
         await controller.stop(config.name)
 
+        try:
+            await controller.undeploy("public/WebWorkerPlugin")
+        except Exception:
+            pass
+        source = (
+            (Path(__file__).parent / "testWebWorkerPlugin.imjoy.html").open().read()
+        )
+        pid = await controller.deploy(source, "public", "imjoy")
+        assert pid == "public/WebWorkerPlugin"
+        apps = await controller.list("public")
+        assert pid in apps
+        config = await controller.start(pid, workspace, token)
+        plugin = await api.get_plugin(config.name)
+        assert "add2" in plugin
+        result = await plugin.add2(4)
+        assert result == 6
+        await controller.stop(config.name)
+
     except Exception:
         raise
     finally:

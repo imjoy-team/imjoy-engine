@@ -6,7 +6,7 @@
    <title>ImJoy Plugin Template</title>
    <meta name="description" content="Template for ImJoy plugin">
    <meta name="author" content="ImJoy-Team">
-   <script src="https://cdn.jsdelivr.net/npm/imjoy-rpc@0.3.19/dist/imjoy-rpc-socketio.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/imjoy-rpc@0.3.21/dist/imjoy-rpc-socketio.min.js"></script>
    <scrpt src="https://cdn.jsdelivr.net/npm/imjoy-core@0.13.82/src/pluginParser.js"></scrpt>
 </head>
 
@@ -34,7 +34,7 @@
             "passive",
         ];
         const config = Object.fromEntries(new URLSearchParams(window.location.search))
-        config.server_token=config.token
+        if(!config.server_url) config.server_url = window.location.origin;
         imjoyRPCSocketIO.connectToServer(config).then(async (api)=>{
             const pluginParser = await import("https://cdn.jsdelivr.net/npm/imjoy-core@0.13.82/src/pluginParser.js")
             function parsePluginCode(code, overwrite_config) {
