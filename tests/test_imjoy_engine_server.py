@@ -4,6 +4,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+import tempfile
+import shutil
 
 import pytest
 import requests
@@ -309,6 +311,7 @@ async def test_server_apps(socketio_server):
     workspace = api.config["workspace"]
     token = await api.generate_token()
 
+    # Test plugin with custom template
     controller = await api.get_app_controller()
     app_id = await controller.deploy(
         TEST_APP_CODE, "public", "window-plugin.html", "test-window-plugin", True
@@ -339,7 +342,7 @@ async def test_server_apps(socketio_server):
     except Exception:
         pass
     source = (Path(__file__).parent / "testWindowPlugin1.imjoy.html").open().read()
-    pid = await controller.deploy(source, "public", "imjoy")
+    pid = await controller.deploy(source, user_id="public", template="imjoy")
     assert pid == "public/Test Window Plugin"
     apps = await controller.list("public")
     assert pid in apps
@@ -381,3 +384,103 @@ async def test_server_apps(socketio_server):
     result = await plugin.add2(4)
     assert result == 6
     await controller.stop(config.name)
+
+
+TEST_FS_CODE = """
+api.export({
+    async setup(){
+        await api.log("initialized")
+    },
+    async readFile(path){
+        const fs = await api.mount_fs('file', {})
+        const file = await fs.open(path, "r")
+        try{
+            const content = await file.read()
+            return content
+        }
+        catch(e){
+            throw e
+        }
+        finally{
+            await file.close()
+            await api.disposeObject(file)
+        }        
+    }
+})
+"""
+
+
+@pytest.fixture(name="fs_tmpdir")
+def make_fs_tmpdir():
+    """Make tempoarary directory for testing fs"""
+    tmpdir = tempfile.mkdtemp()
+    fn = os.path.join(tmpdir, "one")
+    open(fn, "wb").write(b"one")
+    os.makedirs(os.path.join(tmpdir, "dir"), exist_ok=True)
+    fn2 = os.path.join(tmpdir, "dir", "two")
+    open(fn2, "wb").write(b"two")
+    yield tmpdir
+    shutil.rmtree(tmpdir)
+
+
+async def test_fs(socketio_server, fs_tmpdir):
+    api = await connect_to_server({"name": "test client", "server_url": SERVER_URL})
+    workspace = api.config["workspace"]
+    token = await api.generate_token()
+
+    async with api.mount_fs("file", {}) as fs:
+        assert len(await fs.listdir("/data")) > 0
+
+        fn = os.path.join(fs_tmpdir, "one")
+        test_file_path = os.path.join(fs_tmpdir, "test.txt")
+
+        with pytest.raises(
+            Exception, match=r".*Methods related to local file path are not available.*"
+        ):
+            await fs.put(fn, test_file_path)
+
+        # test write file
+        async with fs.open(test_file_path, "w") as file:
+            await file.write("hello")
+
+        assert open(test_file_path, "rb").read() == b"hello"
+
+        # test read file
+        file = await fs.open(test_file_path, "rb")
+        assert await file.read() == b"hello"
+        await file.close()
+        await api.dispose_object(file)
+        # test read file from remote
+        async with api.get_app_controller() as controller:
+            # controller = await api.get_app_controller()
+            pid = await controller.deploy(
+                TEST_FS_CODE, "public", "window-plugin.html", "test-fs-plugin", True
+            )
+            assert pid == "public/test-fs-plugin"
+            apps = await controller.list("public")
+            assert pid in apps
+            config = await controller.start(pid, workspace, token)
+            plugin = await api.get_plugin(config.name)
+            assert "readFile" in plugin
+            result = await plugin.readFile(test_file_path)
+            assert result == "hello"
+            await controller.stop(config.name)
+
+            await fs.move(os.path.join(fs_tmpdir, "dir"), os.path.join(fs_tmpdir, "dir2"), recursive=True)
+            assert fs.exists(os.path.join(fs_tmpdir, "dir2"))
+
+            try:
+                await controller.undeploy("public/WebPythonFSPlugin")
+            except Exception:
+                pass
+            source = (Path(__file__).parent / "testWebPythonFSPlugin.imjoy.html").open().read()
+            pid = await controller.deploy(source, "public", "imjoy")
+            assert pid == "public/WebPythonFSPlugin"
+            apps = await controller.list("public")
+            assert pid in apps
+            config = await controller.start(pid, workspace, token)
+            plugin = await api.get_plugin(config.name)
+            assert "read_file" in plugin
+            result = await plugin.read_file(test_file_path)
+            assert result == b"hello"
+            await controller.stop(config.name)

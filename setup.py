@@ -14,11 +14,11 @@ try:
     # pylint: disable=unused-import
     import google.colab.output  # noqa: F401
 
-    REQUIREMENTS = ["numpy", "imjoy-rpc>=0.3.22", "imjoy-elfinder"]
+    REQUIREMENTS = ["numpy", "imjoy-rpc>=0.3.26", "imjoy-elfinder"]
 except ImportError:
     REQUIREMENTS = [
         "numpy",
-        "imjoy-rpc>=0.3.22",
+        "imjoy-rpc>=0.3.26",
         "pydantic[email]>=1.8.2",
         "typing-extensions>=3.7.4.3",  # required by pydantic
         "aiofiles==0.7.0",
@@ -30,6 +30,7 @@ except ImportError:
         "pyyaml",
         "fastapi>=0.63.0",
         "uvicorn>=0.13.4",
+        "fsspec>=2021.10.0",
     ]
 
 ROOT_DIR = Path(__file__).parent.resolve()

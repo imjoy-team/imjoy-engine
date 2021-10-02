@@ -23,7 +23,7 @@ import asyncio
 
 async def run():
     try:
-        await micropip.install("imjoy-rpc>=0.3.22")
+        await micropip.install("imjoy-rpc>=0.3.26")
         # map imjoy_rpc to imjoy
         import imjoy_rpc
         sys.modules["imjoy"] = imjoy_rpc

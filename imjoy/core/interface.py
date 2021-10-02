@@ -48,6 +48,7 @@ class CoreInterface:
         """Set up instance."""
         self.app_controller = app_controller
         imjoy_api = imjoy_api or {}
+        self._codecs = {}
         self.imjoy_api = dotdict(
             {
                 "_rintf": True,
@@ -94,6 +95,7 @@ class CoreInterface:
             plugin = DynamicPlugin(
                 {"workspace": workspace.name, "name": entry_point.name},
                 self.get_interface(),
+                self.get_codecs(),
                 connection,
                 workspace,
             )
@@ -285,3 +287,20 @@ class CoreInterface:
     def get_interface(self):
         """Return the interface."""
         return self.imjoy_api.copy()
+
+    def register_codec(self, config):
+        """Register a codec"""
+        assert "name" in config
+        assert "encoder" in config or "decoder" in config
+        if "type" in config:
+            for tp in list(self._codecs.keys()):
+                codec = self._codecs[tp]
+                if codec.type == config["type"] or tp == config["name"]:
+                    logger.info("Removing duplicated codec: " + tp)
+                    del self._codecs[tp]
+
+        self._codecs[config["name"]] = dotdict(config)
+
+    def get_codecs(self):
+        """Return registered codecs for rpc"""
+        return self._codecs

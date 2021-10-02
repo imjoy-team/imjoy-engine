@@ -1,6 +1,6 @@
 fastapi==0.68.1
 imjoy-jupyter-extension==0.2.17
-imjoy-rpc==0.3.22
+imjoy-rpc==0.3.26
 ipykernel==5.5.5
 jupyter==1.0.0
 numpy==1.19.5  # needs to stay compatible with latest tensorflow
@@ -13,3 +13,4 @@ python-socketio[asyncio_client]==5.0.4  # pin for now to solve unknown connectio
 pyyaml==5.4.1
 uvicorn==0.15.0
 playwright==1.15.0
+fsspec==2021.10.0

@@ -32,6 +32,7 @@ from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.apps import ServerAppController
+from imjoy.fs import FSController
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -154,7 +155,11 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
 
         connection = BasicConnection(send)
         plugin = DynamicPlugin(
-            config, core_interface.get_interface(), connection, workspace
+            config,
+            core_interface.get_interface(),
+            core_interface.get_codecs(),
+            connection,
+            workspace,
         )
 
         user_info._plugins[plugin.id] = plugin
@@ -275,6 +280,7 @@ def setup_socketio_server(
     app: FastAPI,
     port: int,
     enable_server_apps: bool = True,
+    enable_fs: bool = True,
     base_path: str = "/",
     allow_origins: Union[str, list] = "*",
 ) -> None:
@@ -288,6 +294,9 @@ def setup_socketio_server(
         app.mount("/apps", app_controller.router)
     else:
         app_controller = None
+
+    if enable_fs:
+        FSController(event_bus, core_interface)
 
     socketio_path = base_path.rstrip("/") + "/socket.io"
 

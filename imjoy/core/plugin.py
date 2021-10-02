@@ -17,10 +17,11 @@ class DynamicPlugin:
 
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, config, interface, connection, workspace):
+    def __init__(self, config, interface, codecs, connection, workspace):
         """Set up instance."""
         self.loop = asyncio.get_event_loop()
         self.config = dotdict(config)
+        self._codecs = codecs
         assert self.config.workspace == workspace.name
         self.workspace = workspace
         self.id = self.config.id or str(uuid.uuid4())  # pylint: disable=invalid-name
@@ -69,7 +70,8 @@ class DynamicPlugin:
         _rpc_context = ContextLocal()
         _rpc_context.api = self._initial_interface
         _rpc_context.default_config = {}
-        self._rpc = RPC(connection, _rpc_context)
+        self._rpc = RPC(connection, _rpc_context, codecs=self._codecs)
+
         self._register_rpc_events()
         self._rpc.set_interface(self._initial_interface)
         await self._send_interface()
