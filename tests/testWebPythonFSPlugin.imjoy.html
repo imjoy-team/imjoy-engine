@@ -31,7 +31,7 @@ class ImJoyPlugin():
         await api.log('initialized')
     
     async def read_file(self, path):
-        fs = await api.mount_fs('file', {})
+        fs = await api.get_file_system()
         file = await fs.open(path, "rb")
         try:
             content = await file.read()

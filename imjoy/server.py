@@ -132,6 +132,10 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
                     persistent=(config.get("persistent") is True),
                 )
                 all_workspaces[ws] = workspace
+                event_bus.emit(
+                    "workspace_created",
+                    workspace,
+                )
             else:
                 return {"success": False, "detail": f"Workspace {ws} does not exist."}
 
@@ -221,6 +225,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
                 del plugin.workspace._plugins[plugin.name]
                 # if there is no plugins in the workspace then we remove it
                 if not plugin.workspace._plugins and not plugin.workspace.persistent:
+                    event_bus.emit("workspace_removed", plugin.workspace.name)
                     del all_workspaces[plugin.workspace.name]
                 asyncio.ensure_future(plugin.terminate())
                 del user_info._plugins[pid]
@@ -286,7 +291,7 @@ def setup_socketio_server(
 ) -> None:
     """Set up the socketio server."""
     event_bus = EventBus()
-    core_interface = CoreInterface()
+    core_interface = CoreInterface(event_bus)
 
     if enable_server_apps:
         app_controller = ServerAppController(event_bus, core_interface, port=port)

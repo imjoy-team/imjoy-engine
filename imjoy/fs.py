@@ -1,6 +1,8 @@
 import os
 import fsspec
 import inspect
+import logging
+from pathlib import Path
 import posixpath
 from functools import partial
 from typing import List, Optional
@@ -41,8 +43,44 @@ def safe_join(directory: str, *pathnames: str) -> Optional[str]:
     return posixpath.join(*parts)
 
 
+class FSRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    """A rotating file handler for working with fsspec"""
+
+    def __init__(self, fs, *args, **kwargs):
+        """Initialize file handler"""
+        self.fs = fs
+        super().__init__(*args, **kwargs)
+
+    def _open(self):
+        """
+        Open the current base file with the (original) mode and encoding.
+        Return the resulting stream.
+        """
+        return self.fs.open(self.baseFilename, self.mode, encoding=self.encoding)
+
+
+def setup_logger(fs, name, log_file, level=logging.INFO):
+    """To setup as many loggers as you want"""
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+
+    handler = FSRotatingFileHandler(fs, log_file, maxBytes=2000000)
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+
+    return logger
+
+
 def encode_fsmap(x):
-    return {}
+    ret = {
+        m: getattr(x, m)
+        for m in dir(x)
+        if not m.startswith("_") and callable(getattr(x, m))
+    }
+    ret["_rintf"] = True
+    return ret
 
 
 class FSController:
@@ -52,24 +90,43 @@ class FSController:
         self,
         event_bus,
         core_interface,
-        fs_dir: str = "./data2/data",
+        fs_dir: str = "./data",
+        fs_type: str = "file",
+        fs_config: dict = None,
     ):
         self.core_interface = core_interface
-        core_interface.register_interface("mount_fs", self.mount)
-        core_interface.register_interface("mountFs", self.mount)
+        core_interface.register_interface("get_file_system", self.get_file_system)
+        core_interface.register_interface("getFileSystem", self.get_file_system)
         core_interface.register_codec(
             {"name": "FSMap", "type": fsspec.mapping.FSMap, "encoder": encode_fsmap}
         )
-        self.fs_dir = fs_dir
+        self.fs_dir = Path(fs_dir)
+        self.fs_type = fs_type
+        self.fs_config = fs_config or {}
+        self.fs = fsspec.filesystem(self.fs_type, **self.fs_config)
+        event_bus.on("workspace_created", self.setup_workspace)
+        event_bus.on("workspace_removed", self.cleanup_workspace)
 
-    def mount(self, type, config):
+    def setup_workspace(self, workspace):
+        workspace_dir = self.fs_dir / workspace.name
+        self.fs.makedirs(str(workspace_dir), exist_ok=True)
+        with self.fs.open(str(workspace_dir / "_workspace_config.json"), "w") as fil:
+            fil.write(workspace.json())
+        logger = setup_logger(self.fs, workspace.name, str(workspace_dir / "log.txt"))
+        workspace._logger = logger
+
+    def cleanup_workspace(self, workspace_name):
+        workspace_dir = self.fs_dir / workspace_name
+        self.fs.rm(str(workspace_dir), recursive=True)
+
+    def get_file_system(self, config=None):
         current_workspace = self.core_interface.current_workspace.get()
         workspace_name = current_workspace.name
-        fs = fsspec.filesystem(type, **config)
+
         export_fs = {}
         LOCAL_METHODS = ["download", "get", "get_file", "put", "put_file", "upload"]
-        workspace_dir = os.path.abspath(os.path.join(self.fs_dir, workspace_name))
-        fs.makedirs(workspace_dir, exist_ok=True)
+        workspace_dir = str(os.path.abspath(self.fs_dir / workspace_name))
+        self.fs.makedirs(workspace_dir, exist_ok=True)
 
         def throw_error(*_):
             raise Exception("Methods for local file mainipulation are not available.")
@@ -96,8 +153,8 @@ class FSController:
                     kwargs[k] = safe_join(workspace_dir, arg)
             return func(*args, **kwargs)
 
-        for attr in dir(fs):
-            v = getattr(fs, attr)
+        for attr in dir(self.fs):
+            v = getattr(self.fs, attr)
             if attr in LOCAL_METHODS:
                 export_fs[attr] = throw_error
             elif not attr.startswith("_") and (

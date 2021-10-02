@@ -1,5 +1,7 @@
 """Provide the ImJoy core API interface."""
 from enum import Enum
+import logging
+import sys
 from contextvars import ContextVar
 from typing import Any, Callable, Dict, List, Optional
 
@@ -8,6 +10,10 @@ from pydantic import (  # pylint: disable=no-name-in-module
     EmailStr,
     PrivateAttr,
 )
+
+logging.basicConfig(stream=sys.stdout)
+logger = logging.getLogger("core")
+logger.setLevel(logging.INFO)
 
 
 class TokenConfig(BaseModel):
@@ -52,6 +58,7 @@ class WorkspaceInfo(BaseModel):
     allow_list: Optional[List[str]]
     deny_list: Optional[List[str]]
     authorizer: Optional[str]
+    _logger: Optional[logging.Logger] = PrivateAttr(default_factory=lambda: logger)
     _authorizer: Optional[Callable] = PrivateAttr(default_factory=lambda: None)
     _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})  # name: plugin
     _services: List[Dict[str, Any]] = PrivateAttr(default_factory=lambda: [])

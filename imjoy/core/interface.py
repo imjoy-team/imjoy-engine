@@ -44,8 +44,9 @@ class CoreInterface:
 
     # pylint: disable=no-self-use, protected-access
 
-    def __init__(self, imjoy_api=None, app_controller=None):
+    def __init__(self, event_bus, imjoy_api=None, app_controller=None):
         """Set up instance."""
+        self.event_bus = event_bus
         self.current_plugin = current_plugin
         self.current_user = current_user
         self.current_workspace = current_workspace
@@ -55,8 +56,11 @@ class CoreInterface:
         self._imjoy_api = dotdict(
             {
                 "_rintf": True,
-                "log": self.log,
+                "log": self.info,
+                "info": self.info,
                 "error": self.error,
+                "warning": self.warning,
+                "critical": self.critical,
                 "registerService": self.register_service,
                 "register_service": self.register_service,
                 "getServices": self.get_services,
@@ -170,15 +174,30 @@ class CoreInterface:
                 ret.append(service)
         return ret
 
-    def log(self, msg):
+    def info(self, msg):
         """Log a plugin message."""
         plugin = current_plugin.get()
         logger.info("%s: %s", plugin.name, msg)
+        if plugin.workspace._logger:
+            plugin.workspace._logger.info("%s: %s", plugin.name, msg)
+
+    def warning(self, msg):
+        """Log a plugin message (warning)."""
+        plugin = current_plugin.get()
+        if plugin.workspace._logger:
+            plugin.workspace._logger.warning("%s: %s", plugin.name, msg)
 
     def error(self, msg):
-        """Log a plugin error message."""
+        """Log a plugin error message (error)."""
         plugin = current_plugin.get()
-        logger.error("%s: %s", plugin.name, msg)
+        if plugin.workspace._logger:
+            plugin.workspace._logger.error("%s: %s", plugin.name, msg)
+
+    def critical(self, msg):
+        """Log a plugin error message (critical)."""
+        plugin = current_plugin.get()
+        if plugin.workspace._logger:
+            plugin.workspace._logger.critical("%s: %s", plugin.name, msg)
 
     def generate_token(self, config: Optional[dict] = None):
         """Generate a token for the current workspace."""

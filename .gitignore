@@ -1,5 +1,6 @@
 *.DS_Store
 *.app
+data/
 apps/
 node_modules
 __ImJoy__

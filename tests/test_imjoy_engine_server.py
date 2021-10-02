@@ -392,7 +392,7 @@ api.export({
         await api.log("initialized")
     },
     async readFile(path){
-        const fs = await api.mount_fs('file', {})
+        const fs = await api.get_file_system()
         const file = await fs.open(path, "r")
         try{
             const content = await file.read()
@@ -415,7 +415,7 @@ async def test_fs(socketio_server):
     workspace = api.config["workspace"]
     token = await api.generate_token()
 
-    async with api.mount_fs("file", {}) as fs:
+    async with api.get_file_system() as fs:
         with pytest.raises(Exception, match=r".*Illegal file path*"):
             await fs.listdir("../")
         with pytest.raises(Exception, match=r".*Illegal file path*"):
@@ -426,7 +426,8 @@ async def test_fs(socketio_server):
         test_file_path = os.path.join("test.txt")
 
         with pytest.raises(
-            Exception, match=r".*Methods for local file mainipulation are not available.*"
+            Exception,
+            match=r".*Methods for local file mainipulation are not available.*",
         ):
             await fs.put("one", test_file_path)
 
@@ -435,7 +436,8 @@ async def test_fs(socketio_server):
             await file.write("hello")
 
         mapper = await fs.get_mapper("mydata")
-        print(mapper)
+        assert callable(mapper.getitems)
+
         # test read file
         file = await fs.open(test_file_path, "rb")
         assert await file.read() == b"hello"
@@ -484,4 +486,4 @@ async def test_fs(socketio_server):
             assert result == b"hello"
             await controller.stop(config.name)
 
-        fs.rm("./", recursive=True)
+        # fs.rm("./", recursive=True)
