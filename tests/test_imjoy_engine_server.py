@@ -485,5 +485,3 @@ async def test_fs(socketio_server):
             result = await plugin.read_file(test_file_path)
             assert result == b"hello"
             await controller.stop(config.name)
-
-        # fs.rm("./", recursive=True)
