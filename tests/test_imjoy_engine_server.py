@@ -416,15 +416,19 @@ async def test_fs(socketio_server):
     token = await api.generate_token()
 
     async with api.mount_fs("file", {}) as fs:
-        await fs.listdir("./")
+        with pytest.raises(Exception, match=r".*Illegal file path*"):
+            await fs.listdir("../")
+        with pytest.raises(Exception, match=r".*Illegal file path*"):
+            await fs.listdir("/")
+        with pytest.raises(Exception, match=r".*Illegal file path*"):
+            await fs.listdir("/data")
 
-        fn = "one"
         test_file_path = os.path.join("test.txt")
 
         with pytest.raises(
-            Exception, match=r".*Methods related to local file path are not available.*"
+            Exception, match=r".*Methods for local file mainipulation are not available.*"
         ):
-            await fs.put(fn, test_file_path)
+            await fs.put("one", test_file_path)
 
         # test write file
         async with fs.open(test_file_path, "w") as file:
