@@ -7,6 +7,8 @@ import posixpath
 from functools import partial
 from typing import List, Optional
 
+EXCLUDE_METHODS = ["download", "get", "get_file", "put", "put_file", "upload"]
+
 _os_alt_seps: List[str] = list(
     sep for sep in [os.path.sep, os.path.altsep] if sep is not None and sep != "/"
 )
@@ -124,7 +126,6 @@ class FSController:
         workspace_name = current_workspace.name
 
         export_fs = {}
-        LOCAL_METHODS = ["download", "get", "get_file", "put", "put_file", "upload"]
         workspace_dir = str(os.path.abspath(self.fs_dir / workspace_name))
         self.fs.makedirs(workspace_dir, exist_ok=True)
 
@@ -155,7 +156,7 @@ class FSController:
 
         for attr in dir(self.fs):
             v = getattr(self.fs, attr)
-            if attr in LOCAL_METHODS:
+            if attr in EXCLUDE_METHODS:
                 export_fs[attr] = throw_error
             elif not attr.startswith("_") and (
                 isinstance(v, (str, int, float)) or callable(v)
