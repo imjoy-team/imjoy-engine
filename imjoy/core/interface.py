@@ -46,10 +46,13 @@ class CoreInterface:
 
     def __init__(self, imjoy_api=None, app_controller=None):
         """Set up instance."""
+        self.current_plugin = current_plugin
+        self.current_user = current_user
+        self.current_workspace = current_workspace
         self.app_controller = app_controller
         imjoy_api = imjoy_api or {}
         self._codecs = {}
-        self.imjoy_api = dotdict(
+        self._imjoy_api = dotdict(
             {
                 "_rintf": True,
                 "log": self.log,
@@ -71,7 +74,7 @@ class CoreInterface:
                 "getWorkspace": self.get_workspace,
             }
         )
-        self.imjoy_api.update(imjoy_api)
+        self._imjoy_api.update(imjoy_api)
 
         # run server extensions
         for entry_point in pkg_resources.iter_entry_points(
@@ -104,7 +107,7 @@ class CoreInterface:
             current_plugin.set(plugin)
             try:
                 setup_extension = entry_point.load()
-                setup_extension(self.imjoy_api)
+                setup_extension(self._imjoy_api)
             except Exception:
                 logger.exception("Failed to setup extension: %s", entry_point.name)
                 raise
@@ -130,7 +133,7 @@ class CoreInterface:
     def register_interface(self, name, func):
         """Register a interface function."""
         assert callable(func)
-        self.imjoy_api[name] = func
+        self._imjoy_api[name] = func
 
     def register_service(self, service: dict):
         """Register a service."""
@@ -286,7 +289,7 @@ class CoreInterface:
 
     def get_interface(self):
         """Return the interface."""
-        return self.imjoy_api.copy()
+        return self._imjoy_api.copy()
 
     def register_codec(self, config):
         """Register a codec"""

@@ -410,29 +410,16 @@ api.export({
 """
 
 
-@pytest.fixture(name="fs_tmpdir")
-def make_fs_tmpdir():
-    """Make tempoarary directory for testing fs"""
-    tmpdir = tempfile.mkdtemp()
-    fn = os.path.join(tmpdir, "one")
-    open(fn, "wb").write(b"one")
-    os.makedirs(os.path.join(tmpdir, "dir"), exist_ok=True)
-    fn2 = os.path.join(tmpdir, "dir", "two")
-    open(fn2, "wb").write(b"two")
-    yield tmpdir
-    shutil.rmtree(tmpdir)
-
-
-async def test_fs(socketio_server, fs_tmpdir):
+async def test_fs(socketio_server):
     api = await connect_to_server({"name": "test client", "server_url": SERVER_URL})
     workspace = api.config["workspace"]
     token = await api.generate_token()
 
     async with api.mount_fs("file", {}) as fs:
-        assert len(await fs.listdir("/data")) > 0
+        await fs.listdir("./")
 
-        fn = os.path.join(fs_tmpdir, "one")
-        test_file_path = os.path.join(fs_tmpdir, "test.txt")
+        fn = "one"
+        test_file_path = os.path.join("test.txt")
 
         with pytest.raises(
             Exception, match=r".*Methods related to local file path are not available.*"
@@ -443,8 +430,8 @@ async def test_fs(socketio_server, fs_tmpdir):
         async with fs.open(test_file_path, "w") as file:
             await file.write("hello")
 
-        assert open(test_file_path, "rb").read() == b"hello"
-
+        mapper = await fs.get_mapper("mydata")
+        print(mapper)
         # test read file
         file = await fs.open(test_file_path, "rb")
         assert await file.read() == b"hello"
@@ -466,14 +453,22 @@ async def test_fs(socketio_server, fs_tmpdir):
             assert result == "hello"
             await controller.stop(config.name)
 
-            await fs.move(os.path.join(fs_tmpdir, "dir"), os.path.join(fs_tmpdir, "dir2"), recursive=True)
-            assert fs.exists(os.path.join(fs_tmpdir, "dir2"))
+            await fs.makedirs("dir", exist_ok=True)
+            fn2 = os.path.join("dir", "two")
+            async with fs.open(fn2, "wb") as fil:
+                await fil.write(b"two")
+            await fs.move("dir", "dir2", recursive=True)
+            assert await fs.exists("dir2")
 
             try:
                 await controller.undeploy("public/WebPythonFSPlugin")
             except Exception:
                 pass
-            source = (Path(__file__).parent / "testWebPythonFSPlugin.imjoy.html").open().read()
+            source = (
+                (Path(__file__).parent / "testWebPythonFSPlugin.imjoy.html")
+                .open()
+                .read()
+            )
             pid = await controller.deploy(source, "public", "imjoy")
             assert pid == "public/WebPythonFSPlugin"
             apps = await controller.list("public")
@@ -484,3 +479,5 @@ async def test_fs(socketio_server, fs_tmpdir):
             result = await plugin.read_file(test_file_path)
             assert result == b"hello"
             await controller.stop(config.name)
+
+        fs.rm("./", recursive=True)
