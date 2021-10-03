@@ -1,5 +1,6 @@
 *.DS_Store
 *.app
+bin/
 data/
 apps/
 node_modules

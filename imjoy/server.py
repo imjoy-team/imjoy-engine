@@ -33,6 +33,7 @@ from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.apps import ServerAppController
 from imjoy.fs import FSController
+from imjoy.s3 import S3Controller
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -284,10 +285,14 @@ def create_application(allow_origins, base_path) -> FastAPI:
 def setup_socketio_server(
     app: FastAPI,
     port: int,
-    enable_server_apps: bool = True,
+    enable_server_apps: bool = False,
     enable_fs: bool = False,
+    enable_s3: bool = False,
+    access_key_id: str = None,
+    secret_access_key: str = None,
     base_path: str = "/",
     allow_origins: Union[str, list] = "*",
+    **kwargs,
 ) -> None:
     """Set up the socketio server."""
     event_bus = EventBus()
@@ -298,6 +303,14 @@ def setup_socketio_server(
 
     if enable_fs:
         FSController(event_bus, core_interface)
+
+    if enable_s3:
+        S3Controller(
+            event_bus,
+            core_interface,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+        )
 
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
@@ -326,18 +339,11 @@ def setup_socketio_server(
 def start_server(args):
     """Start the socketio server."""
     if args.allow_origin:
-        allow_origin = args.allow_origin.split(",")
+        args.allow_origin = args.allow_origin.split(",")
     else:
-        allow_origin = env.get("ALLOW_ORIGINS", "*").split(",")
-    application = create_application(allow_origin, args.base_path)
-    setup_socketio_server(
-        application,
-        port=int(args.port),
-        base_path=args.base_path,
-        allow_origins=allow_origin,
-        enable_fs=args.enable_fs,
-        enable_server_apps=args.enable_server_apps,
-    )
+        args.allow_origin = env.get("ALLOW_ORIGINS", "*").split(",")
+    application = create_application(args.allow_origin, args.base_path)
+    setup_socketio_server(application, **vars(args))
     if args.host in ("127.0.0.1", "localhost"):
         print(
             "***Note: If you want to enable access from another host, "
@@ -382,7 +388,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "--enable-server-apps",
         action="store_true",
-        help="enable file system support",
+        help="enable server applications",
+    )
+    parser.add_argument(
+        "--enable-s3",
+        action="store_true",
+        help="enable S3 object storage",
+    )
+    parser.add_argument(
+        "--access-key-id",
+        action="store_true",
+        help="set AccessKeyID for S3",
+    )
+    parser.add_argument(
+        "--secret-access-key",
+        action="store_true",
+        help="set SecretAccessKey for S3",
     )
     opt = parser.parse_args()
     start_server(opt)

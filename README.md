@@ -72,3 +72,18 @@ Install chrome in Ubuntu 20.04 for the browser apps:
 sudo add-apt-repository ppa:xtradeb/apps
 sudo apt install chromium
 ```
+
+## Setup up imjoy-engine server
+
+
+```
+pip install -U imjoy
+playwright install
+
+# the following command is for linux
+# if you use other os, please see here: https://docs.min.io/docs/minio-client-quickstart-guide.html
+mkdir bin
+wget -O bin/mc https://dl.min.io/client/mc/release/linux-amd64/mc
+chmod +x bin/mc
+export PATH=./bin:$PATH
+```

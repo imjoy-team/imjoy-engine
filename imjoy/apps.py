@@ -49,7 +49,7 @@ class ServerAppController:
         os.makedirs(self.apps_dir, exist_ok=True)
         self.controller_id = str(ServerAppController.instance_counter)
         ServerAppController.instance_counter += 1
-        self.port = port
+        self.port = int(port)
         self.in_docker = in_docker
         self.server_url = f"http://127.0.0.1:{self.port}"
         self.event_bus = event_bus
