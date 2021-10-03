@@ -5,13 +5,13 @@ from pathlib import Path
 import shutil
 import traceback
 
-from starlette.routing import Router
+from fastapi import APIRouter
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.logger import logger
-from fastapi.staticfiles import StaticFiles
 
 from playwright.async_api import async_playwright
 
-from imjoy.utils import dotdict
+from imjoy.utils import dotdict, safe_join
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -61,9 +61,20 @@ class ServerAppController:
             loader=PackageLoader("imjoy"), autoescape=select_autoescape()
         )
         self.templates_dir = Path(__file__).parent / "templates"
-        self.router = Router()
-        # we mount it under root, then the router will be mounted under /apps
-        self.router.mount("/", StaticFiles(directory=self.apps_dir), name="apps")
+        router = APIRouter()
+
+        @router.get("/apps/{path:path}")
+        def get_app_file(path: str):
+            path = safe_join(str(self.apps_dir), path)
+            if os.path.exists(path):
+                return FileResponse(path)
+            else:
+                return JSONResponse(
+                    status_code=404,
+                    content={"success": False, "detail": f"File not found: {path}"},
+                )
+
+        core_interface.register_router(router)
         # TODO: support http proxy for function executions
 
     def _capture_logs_from_browser_tabs(self, page):

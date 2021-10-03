@@ -285,20 +285,16 @@ def setup_socketio_server(
     app: FastAPI,
     port: int,
     enable_server_apps: bool = True,
-    enable_fs: bool = True,
+    enable_fs: bool = False,
     base_path: str = "/",
     allow_origins: Union[str, list] = "*",
 ) -> None:
     """Set up the socketio server."""
     event_bus = EventBus()
-    core_interface = CoreInterface(event_bus)
+    core_interface = CoreInterface(app, event_bus)
 
     if enable_server_apps:
-        app_controller = ServerAppController(event_bus, core_interface, port=port)
-        # app.include_router(app_controller.router)
-        app.mount("/apps", app_controller.router)
-    else:
-        app_controller = None
+        ServerAppController(event_bus, core_interface, port=port)
 
     if enable_fs:
         FSController(event_bus, core_interface)
@@ -339,6 +335,8 @@ def start_server(args):
         port=int(args.port),
         base_path=args.base_path,
         allow_origins=allow_origin,
+        enable_fs=args.enable_fs,
+        enable_server_apps=args.enable_server_apps,
     )
     if args.host in ("127.0.0.1", "localhost"):
         print(
@@ -375,6 +373,16 @@ if __name__ == "__main__":
         type=str,
         default="/",
         help="the base path for the server",
+    )
+    parser.add_argument(
+        "--enable-fs",
+        action="store_true",
+        help="enable file system support",
+    )
+    parser.add_argument(
+        "--enable-server-apps",
+        action="store_true",
+        help="enable file system support",
     )
     opt = parser.parse_args()
     start_server(opt)

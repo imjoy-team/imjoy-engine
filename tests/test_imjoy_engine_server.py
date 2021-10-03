@@ -24,7 +24,14 @@ SERVER_URL = f"http://127.0.0.1:{PORT}"
 def socketio_server_fixture():
     """Start server as test fixture and tear down after test."""
     with subprocess.Popen(
-        [sys.executable, "-m", "imjoy.server", f"--port={PORT}"]
+        [
+            sys.executable,
+            "-m",
+            "imjoy.server",
+            f"--port={PORT}",
+            "--enable-fs",
+            "--enable-server-apps",
+        ]
     ) as proc:
 
         timeout = 10

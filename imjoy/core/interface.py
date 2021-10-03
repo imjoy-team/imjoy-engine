@@ -44,12 +44,13 @@ class CoreInterface:
 
     # pylint: disable=no-self-use, protected-access
 
-    def __init__(self, event_bus, imjoy_api=None, app_controller=None):
+    def __init__(self, app, event_bus, imjoy_api=None, app_controller=None):
         """Set up instance."""
         self.event_bus = event_bus
         self.current_plugin = current_plugin
         self.current_user = current_user
         self.current_workspace = current_workspace
+        self.app = app
         self.app_controller = app_controller
         imjoy_api = imjoy_api or {}
         self._codecs = {}
@@ -133,6 +134,9 @@ class CoreInterface:
             persistent=True,
         )
         all_workspaces["root"] = self.root_workspace
+
+    def register_router(self, router):
+        self.app.include_router(router)
 
     def register_interface(self, name, func):
         """Register a interface function."""

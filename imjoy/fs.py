@@ -3,46 +3,11 @@ import fsspec
 import inspect
 import logging
 from pathlib import Path
-import posixpath
+
 from functools import partial
-from typing import List, Optional
+from imjoy.utils import safe_join
 
 EXCLUDE_METHODS = ["download", "get", "get_file", "put", "put_file", "upload"]
-
-_os_alt_seps: List[str] = list(
-    sep for sep in [os.path.sep, os.path.altsep] if sep is not None and sep != "/"
-)
-
-
-def safe_join(directory: str, *pathnames: str) -> Optional[str]:
-    """Safely join zero or more untrusted path components to a base
-    directory to avoid escaping the base directory.
-    :param directory: The trusted base directory.
-    :param pathnames: The untrusted path components relative to the
-        base directory.
-    :return: A safe path, otherwise ``None``.
-
-    This function is copied from: https://github.com/pallets/werkzeug/blob/fb7ddd89ae3072e4f4002701a643eb247a402b64/src/werkzeug/security.py#L222
-    """
-    parts = [directory]
-
-    for filename in pathnames:
-        if filename != "":
-            filename = posixpath.normpath(filename)
-
-        if (
-            any(sep in filename for sep in _os_alt_seps)
-            or os.path.isabs(filename)
-            or filename == ".."
-            or filename.startswith("../")
-        ):
-            raise Exception(
-                f"Illegal file path: `{filename}`, you can only operate within the workspace directory."
-            )
-
-        parts.append(filename)
-
-    return posixpath.join(*parts)
 
 
 class FSRotatingFileHandler(logging.handlers.RotatingFileHandler):
