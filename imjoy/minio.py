@@ -135,7 +135,7 @@ def execute_command(cmd_template, mc_executable=EXECUTABLE_PATH + "/mc", **kwarg
     return content
 
 
-class MinioController:
+class MinioClient:
     """A client class for managing minio"""
 
     def __init__(
@@ -362,7 +362,7 @@ class MinioController:
 
 
 if __name__ == "__main__":
-    mc = MinioController(
+    mc = MinioClient(
         "http://127.0.0.1:9555",
         "minio",
         "miniostorage",

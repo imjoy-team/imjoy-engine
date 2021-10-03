@@ -288,6 +288,7 @@ def setup_socketio_server(
     enable_server_apps: bool = False,
     enable_fs: bool = False,
     enable_s3: bool = False,
+    endpoint_url: str = None,
     access_key_id: str = None,
     secret_access_key: str = None,
     base_path: str = "/",
@@ -308,6 +309,7 @@ def setup_socketio_server(
         S3Controller(
             event_bus,
             core_interface,
+            endpoint_url=endpoint_url,
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
         )
@@ -394,6 +396,11 @@ if __name__ == "__main__":
         "--enable-s3",
         action="store_true",
         help="enable S3 object storage",
+    )
+    parser.add_argument(
+        "--endpoint-url",
+        action="store_true",
+        help="set endpoint URL for S3",
     )
     parser.add_argument(
         "--access-key-id",

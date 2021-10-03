@@ -1,54 +1,5 @@
-import pytest
-import subprocess
-import tempfile
-import requests
-import time
-import os
-import shutil
-from requests import RequestException
-import uuid
-
-from imjoy.minio import setup_minio_executables, MinioController
-
-PORT = 38483
-BASE_URL = f"http://127.0.0.1:{PORT}"
-ROOT_USER = "minio"
-ROOT_PASSWORD = str(uuid.uuid4())
-
-
-@pytest.fixture(name="minio_server")
-def minio_server_fixture():
-    """Start minio server as test fixture and tear down after test."""
-    setup_minio_executables()
-    dirpath = tempfile.mkdtemp()
-    my_env = os.environ.copy()
-    my_env["MINIO_ROOT_USER"] = ROOT_USER
-    my_env["MINIO_ROOT_PASSWORD"] = ROOT_PASSWORD
-    with subprocess.Popen(
-        [
-            "./bin/minio",
-            "server",
-            f"--address=:{PORT}",
-            f"--console-address=:{PORT+1}",
-            f"{dirpath}",
-        ],
-        env=my_env,
-    ) as proc:
-
-        timeout = 10
-        while timeout > 0:
-            try:
-                response = requests.get(f"{BASE_URL}/minio/health/live")
-                if response.ok:
-                    break
-            except RequestException:
-                pass
-            timeout -= 0.1
-            time.sleep(0.1)
-        yield
-
-        proc.terminate()
-        shutil.rmtree(dirpath)
+from imjoy.minio import MinioClient
+from . import MINIO_SERVER_URL, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD
 
 
 def find_item(items, key, value):
@@ -60,10 +11,10 @@ def find_item(items, key, value):
 
 
 def test_minio(minio_server):
-    mc = MinioController(
-        BASE_URL,
-        ROOT_USER,
-        ROOT_PASSWORD,
+    mc = MinioClient(
+        MINIO_SERVER_URL,
+        MINIO_ROOT_USER,
+        MINIO_ROOT_PASSWORD,
     )
     username = "tmp-user"
     username2 = "tmp-user-2"
@@ -136,5 +87,4 @@ def test_minio(minio_server):
 
     mc.admin_policy_set("admins", group="my-group")
     ginfo = mc.admin_group_info("my-group")
-    assert ginfo['groupPolicy'] == 'admins'
-
+    assert ginfo["groupPolicy"] == "admins"
