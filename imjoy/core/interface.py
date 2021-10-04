@@ -14,6 +14,7 @@ from imjoy.core import (
     current_plugin,
     current_user,
     current_workspace,
+    get_all_workspace,
     get_workspace,
     register_workspace,
 )
@@ -154,6 +155,8 @@ class CoreInterface:
         service["provider"] = plugin.name
         service["providerId"] = plugin.id
         service["_rintf"] = True
+        # Note: service can set its `visiblity` to `public` or `protected`
+        service["visibility"] = service.get("visibility", "protected")
         workspace._services.append(service)
 
     def list_plugins(self):
@@ -171,7 +174,25 @@ class CoreInterface:
 
     def get_services(self, query: dict):
         """Return a list of services based on the query."""
-        workspace = current_workspace.get()
+        # if workspace is not set, then it means current workspace
+        # if workspace = *, it means search gloabally
+        # otherwise, it search the specified workspace
+        ws = query.get("workspace")
+        if ws == "*":
+            ret = []
+            for workspace in get_all_workspace():
+                for service in workspace._services:
+                    match = True
+                    for key in query:
+                        if service[key] != query[key]:
+                            match = False
+                    if match:
+                        ret.append(service)
+            return ret
+        elif ws is not None:
+            workspace = get_workspace(ws)
+        else:
+            workspace = current_workspace.get()
         ret = []
         for service in workspace._services:
             match = True
@@ -180,6 +201,10 @@ class CoreInterface:
                     match = False
             if match:
                 ret.append(service)
+
+        if workspace is None:
+            raise Exception("Workspace not found: {ws}")
+
         return ret
 
     def info(self, msg):
@@ -298,6 +323,7 @@ class CoreInterface:
         bound_interface["config"] = {"workspace": name}
         bound_interface["set"] = partial(self._update_workspace, name)
         bound_interface["_rintf"] = True
+        self.event_bus.emit("user_entered_workspace", (user_info, workspace))
         return bound_interface
 
     def get_workspace_as_root(self, name="root"):

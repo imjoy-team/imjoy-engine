@@ -36,7 +36,6 @@ async def test_minio(minio_server):
             f.write("hello")
         await bucket.upload_file("/tmp/hello.txt", "hello.txt")
 
-    assert len(user_list) == 2
     assert find_item(user_list, "accessKey", username)
     assert find_item(user_list, "accessKey", username2)
     mc.admin_user_disable(username)

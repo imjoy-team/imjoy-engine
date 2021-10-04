@@ -20,8 +20,8 @@ from . import (
 from imjoy.minio import setup_minio_executables
 
 
-@pytest.fixture(name="socketio_server")
-def socketio_server_fixture():
+@pytest.fixture(name="socketio_server", scope="session")
+def socketio_server_fixture(minio_server):
     """Start server as test fixture and tear down after test."""
     with subprocess.Popen(
         [
@@ -54,7 +54,7 @@ def socketio_server_fixture():
 
 
 @pytest.fixture(name="socketio_subpath_server")
-def socketio_subpath_server_fixture():
+def socketio_subpath_server_fixture(minio_server):
     """Start server (under /my/engine) as test fixture and tear down after test."""
     with subprocess.Popen(
         [
@@ -83,7 +83,7 @@ def socketio_subpath_server_fixture():
         proc.terminate()
 
 
-@pytest.fixture(name="minio_server")
+@pytest.fixture(name="minio_server", scope="session")
 def minio_server_fixture():
     """Start minio server as test fixture and tear down after test."""
     setup_minio_executables()

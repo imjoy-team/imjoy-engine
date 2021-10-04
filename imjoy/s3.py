@@ -40,7 +40,7 @@ class S3Controller:
             bucket.create()
             logger.info("Bucket created: %s", self.default_bucket)
 
-        self.mc.admin_user_add("admin", generate_password())
+        self.mc.admin_user_add(core_interface.root_user.id, generate_password())
         core_interface.register_interface("get_s3_controller", self.get_s3_controller)
         core_interface.register_interface("getS3Controller", self.get_s3_controller)
 
@@ -48,6 +48,7 @@ class S3Controller:
         event_bus.on("workspace_unregistered", self.cleanup_workspace)
         event_bus.on("user_connected", self.setup_user)
         event_bus.on("plugin_registered", self.setup_plugin)
+        event_bus.on("user_entered_workspace", self.enter_workspace)
 
     def setup_user(self, user_info):
         try:
@@ -64,7 +65,8 @@ class S3Controller:
         self.mc.admin_group_remove(workspace.name)
 
     def setup_workspace(self, workspace):
-        self.mc.admin_group_add(workspace.name, "admin")
+        # make sure we have the root user in every workspace
+        self.mc.admin_group_add(workspace.name, self.core_interface.root_user.id)
         policy_name = "policy-ws-" + workspace.name
         # policy example: https://aws.amazon.com/premiumsupport/knowledge-center/iam-s3-user-specific-folder/
         self.mc.admin_policy_add(
@@ -101,11 +103,17 @@ class S3Controller:
 
         self.mc.admin_policy_set(policy_name, group=workspace.name)
 
+    def enter_workspace(self, ev):
+        user_info, workspace = ev
+        self.mc.admin_group_add(workspace.name, user_info.id)
+
     def generate_credential(self):
         user_info = self.core_interface.current_user.get()
         workspace = self.core_interface.current_workspace.get()
         password = generate_password()
         self.mc.admin_user_add(user_info.id, password)
+        # Make sure the user is in the workspace
+        self.mc.admin_group_add(workspace.name, user_info.id)
         return {
             "endpoint_url": self.endpoint_url,
             "access_key_id": user_info.id,
@@ -115,4 +123,7 @@ class S3Controller:
         }
 
     def get_s3_controller(self):
-        return {"_rintf": True, "generate_credential": self.generate_credential}
+        return {
+            "_rintf": True,
+            "generate_credential": self.generate_credential,
+        }
