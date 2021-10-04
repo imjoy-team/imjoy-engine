@@ -24,10 +24,12 @@ async def test_minio(minio_server):
     username2 = "tmp-user-2"
     # print(mc.ls("/", recursive=True))
     mc.admin_user_add(username, "239udslfj3")
+    # overwrite the password
+    mc.admin_user_add(username, "23923432423j3")
     mc.admin_user_add(username2, "234slfj3")
     user_list = mc.admin_user_list()
 
-    async with mc.get_s3_resource() as s3:
+    async with mc.get_resource_async() as s3:
         bucket = await s3.Bucket("test-bucket")
         await bucket.create()
         with open("/tmp/hello.txt", "w") as f:

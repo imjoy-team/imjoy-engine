@@ -63,6 +63,9 @@ class UserInfo(BaseModel):
     expires_at: Optional[int]
     _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})  # id:plugin
     _sessions: List[str] = PrivateAttr(default_factory=lambda: [])  # session ids
+    _metadata: Dict[str, Any] = PrivateAttr(
+        default_factory=lambda: {}
+    )  # e.g. s3 credential
 
 
 class WorkspaceInfo(BaseModel):

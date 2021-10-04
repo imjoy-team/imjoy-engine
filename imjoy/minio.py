@@ -8,9 +8,10 @@ import tempfile
 import urllib.request
 import stat
 import aioboto3
+import boto3
 
 logging.basicConfig(stream=sys.stdout)
-logger = logging.getLogger("mc-utils")
+logger = logging.getLogger("minio")
 logger.setLevel(logging.INFO)
 
 MATH_PATTERN = re.compile("{(.+?)}")
@@ -44,7 +45,7 @@ def setup_minio_executables():
     if not bool(st.st_mode & stat.S_IEXEC):
         os.chmod(mc_path, st.st_mode | stat.S_IEXEC)
 
-    print("Minio executables are ready.")
+    print("MinIO executables are ready.")
 
 
 def kwarg_to_flag(**kwargs):
@@ -178,10 +179,21 @@ class MinioClient:
             **kwargs,
         )
 
-    def get_s3_resource(self):
+    def get_resource_async(self):
         """Get the s3 resource.
         Documentation here: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html"""
         return aioboto3.Session().resource(
+            "s3",
+            endpoint_url=self.endpoint_url,
+            aws_access_key_id=self.access_key_id,
+            aws_secret_access_key=self.secret_access_key,
+            region_name="EU",
+        )
+
+    def get_resource_sync(self):
+        """Get the s3 resource.
+        Documentation here: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html"""
+        return boto3.Session().resource(
             "s3",
             endpoint_url=self.endpoint_url,
             aws_access_key_id=self.access_key_id,

@@ -17,13 +17,14 @@ class DynamicPlugin:
 
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, config, interface, codecs, connection, workspace):
+    def __init__(self, config, interface, codecs, connection, workspace, user_info):
         """Set up instance."""
         self.loop = asyncio.get_event_loop()
         self.config = dotdict(config)
         self._codecs = codecs
         assert self.config.workspace == workspace.name
         self.workspace = workspace
+        self.user_info = user_info
         self.id = self.config.id or str(uuid.uuid4())  # pylint: disable=invalid-name
         self.name = self.config.name
         self.initializing = False

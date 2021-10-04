@@ -109,6 +109,7 @@ class CoreInterface:
                 self.get_codecs(),
                 connection,
                 workspace,
+                user_info,
             )
             current_user.set(user_info)
             current_workspace.set(workspace)

@@ -92,7 +92,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
             )
         all_users[uid]._sessions.append(sid)
         all_sessions[sid] = all_users[uid]
-        event_bus.emit("plugin_connected", {"uid": uid, "sid": sid})
+        event_bus.emit("user_connected", all_users[uid])
 
     @sio.event
     async def echo(sid, data):
@@ -144,6 +144,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
             core_interface.get_codecs(),
             connection,
             workspace,
+            user_info,
         )
 
         user_info._plugins[plugin.id] = plugin
