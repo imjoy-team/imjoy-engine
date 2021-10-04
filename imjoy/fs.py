@@ -71,8 +71,8 @@ class FSController:
         self.fs_type = fs_type
         self.fs_config = fs_config or {}
         self.fs = fsspec.filesystem(self.fs_type, **self.fs_config)
-        event_bus.on("workspace_created", self.setup_workspace)
-        event_bus.on("workspace_removed", self.cleanup_workspace)
+        event_bus.on("workspace_registered", self.setup_workspace)
+        event_bus.on("workspace_unregistered", self.cleanup_workspace)
 
     def setup_workspace(self, workspace):
         workspace_dir = self.fs_dir / workspace.name
@@ -82,8 +82,8 @@ class FSController:
         logger = setup_logger(self.fs, workspace.name, str(workspace_dir / "log.txt"))
         workspace._logger = logger
 
-    def cleanup_workspace(self, workspace_name):
-        workspace_dir = self.fs_dir / workspace_name
+    def cleanup_workspace(self, workspace):
+        workspace_dir = self.fs_dir / workspace.name
         self.fs.rm(str(workspace_dir), recursive=True)
 
     def get_file_system(self, config=None):

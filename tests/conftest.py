@@ -31,6 +31,10 @@ def socketio_server_fixture():
             f"--port={SIO_PORT}",
             "--enable-fs",
             "--enable-server-apps",
+            "--enable-s3",
+            f"--endpoint-url={MINIO_SERVER_URL}",
+            f"--access-key-id={MINIO_ROOT_USER}",
+            f"--secret-access-key={MINIO_ROOT_PASSWORD}",
         ]
     ) as proc:
 

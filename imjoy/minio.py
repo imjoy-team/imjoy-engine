@@ -7,6 +7,7 @@ import logging
 import tempfile
 import urllib.request
 import stat
+import aioboto3
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("mc-utils")
@@ -43,7 +44,7 @@ def setup_minio_executables():
     if not bool(st.st_mode & stat.S_IEXEC):
         os.chmod(mc_path, st.st_mode | stat.S_IEXEC)
 
-    print("Minio executable are ready.")
+    print("Minio executables are ready.")
 
 
 def kwarg_to_flag(**kwargs):
@@ -135,6 +136,21 @@ def execute_command(cmd_template, mc_executable=EXECUTABLE_PATH + "/mc", **kwarg
     return content
 
 
+def split_s3_path(path):
+    assert isinstance(path, str)
+    if not path.startswith("/"):
+        path = "/" + path
+    parts = path.split("/")
+    if len(parts) < 2:
+        raise Exception("Invalid path: " + str(path))
+    bucket = parts[1]
+    if len(parts) < 3:
+        key = None
+    else:
+        key = "/".join(parts[2:])
+    return bucket, key
+
+
 class MinioClient:
     """A client class for managing minio"""
 
@@ -150,7 +166,10 @@ class MinioClient:
         setup_minio_executables()
         self.alias = alias
         self.mc_executable = mc_executable
-        self.execute(
+        self.endpoint_url = endpoint_url
+        self.access_key_id = access_key_id
+        self.secret_access_key = secret_access_key
+        self._execute(
             "mc alias set {alias} {endpoint_url} {username} {password}",
             alias=self.alias,
             endpoint_url=endpoint_url,
@@ -159,19 +178,30 @@ class MinioClient:
             **kwargs,
         )
 
-    def execute(self, *args, **kwargs):
+    def get_s3_resource(self):
+        """Get the s3 resource.
+        Documentation here: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html"""
+        return aioboto3.Session().resource(
+            "s3",
+            endpoint_url=self.endpoint_url,
+            aws_access_key_id=self.access_key_id,
+            aws_secret_access_key=self.secret_access_key,
+            region_name="EU",
+        )
+
+    def _execute(self, *args, **kwargs):
         if "target" in kwargs:
 
             kwargs["target"] = self.alias + "/" + kwargs["target"].lstrip("/")
         return execute_command(*args, mc_executable=self.mc_executable, **kwargs)
 
-    def ls(self, target, **kwargs):
+    def list(self, target, **kwargs):
         """List files on MinIO"""
-        return self.execute("mc ls {flags} {target}", target=target, **kwargs)
+        return self._execute("mc ls {flags} {target}", target=target, **kwargs)
 
     def admin_user_add(self, username, password, **kwargs):
         """Add a new user on MinIO."""
-        return self.execute(
+        return self._execute(
             "mc {flags} admin user add {alias} {username} {password}",
             alias=self.alias,
             username=username,
@@ -181,7 +211,7 @@ class MinioClient:
 
     def admin_user_remove(self, username, **kwargs):
         """Remove user on MinIO."""
-        return self.execute(
+        return self._execute(
             "mc {flags} admin user remove {alias} {username}",
             alias=self.alias,
             username=username,
@@ -190,7 +220,7 @@ class MinioClient:
 
     def admin_user_enable(self, username, **kwargs):
         """Enable a user on MinIO."""
-        return self.execute(
+        return self._execute(
             "mc {flags} admin user enable {alias} {username}",
             alias=self.alias,
             username=username,
@@ -199,7 +229,7 @@ class MinioClient:
 
     def admin_user_disable(self, username, **kwargs):
         """Disable a user on MinIO."""
-        return self.execute(
+        return self._execute(
             "mc {flags} admin user disable {alias} {username}",
             alias=self.alias,
             username=username,
@@ -208,7 +238,7 @@ class MinioClient:
 
     def admin_user_list(self, **kwargs):
         """List all users on MinIO."""
-        ret = self.execute(
+        ret = self._execute(
             "mc {flags} admin user list {alias}", alias=self.alias, **kwargs
         )
         if isinstance(ret, dict):
@@ -217,7 +247,7 @@ class MinioClient:
 
     def admin_user_info(self, username, **kwargs):
         """Display info of a user."""
-        return self.execute(
+        return self._execute(
             "mc {flags} admin user info {alias} {username}",
             alias=self.alias,
             username=username,
@@ -230,7 +260,7 @@ class MinioClient:
         if not isinstance(members, str):
             members = " ".join(members)
 
-        return self.execute(
+        return self._execute(
             "mc {flags} admin group add {alias} {group} {members}",
             alias=self.alias,
             group=group,
@@ -243,7 +273,7 @@ class MinioClient:
         if not isinstance(members, str):
             members = " ".join(members)
 
-        return self.execute(
+        return self._execute(
             "mc {flags} admin group remove {alias} {group} {members}",
             alias=self.alias,
             group=group,
@@ -252,7 +282,7 @@ class MinioClient:
 
     def admin_group_info(self, group, **kwargs):
         """Display group info."""
-        return self.execute(
+        return self._execute(
             "mc {flags} admin group info {alias} {group}",
             alias=self.alias,
             group=group,
@@ -261,7 +291,7 @@ class MinioClient:
 
     def admin_group_list(self, **kwargs):
         """Display list of groups."""
-        ret = self.execute(
+        ret = self._execute(
             "mc {flags} admin group list {alias}", alias=self.alias, **kwargs
         )
         if isinstance(ret, dict):
@@ -270,7 +300,7 @@ class MinioClient:
 
     def admin_group_enable(self, group, **kwargs):
         """Enable a group."""
-        return self.execute(
+        return self._execute(
             "mc {flags} admin group enable {alias} {group}",
             alias=self.alias,
             group=group,
@@ -279,7 +309,7 @@ class MinioClient:
 
     def admin_group_disable(self, group, **kwargs):
         """Disable a group."""
-        return self.execute(
+        return self._execute(
             "mc {flags} admin group disable {alias} {group}",
             alias=self.alias,
             group=group,
@@ -295,7 +325,7 @@ class MinioClient:
                 tmp.write(content.encode("utf-8"))
                 tmp.flush()
                 file = tmp.name
-                return self.execute(
+                return self._execute(
                     "mc {flags} admin policy add {alias} {name} {file}",
                     alias=self.alias,
                     name=name,
@@ -304,7 +334,7 @@ class MinioClient:
                 )
         else:
             file = policy
-            return self.execute(
+            return self._execute(
                 "mc {flags} admin policy add {alias} {name} {file}",
                 alias=self.alias,
                 name=name,
@@ -314,7 +344,7 @@ class MinioClient:
 
     def admin_policy_remove(self, name, **kwargs):
         """Remove canned policy from MinIO."""
-        return self.execute(
+        return self._execute(
             "mc {flags} admin policy remove {alias} {name}",
             alias=self.alias,
             name=name,
@@ -323,7 +353,7 @@ class MinioClient:
 
     def admin_policy_list(self, **kwargs):
         """List all policies on MinIO."""
-        ret = self.execute(
+        ret = self._execute(
             "mc {flags} admin policy list {alias}", alias=self.alias, **kwargs
         )
         if isinstance(ret, dict):
@@ -332,7 +362,7 @@ class MinioClient:
 
     def admin_policy_info(self, name, **kwargs):
         """Show info on a policy."""
-        return self.execute(
+        return self._execute(
             "mc {flags} admin policy info {alias} {name}",
             alias=self.alias,
             name=name,
@@ -346,14 +376,14 @@ class MinioClient:
             raise KeyError("Only one of user or group arguments can be set.")
 
         if "group" in kwargs:
-            return self.execute(
+            return self._execute(
                 "mc {flags} admin policy set {alias} {name} group={group}",
                 alias=self.alias,
                 name=name,
                 **kwargs,
             )
         else:
-            return self.execute(
+            return self._execute(
                 "mc {flags} admin policy set {alias} {name} user={user}",
                 alias=self.alias,
                 name=name,

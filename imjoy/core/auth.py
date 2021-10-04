@@ -15,7 +15,7 @@ from fastapi import Header, HTTPException, Request
 from jose import jwt
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
-from imjoy.core import UserInfo, VisibilityEnum, TokenConfig, all_users, all_workspaces
+from imjoy.core import UserInfo, VisibilityEnum, TokenConfig, all_users, get_workspace
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
@@ -262,7 +262,7 @@ def check_permission(workspace, user_info):
     """Check user permission for a workspace."""
     # pylint: disable=too-many-return-statements
     if isinstance(workspace, str):
-        workspace = all_workspaces.get(workspace)
+        workspace = get_workspace(workspace)
         if not workspace:
             logger.warning("Workspace %s not found", workspace)
             return False

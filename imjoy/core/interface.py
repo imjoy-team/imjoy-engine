@@ -11,10 +11,11 @@ from imjoy.core import (
     VisibilityEnum,
     TokenConfig,
     WorkspaceInfo,
-    all_workspaces,
     current_plugin,
     current_user,
     current_workspace,
+    get_workspace,
+    register_workspace,
 )
 from imjoy.core.auth import check_permission, generate_presigned_token
 from imjoy.core.plugin import DynamicPlugin
@@ -27,15 +28,17 @@ logger.setLevel(logging.INFO)
 
 
 # Add public workspace
-all_workspaces["public"] = WorkspaceInfo.parse_obj(
-    {
-        "name": "public",
-        "persistent": True,
-        "owners": ["root"],
-        "allow_list": [],
-        "deny_list": [],
-        "visibility": "public",
-    }
+register_workspace(
+    WorkspaceInfo.parse_obj(
+        {
+            "name": "public",
+            "persistent": True,
+            "owners": ["root"],
+            "allow_list": [],
+            "deny_list": [],
+            "visibility": "public",
+        }
+    )
 )
 
 
@@ -133,7 +136,7 @@ class CoreInterface:
             visibility=VisibilityEnum.protected,
             persistent=True,
         )
-        all_workspaces["root"] = self.root_workspace
+        register_workspace(self.root_workspace)
 
     def register_router(self, router):
         self.app.include_router(router)
@@ -218,7 +221,7 @@ class CoreInterface:
         """Create a new workspace."""
         config["persistent"] = config.get("persistent") or False
         workspace = WorkspaceInfo.parse_obj(config)
-        if workspace.name in all_workspaces:
+        if get_workspace(workspace.name):
             raise Exception(f"Workspace {workspace.name} already exists.")
         if workspace.authorizer:
             raise Exception("Workspace authorizer is not supported yet.")
@@ -229,16 +232,16 @@ class CoreInterface:
             workspace.owners.append(_id)
         workspace.owners = [o.strip() for o in workspace.owners if o.strip()]
         user_info.scopes.append(workspace.name)
-        all_workspaces[workspace.name] = workspace
+        register_workspace(workspace)
         return self.get_workspace(workspace.name)
 
     def _update_workspace(self, name, config: dict):
         """Bind the context to the generated workspace."""
         if not name:
             raise Exception("Workspace name is not specified.")
-        if name not in all_workspaces:
+        if not get_workspace(name):
             raise Exception(f"Workspace {name} not found")
-        workspace = all_workspaces[name]
+        workspace = get_workspace(name)
         user_info = current_user.get()
         if not check_permission(workspace, user_info):
             raise PermissionError(f"Permission denied for workspace {name}")
@@ -263,9 +266,9 @@ class CoreInterface:
 
     def get_workspace(self, name: str):
         """Bind the context to the generated workspace."""
-        if name not in all_workspaces:
+        workspace = get_workspace(name)
+        if not workspace:
             raise Exception(f"Workspace {name} not found")
-        workspace = all_workspaces[name]
         user_info = current_user.get()
         if not check_permission(workspace, user_info):
             raise PermissionError(f"Permission denied for workspace {name}")
@@ -304,9 +307,9 @@ class CoreInterface:
     async def get_plugin_as_root(self, name, workspace):
         """Get a plugin api as root user."""
         current_user.set(self.root_user)
-        if workspace not in all_workspaces:
+        workspace = get_workspace(workspace)
+        if not workspace:
             raise Exception(f"Workspace {workspace} does not exist.")
-        workspace = all_workspaces[workspace]
         current_workspace.set(workspace)
         return dotdict(await self.get_plugin(name))
 

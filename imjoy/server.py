@@ -25,7 +25,12 @@ from imjoy.core import (
     current_user,
     current_plugin,
     current_workspace,
-    all_workspaces,
+    event_bus,
+    get_workspace,
+    register_workspace,
+    unregister_workspace,
+    get_all_workspace,
+    EventBus,
 )
 from imjoy.core.auth import parse_token, check_permission
 from imjoy.core.connection import BasicConnection
@@ -38,27 +43,6 @@ from imjoy.s3 import S3Controller
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
-
-
-class EventBus:
-    """An event bus class."""
-
-    def __init__(self):
-        """Initialize the event bus."""
-        self._callbacks = {}
-
-    def on(self, event_name, f):
-        """Register an event callback."""
-        self._callbacks[event_name] = self._callbacks.get(event_name, []) + [f]
-        return f
-
-    def emit(self, event_name, *data):
-        """Trigger an event."""
-        [f(*data) for f in self._callbacks.get(event_name, [])]
-
-    def off(self, event_name, f):
-        """Remove an event callback."""
-        self._callbacks.get(event_name, []).remove(f)
 
 
 def initialize_socketio(sio, core_interface, event_bus: EventBus):
@@ -121,9 +105,8 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
         ws = config.get("workspace") or user_info.id
         config["workspace"] = ws
         config["name"] = config.get("name") or str(uuid.uuid4())
-        if ws in all_workspaces:
-            workspace = all_workspaces[ws]
-        else:
+        workspace = get_workspace(ws)
+        if workspace is None:
             if ws == user_info.id:
                 # create the user workspace automatically
                 workspace = WorkspaceInfo(
@@ -132,11 +115,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
                     visibility=VisibilityEnum.protected,
                     persistent=(config.get("persistent") is True),
                 )
-                all_workspaces[ws] = workspace
-                event_bus.emit(
-                    "workspace_created",
-                    workspace,
-                )
+                register_workspace(workspace)
             else:
                 return {"success": False, "detail": f"Workspace {ws} does not exist."}
 
@@ -186,9 +165,9 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
         user_info = all_sessions[sid]
         plugin_id = data["plugin_id"]
         ws, name = os.path.split(plugin_id)
-        if ws not in all_workspaces:
+        workspace = get_workspace(ws)
+        if not workspace:
             return {"success": False, "detail": f"Workspace not found: {ws}"}
-        workspace = all_workspaces[ws]
         if user_info.id != ws and not check_permission(workspace, user_info):
             logger.error(
                 "Permission denied: workspace=%s, user_id=%s", workspace, user_info.id
@@ -226,8 +205,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
                 del plugin.workspace._plugins[plugin.name]
                 # if there is no plugins in the workspace then we remove it
                 if not plugin.workspace._plugins and not plugin.workspace.persistent:
-                    event_bus.emit("workspace_removed", plugin.workspace.name)
-                    del all_workspaces[plugin.workspace.name]
+                    unregister_workspace(plugin.workspace.name)
                 asyncio.ensure_future(plugin.terminate())
                 del user_info._plugins[pid]
 
@@ -274,9 +252,7 @@ def create_application(allow_origins, base_path) -> FastAPI:
             "all_users": {
                 uid: user_info._sessions for uid, user_info in all_users.items()
             },
-            "all_workspaces": {
-                w.name: len(w._plugins) for w in all_workspaces.values()
-            },
+            "all_workspaces": {w.name: len(w._plugins) for w in get_all_workspace()},
         }
 
     return app
@@ -296,7 +272,6 @@ def setup_socketio_server(
     **kwargs,
 ) -> None:
     """Set up the socketio server."""
-    event_bus = EventBus()
     core_interface = CoreInterface(app, event_bus)
 
     if enable_server_apps:
@@ -399,17 +374,20 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--endpoint-url",
-        action="store_true",
+        type=str,
+        default=None,
         help="set endpoint URL for S3",
     )
     parser.add_argument(
         "--access-key-id",
-        action="store_true",
+        type=str,
+        default=None,
         help="set AccessKeyID for S3",
     )
     parser.add_argument(
         "--secret-access-key",
-        action="store_true",
+        type=str,
+        default=None,
         help="set SecretAccessKey for S3",
     )
     opt = parser.parse_args()

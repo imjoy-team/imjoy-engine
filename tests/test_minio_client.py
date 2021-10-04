@@ -1,5 +1,9 @@
+import pytest
 from imjoy.minio import MinioClient
 from . import MINIO_SERVER_URL, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD
+
+# All test coroutines will be treated as marked.
+pytestmark = pytest.mark.asyncio
 
 
 def find_item(items, key, value):
@@ -10,7 +14,7 @@ def find_item(items, key, value):
         return filtered[0]
 
 
-def test_minio(minio_server):
+async def test_minio(minio_server):
     mc = MinioClient(
         MINIO_SERVER_URL,
         MINIO_ROOT_USER,
@@ -22,6 +26,13 @@ def test_minio(minio_server):
     mc.admin_user_add(username, "239udslfj3")
     mc.admin_user_add(username2, "234slfj3")
     user_list = mc.admin_user_list()
+
+    async with mc.get_s3_resource() as s3:
+        bucket = await s3.Bucket("test-bucket")
+        await bucket.create()
+        with open("/tmp/hello.txt", "w") as f:
+            f.write("hello")
+        await bucket.upload_file("/tmp/hello.txt", "hello.txt")
 
     assert len(user_list) == 2
     assert find_item(user_list, "accessKey", username)

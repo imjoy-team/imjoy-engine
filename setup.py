@@ -31,6 +31,7 @@ except ImportError:
         "fastapi>=0.63.0",
         "uvicorn>=0.13.4",
         "fsspec>=2021.10.0",
+        "aioboto3>=9.2.0",
     ]
 
 ROOT_DIR = Path(__file__).parent.resolve()
