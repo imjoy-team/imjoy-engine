@@ -4,10 +4,13 @@ import uuid
 from pathlib import Path
 import shutil
 import traceback
+import threading
+import time
 
 from fastapi import APIRouter
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.logger import logger
+import requests
 
 from playwright.async_api import async_playwright
 
@@ -75,6 +78,27 @@ class ServerAppController:
                     content={"success": False, "detail": f"File not found: {path}"},
                 )
 
+        # The following code is a hacky solution to call self.intialize
+        # We need to find a better way to call it
+        # If we try to run initialize() in the startup event callback,
+        # It give connection error.
+        @router.get("/initialize-apps")
+        async def initialize_apps():
+            await self.initialize()
+            return JSONResponse({"status": "OK"})
+
+        def do_initialization():
+            while True:
+                try:
+                    response = requests.get(self.server_url + "/initialize-apps")
+                    if response.ok:
+                        logger.info("Server apps intialized.")
+                        break
+                except requests.exceptions.ConnectionError:
+                    time.sleep(0.2)
+
+        threading.Thread(target=do_initialization, daemon=True).start()
+
         core_interface.register_router(router)
 
     def _capture_logs_from_browser_tabs(self, page):
@@ -102,6 +126,8 @@ class ServerAppController:
 
     async def initialize(self):
         """Initialize the app controller."""
+        if self.browser:
+            return
         playwright = await async_playwright().start()
         args = [
             "--site-per-process",

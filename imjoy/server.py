@@ -282,11 +282,6 @@ def setup_socketio_server(
     if enable_server_apps:
         app_controller = ServerAppController(event_bus, core_interface, port=port)
 
-    @app.get("/init")
-    async def init():
-        await app_controller.initialize()
-        return JSONResponse({"status": "OK"})
-
     if enable_fs:
         FSController(event_bus, core_interface)
 
