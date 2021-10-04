@@ -61,6 +61,7 @@ class ServerAppController:
             loader=PackageLoader("imjoy"), autoescape=select_autoescape()
         )
         self.templates_dir = Path(__file__).parent / "templates"
+        self.startup_dir = Path(__file__).parent / "startup_apps"
         router = APIRouter()
 
         @router.get("/apps/{path:path}")
@@ -75,7 +76,6 @@ class ServerAppController:
                 )
 
         core_interface.register_router(router)
-        # TODO: support http proxy for function executions
 
     def _capture_logs_from_browser_tabs(self, page):
         def _app_info(message):
@@ -113,11 +113,17 @@ class ServerAppController:
         if self.in_docker:
             args.append("--no-sandbox")
         self.browser = await playwright.chromium.launch(args=args)
-        source = (self.templates_dir / "imjoy-plugin-parser.html").open().read()
-        await self.deploy(source, "root", id="imjoy-plugin-parser", overwrite=True)
-        self.plugin_parser = await self._launch_as_root(
-            "imjoy-plugin-parser", workspace="root"
-        )
+
+        for app_file in self.startup_dir.iterdir():
+            if app_file.suffix != ".html" or app_file.name.startswith("."):
+                continue
+            source = (app_file).open().read()
+            pid = app_file.stem
+            await self.deploy(source, "root", id=pid, overwrite=True)
+            if pid == "imjoy-plugin-parser":
+                self.plugin_parser = await self._launch_as_root(pid, workspace="root")
+            else:
+                await self._launch_as_root(pid, workspace="root")
 
     async def close(self):
         """Close the app controller."""

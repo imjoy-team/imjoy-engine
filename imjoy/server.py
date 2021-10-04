@@ -39,6 +39,7 @@ from imjoy.core.plugin import DynamicPlugin
 from imjoy.apps import ServerAppController
 from imjoy.fs import FSController
 from imjoy.s3 import S3Controller
+from imjoy.http_proxy import HTTPProxy
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -215,9 +216,9 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
                 # Importantly, if we want to recycle the workspace name,
                 # we need to make sure we don't mess up with the permission
                 # with the plugins of the previous owners
-                for service in plugin.workspace._services.copy():
-                    if service.providerId == plugin.id:
-                        plugin.workspace._services.remove(service)
+                for service in list(plugin.workspace._services.values()):
+                    if service.provider_id == plugin.id:
+                        del plugin.workspace._services[service.name]
         del all_sessions[sid]
         event_bus.emit("plugin_disconnected", {"sid": sid})
 
@@ -273,10 +274,18 @@ def setup_socketio_server(
     **kwargs,
 ) -> None:
     """Set up the socketio server."""
+
     core_interface = CoreInterface(app, event_bus)
 
+    HTTPProxy(event_bus, core_interface)
+
     if enable_server_apps:
-        ServerAppController(event_bus, core_interface, port=port)
+        app_controller = ServerAppController(event_bus, core_interface, port=port)
+
+    @app.get("/init")
+    async def init():
+        await app_controller.initialize()
+        return JSONResponse({"status": "OK"})
 
     if enable_fs:
         FSController(event_bus, core_interface)

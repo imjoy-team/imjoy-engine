@@ -32,6 +32,7 @@ except ImportError:
         "uvicorn>=0.13.4",
         "fsspec>=2021.10.0",
         "aioboto3>=9.2.0",
+        "msgpack>=1.0.2",
     ]
 
 ROOT_DIR = Path(__file__).parent.resolve()

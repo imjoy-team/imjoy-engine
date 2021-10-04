@@ -85,7 +85,7 @@ class WorkspaceInfo(BaseModel):
     _logger: Optional[logging.Logger] = PrivateAttr(default_factory=lambda: logger)
     _authorizer: Optional[Callable] = PrivateAttr(default_factory=lambda: None)
     _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})  # name: plugin
-    _services: List[Dict[str, Any]] = PrivateAttr(default_factory=lambda: [])
+    _services: Dict[str, Dict[str, Any]] = PrivateAttr(default_factory=lambda: {})
 
 
 event_bus = EventBus()
@@ -97,7 +97,7 @@ all_users: Dict[str, UserInfo] = {}  # uid:user_info
 _all_workspaces: Dict[str, WorkspaceInfo] = {}  # wid:workspace_info
 
 
-def get_all_workspace(name):
+def get_all_workspace():
     return list(_all_workspaces.values())
 
 

@@ -159,17 +159,17 @@ async def test_workspace(socketio_server):
         }
     )
     await ws.log("hello")
-    await ws.register_service(
+    service_id = await ws.register_service(
         {
             "name": "test_service",
             "type": "#test",
         }
     )
-    service = await ws.get_services({"type": "#test"})
-    assert len(service) == 1
+    service = await ws.get_service(service_id)
+    assert service.config["name"] == "test_service"
 
     # we should not get it because api is in another workspace
-    ss2 = await api.get_services({"type": "#test"})
+    ss2 = await api.list_services({"type": "#test"})
     assert len(ss2) == 0
 
     # let's generate a token for the test-workspace
@@ -187,7 +187,7 @@ async def test_workspace(socketio_server):
     )
     assert api2.config["workspace"] == "test-workspace"
     await api2.export({"foo": "bar"})
-    ss3 = await api2.get_services({"type": "#test"})
+    ss3 = await api2.list_services({"type": "#test"})
     assert len(ss3) == 1
 
     plugin = await api2.get_plugin("my plugin 2")

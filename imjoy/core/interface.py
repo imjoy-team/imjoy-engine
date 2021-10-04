@@ -68,8 +68,10 @@ class CoreInterface:
                 "critical": self.critical,
                 "registerService": self.register_service,
                 "register_service": self.register_service,
-                "getServices": self.get_services,
-                "get_services": self.get_services,
+                "listServices": self.list_services,
+                "list_services": self.list_services,
+                "getService": self.get_service,
+                "get_service": self.get_service,
                 "utils": {},
                 "listPlugins": self.list_plugins,
                 "list_plugins": self.list_plugins,
@@ -152,12 +154,29 @@ class CoreInterface:
         """Register a service."""
         plugin = current_plugin.get()
         workspace = current_workspace.get()
-        service["provider"] = plugin.name
-        service["providerId"] = plugin.id
+        id = f'{workspace.name}/{service["name"]}'
+        if "name" not in service or "type" not in service:
+            raise Exception("Service should at least contain `name` and `type`")
+
+        # TODO: check if it's already exists
+        config = service.get("config", {})
+        assert isinstance(config, dict), "service.config must be a dictionary"
+        if config.get("name") and service["name"] != config.get("name"):
+            raise Exception("Service name should match the one in the service.config.")
+        if config.get("type") and service["type"] != config.get("type"):
+            raise Exception("Service type should match the one in the service.config.")
+
+        config["name"] = service["name"]
+        config["type"] = service["type"]
+        config["workspace"] = workspace.name
+        config["id"] = id
+        config["provider"] = plugin.name
+        config["provider_id"] = plugin.id
+        service["config"] = config
         service["_rintf"] = True
         # Note: service can set its `visiblity` to `public` or `protected`
-        service["visibility"] = service.get("visibility", "protected")
-        workspace._services.append(service)
+        workspace._services[service["name"]] = service
+        return id
 
     def list_plugins(self):
         """List all plugins in the workspace."""
@@ -172,35 +191,74 @@ class CoreInterface:
             return await workspace._plugins[name].get_api()
         raise Exception(f"Plugin {name} not found")
 
-    def get_services(self, query: dict):
+    async def get_service(self, service_id):
+        if isinstance(service_id, dict):
+            service_id = service_id["id"]
+        if "/" not in service_id:
+            raise Exception(
+                "Invalid service_id format, it must be <workspace>/<service_name>"
+            )
+        ws, service_name = service_id.split("/")
+        workspace = get_workspace(ws)
+        if not workspace:
+            raise Exception(f"Service not found: {service_id} (workspace unavailable)")
+
+        service = workspace._services.get(service_name)
+        user_info = current_user.get()
+        if (
+            not check_permission(workspace, user_info)
+            and service["config"]["visibility"] != "public"
+        ):
+            raise Exception(f"Permission denied: {service_id}")
+
+        if not service:
+            raise Exception(f"Service not found: {service_id}")
+        return service
+
+    def list_services(self, query: Optional[dict] = None):
         """Return a list of services based on the query."""
         # if workspace is not set, then it means current workspace
         # if workspace = *, it means search gloabally
         # otherwise, it search the specified workspace
+        user_info = current_user.get()
+        if query is None:
+            query = {"workspace": "*"}
+
         ws = query.get("workspace")
+        if ws:
+            del query["workspace"]
         if ws == "*":
             ret = []
             for workspace in get_all_workspace():
-                for service in workspace._services:
+                can_access_ws = check_permission(workspace, user_info)
+                for k in workspace._services:
+                    service = workspace._services[k]
+                    # To access the service, it should be public or owned by the user
+                    if (
+                        not can_access_ws
+                        and service["config"]["visibility"] != "public"
+                    ):
+                        continue
                     match = True
                     for key in query:
-                        if service[key] != query[key]:
+                        if service["config"][key] != query[key]:
                             match = False
                     if match:
-                        ret.append(service)
+                        ret.append(service["config"])
             return ret
         elif ws is not None:
             workspace = get_workspace(ws)
         else:
             workspace = current_workspace.get()
         ret = []
-        for service in workspace._services:
+        for k in workspace._services:
+            service = workspace._services[k]
             match = True
             for key in query:
-                if service[key] != query[key]:
+                if service["config"][key] != query[key]:
                     match = False
             if match:
-                ret.append(service)
+                ret.append(service["config"])
 
         if workspace is None:
             raise Exception("Workspace not found: {ws}")
@@ -305,7 +363,10 @@ class CoreInterface:
             if callable(interface[key]):
 
                 def wrap_func(func, *args, **kwargs):
-                    workspace_bk = current_workspace.get()
+                    try:
+                        workspace_bk = current_workspace.get()
+                    except LookupError:
+                        workspace_bk = None
                     ret = None
                     try:
                         current_workspace.set(workspace)
