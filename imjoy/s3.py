@@ -4,6 +4,7 @@ import logging
 import string
 from imjoy.core import WorkspaceInfo
 from botocore.exceptions import ClientError
+import boto3
 
 from imjoy.minio import MinioClient
 
@@ -35,7 +36,13 @@ class S3Controller:
         )
         self.core_interface = core_interface
         self.default_bucket = default_bucket
-        self.s3_client = self.mc.get_client()
+        self.s3_client = boto3.client(
+            "s3",
+            endpoint_url=endpoint_url,
+            aws_access_key_id=access_key_id,
+            aws_secret_access_key=secret_access_key,
+            region_name="EU",
+        )
         s3 = self.mc.get_resource_sync()
         bucket = s3.Bucket(self.default_bucket)
         if bucket not in s3.buckets.all():
@@ -128,6 +135,13 @@ class S3Controller:
         self, bucket_name, object_name, client_method="get_object", expiration=3600
     ):
         try:
+            workspace = self.core_interface.current_workspace.get()
+            if bucket_name != self.default_bucket or not object_name.startswith(
+                workspace.name + "/"
+            ):
+                raise Exception(
+                    f"Permission denied: bucket name must be {self.default_bucket} and the object name should be prefixed with workspace.name + '/'."
+                )
             return self.s3_client.generate_presigned_url(
                 client_method,
                 Params={"Bucket": bucket_name, "Key": object_name},

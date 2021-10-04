@@ -90,12 +90,13 @@ class ServerAppController:
         def do_initialization():
             while True:
                 try:
+                    time.sleep(0.2)
                     response = requests.get(self.server_url + "/initialize-apps")
                     if response.ok:
                         logger.info("Server apps intialized.")
                         break
                 except requests.exceptions.ConnectionError:
-                    time.sleep(0.2)
+                    pass
 
         threading.Thread(target=do_initialization, daemon=True).start()
 
