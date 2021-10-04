@@ -201,6 +201,15 @@ class MinioClient:
             region_name="EU",
         )
 
+    def get_client(self):
+        return boto3.client(
+            "s3",
+            endpoint_url=self.endpoint_url,
+            aws_access_key_id=self.access_key_id,
+            aws_secret_access_key=self.secret_access_key,
+            region_name="EU",
+        )
+
     def _execute(self, *args, **kwargs):
         if "target" in kwargs:
 

@@ -3,6 +3,7 @@ import sys
 import logging
 import string
 from imjoy.core import WorkspaceInfo
+from botocore.exceptions import ClientError
 
 from imjoy.minio import MinioClient
 
@@ -34,6 +35,7 @@ class S3Controller:
         )
         self.core_interface = core_interface
         self.default_bucket = default_bucket
+        self.s3_client = self.mc.get_client()
         s3 = self.mc.get_resource_sync()
         bucket = s3.Bucket(self.default_bucket)
         if bucket not in s3.buckets.all():
@@ -122,8 +124,22 @@ class S3Controller:
             "prefix": workspace.name + "/",  # important to have the trailing slash
         }
 
+    def generate_presigned_url(
+        self, bucket_name, object_name, client_method="get_object", expiration=3600
+    ):
+        try:
+            return self.s3_client.generate_presigned_url(
+                client_method,
+                Params={"Bucket": bucket_name, "Key": object_name},
+                ExpiresIn=expiration,
+            )
+        except ClientError as e:
+            logging.error(e)
+            raise
+
     def get_s3_controller(self):
         return {
             "_rintf": True,
             "generate_credential": self.generate_credential,
+            "generate_presigned_url": self.generate_presigned_url,
         }

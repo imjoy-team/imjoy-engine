@@ -280,7 +280,7 @@ def setup_socketio_server(
     HTTPProxy(event_bus, core_interface)
 
     if enable_server_apps:
-        app_controller = ServerAppController(event_bus, core_interface, port=port)
+        ServerAppController(event_bus, core_interface, port=port)
 
     if enable_fs:
         FSController(event_bus, core_interface)

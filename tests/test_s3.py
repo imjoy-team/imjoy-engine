@@ -39,6 +39,11 @@ async def test_s3(minio_server, socketio_server):
 
         assert len(list(bucket.objects.filter(Prefix=info["prefix"]))) == 1
 
+        url = await s3controller.generate_presigned_url(
+            info["bucket"], info["prefix"] + "hello.txt"
+        )
+        assert url.startswith("http")
+
         # Upload without the prefix should fail
         obj = s3.Object(info["bucket"], "hello.txt")
         with pytest.raises(Exception, match=r".*An error occurred (AccessDenied)*"):
