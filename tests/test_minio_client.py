@@ -57,9 +57,22 @@ async def test_minio(minio_server):
     assert username in ginfo["members"]
     assert ginfo["groupStatus"] == "enabled"
 
+    mc.admin_group_add("my-group", username)
+
     mc.admin_group_disable("my-group")
     ginfo = mc.admin_group_info("my-group")
     assert ginfo["groupStatus"] == "disabled"
+
+    mc.admin_group_remove("my-group", ginfo["members"])
+    ginfo = mc.admin_group_info("my-group")
+    assert ginfo.get("members") is None
+
+    # remove empty group
+    mc.admin_group_remove("my-group")
+    with pytest.raises(Exception, match=r".*Failed to run mc command*"):
+        mc.admin_group_info("my-group")
+
+    mc.admin_group_add("my-group", username)
 
     mc.admin_user_add(username2, "234slfj3")
     mc.admin_group_add("my-group", username2)

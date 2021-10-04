@@ -268,17 +268,26 @@ class MinioClient:
             **kwargs,
         )
 
-    def admin_group_remove(self, group, members, **kwargs):
+    def admin_group_remove(self, group, members=None, **kwargs):
         """Remove group or members from a group."""
-        if not isinstance(members, str):
-            members = " ".join(members)
-
-        return self._execute(
-            "mc {flags} admin group remove {alias} {group} {members}",
-            alias=self.alias,
-            group=group,
-            members=members ** kwargs,
-        )
+        if members:
+            if not isinstance(members, str):
+                members = " ".join(members)
+            return self._execute(
+                "mc {flags} admin group remove {alias} {group} {members}",
+                alias=self.alias,
+                group=group,
+                members=members,
+                **kwargs,
+            )
+        else:
+            # If members is None and the group is empty, then the group will be removed
+            return self._execute(
+                "mc {flags} admin group remove {alias} {group}",
+                alias=self.alias,
+                group=group,
+                **kwargs,
+            )
 
     def admin_group_info(self, group, **kwargs):
         """Display group info."""
