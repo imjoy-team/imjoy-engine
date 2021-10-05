@@ -11,6 +11,7 @@ from imjoy.core import (
     VisibilityEnum,
     TokenConfig,
     WorkspaceInfo,
+    ServiceInfo,
     current_plugin,
     current_user,
     current_workspace,
@@ -171,17 +172,20 @@ class CoreInterface:
             raise Exception(
                 "Service visibility should match the one in the service.config."
             )
+        service["visibility"] = service.get("visibility", "protected")
         config["name"] = service["name"]
         config["type"] = service["type"]
-        config["visibility"] = service.get("visibility", "protected")
+        config["visibility"] = service["visibility"]
         config["workspace"] = workspace.name
         config["id"] = id
         config["provider"] = plugin.name
         config["provider_id"] = plugin.id
         service["config"] = config
-        service["_rintf"] = True
+        formated_service = ServiceInfo.parse_obj(service)
+        # service["_rintf"] = True
         # Note: service can set its `visiblity` to `public` or `protected`
-        workspace._services[service["name"]] = service
+        workspace._services[formated_service.name] = formated_service
+        self.event_bus.emit("service_registered", formated_service)
         return id
 
     def list_plugins(self):
@@ -213,13 +217,13 @@ class CoreInterface:
         user_info = current_user.get()
         if (
             not check_permission(workspace, user_info)
-            and service["config"].get("visibility", "protected") != "public"
+            and service.config.get("visibility", "protected") != "public"
         ):
             raise Exception(f"Permission denied: {service_id}")
 
         if not service:
             raise Exception(f"Service not found: {service_id}")
-        return service
+        return service.dict()
 
     def list_services(self, query: Optional[dict] = None):
         """Return a list of services based on the query."""
@@ -242,15 +246,15 @@ class CoreInterface:
                     # To access the service, it should be public or owned by the user
                     if (
                         not can_access_ws
-                        and service["config"].get("visibility", "protected") != "public"
+                        and service.config.get("visibility", "protected") != "public"
                     ):
                         continue
                     match = True
                     for key in query:
-                        if service["config"][key] != query[key]:
+                        if service.config[key] != query[key]:
                             match = False
                     if match:
-                        ret.append(service["config"])
+                        ret.append(service.config)
             return ret
         elif ws is not None:
             workspace = get_workspace(ws)
@@ -261,10 +265,10 @@ class CoreInterface:
             service = workspace._services[k]
             match = True
             for key in query:
-                if service["config"][key] != query[key]:
+                if service.config[key] != query[key]:
                     match = False
             if match:
-                ret.append(service["config"])
+                ret.append(service.config)
 
         if workspace is None:
             raise Exception("Workspace not found: {ws}")

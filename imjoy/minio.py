@@ -120,7 +120,7 @@ def execute_command(cmd_template, mc_executable=EXECUTABLE_PATH + "/mc", **kwarg
             content = output
 
     if status == "success":
-        logger.info(f"mc command[status='{status}', command='{command_string}']")
+        logger.debug(f"mc command[status='{status}', command='{command_string}']")
     else:
         if isinstance(content, dict):
             message = content.get("error", {}).get("message", "")
@@ -128,8 +128,8 @@ def execute_command(cmd_template, mc_executable=EXECUTABLE_PATH + "/mc", **kwarg
         else:
             message = str(content)
             cause = ""
-        logger.error(
-            f"mc command[status='{status}', message='{message}', cause='{cause}', command='{command_string}']"
+        logger.debug(
+            f"ERROR: mc command[status='{status}', message='{message}', cause='{cause}', command='{command_string}']"
         )
         raise Exception(
             f"Failed to run mc command: ${command_string}, message='{message}', cause='{cause}'"

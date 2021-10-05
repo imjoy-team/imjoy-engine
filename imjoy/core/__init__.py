@@ -9,6 +9,7 @@ from pydantic import (  # pylint: disable=no-name-in-module
     BaseModel,
     EmailStr,
     PrivateAttr,
+    Extra,
 )
 
 logging.basicConfig(stream=sys.stdout)
@@ -52,6 +53,18 @@ class VisibilityEnum(str, Enum):
     protected = "protected"
 
 
+class ServiceInfo(BaseModel):
+    """Represent service."""
+
+    config: Dict[str, Any]
+    name: str
+    type: str
+    visibility: VisibilityEnum = VisibilityEnum.protected
+
+    class Config:
+        extra = Extra.allow
+
+
 class UserInfo(BaseModel):
     """Represent user info."""
 
@@ -85,7 +98,7 @@ class WorkspaceInfo(BaseModel):
     _logger: Optional[logging.Logger] = PrivateAttr(default_factory=lambda: logger)
     _authorizer: Optional[Callable] = PrivateAttr(default_factory=lambda: None)
     _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})  # name: plugin
-    _services: Dict[str, Dict[str, Any]] = PrivateAttr(default_factory=lambda: {})
+    _services: Dict[str, ServiceInfo] = PrivateAttr(default_factory=lambda: {})
 
 
 event_bus = EventBus()

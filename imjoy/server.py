@@ -209,7 +209,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
                 # we need to make sure we don't mess up with the permission
                 # with the plugins of the previous owners
                 for service in list(plugin.workspace._services.values()):
-                    if service.provider_id == plugin.id:
+                    if service.config.get("provider_id") == plugin.id:
                         del plugin.workspace._services[service.name]
         del all_sessions[sid]
         event_bus.emit("plugin_disconnected", {"sid": sid})
