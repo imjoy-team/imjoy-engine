@@ -4,8 +4,9 @@ from typing import Optional, Any
 
 
 import msgpack
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import Response, JSONResponse
+from imjoy.core.auth import login_optional
 
 
 class MsgpackResponse(Response):
@@ -59,10 +60,11 @@ class HTTPProxy:
         router = APIRouter()
 
         @router.get("/services")
-        def get_all_services():
+        def get_all_services(
+            user_info: login_optional = Depends(login_optional),
+        ):
             try:
-                # REMOVE THIS IN PRODUCTION
-                core_interface.current_user.set(core_interface.root_user)
+                core_interface.current_user.set(user_info)
                 services = core_interface.list_services()
                 info = serialize(services)
                 return JSONResponse(
@@ -71,15 +73,17 @@ class HTTPProxy:
                 )
             except Exception as exp:
                 return JSONResponse(
-                    status_code=404,
+                    status_code=500,
                     content={"success": False, "detail": str(exp)},
                 )
 
         @router.get("/services/{workspace}")
-        def get_workspace_services(workspace: str):
+        def get_workspace_services(
+            workspace: str,
+            user_info: login_optional = Depends(login_optional),
+        ):
             try:
-                # REMOVE THIS IN PRODUCTION
-                core_interface.current_user.set(core_interface.root_user)
+                core_interface.current_user.set(user_info)
                 services = core_interface.list_services({"workspace": workspace})
                 info = serialize(services)
                 return JSONResponse(
@@ -93,10 +97,13 @@ class HTTPProxy:
                 )
 
         @router.get("/services/{workspace}/{service}")
-        async def get_service_info(workspace: str, service: str):
+        async def get_service_info(
+            workspace: str,
+            service: str,
+            user_info: login_optional = Depends(login_optional),
+        ):
             try:
-                # REMOVE THIS IN PRODUCTION
-                core_interface.current_user.set(core_interface.root_user)
+                core_interface.current_user.set(user_info)
                 service = await core_interface.get_service(f"{workspace}/{service}")
                 info = serialize(service)
                 return JSONResponse(
@@ -112,12 +119,15 @@ class HTTPProxy:
         @router.get("/services/{workspace}/{service}/{keys}")
         @router.post("/services/{workspace}/{service}/{keys}")
         async def service_function(
-            workspace: str, service: str, keys: str, request: Request
+            workspace: str,
+            service: str,
+            keys: str,
+            request: Request,
+            user_info: login_optional = Depends(login_optional),
         ):
             """Get function info, keys can contain dot to refer deeper object"""
             try:
-                # REMOVE THIS IN PRODUCTION
-                core_interface.current_user.set(core_interface.root_user)
+                core_interface.current_user.set(user_info)
                 service = await core_interface.get_service(f"{workspace}/{service}")
                 value = get_value(keys, service)
                 if not value:

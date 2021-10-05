@@ -59,14 +59,19 @@ class ValidToken(BaseModel):
         )
 
 
-def login_required(request: Request, authorization: str = Header(None)):
-    """Return token if login is ok."""
-    return valid_token(authorization, request)
+def login_optional(authorization: str = Header(None)):
+    """Return user info if authorization code is valid, otherwise create an anonymouse user."""
+    return parse_token(authorization, allow_anonymouse=True)
 
 
-def admin_required(request: Request, authorization: str = Header(None)):
-    """Return token if the token has an admin role."""
-    token = valid_token(authorization, request)
+def login_required(authorization: str = Header(None)):
+    """Return user info if authorization code is valid."""
+    return parse_token(authorization)
+
+
+def admin_required(authorization: str = Header(None)):
+    """Return user info if the authorization code has an admin role."""
+    token = parse_token(authorization)
     roles = token.credentials.get("https://api.imjoy.io/roles", [])
     if "admin" not in roles:
         raise HTTPException(status_code=401, detail="Admin required")
@@ -93,11 +98,16 @@ def get_user_id(token):
 
 def get_user_info(token):
     """Return the user info from the token."""
-    return {
-        "user_id": token.credentials.get("sub"),
-        "email": token.credentials.get("https://api.imjoy.io/email"),
-        "roles": token.credentials.get("https://api.imjoy.io/roles", []),
-    }
+    credentials = token.credentials
+    expires_at = credentials["exp"]
+    return UserInfo(
+        id=credentials.get("sub"),
+        email=credentials.get("https://api.imjoy.io/email"),
+        parent=credentials.get("parent", None),
+        roles=credentials.get("https://api.imjoy.io/roles", []),
+        scopes=token.scopes,
+        expires_at=expires_at,
+    )
 
 
 JWKS = None
@@ -141,7 +151,7 @@ def simulate_user_token(returned_token, request):
         ].split(",")
 
 
-def valid_token(authorization: str, request: Optional[Request] = None):
+def valid_token(authorization: str):
     """Validate token."""
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header is expected")
@@ -183,17 +193,11 @@ def valid_token(authorization: str, request: Optional[Request] = None):
         )
 
         # This is needed for patching the test token
-        if "create:roles" in payload["scope"]:
-            if "https://api.imjoy.io/roles" not in returned_token.credentials:
-                returned_token.credentials["https://api.imjoy.io/roles"] = ["admin"]
-            if "https://api.imjoy.io/email" not in returned_token.credentials:
-                returned_token.credentials["https://api.imjoy.io/email"] = None
-
-        if (
-            "admin" in returned_token.credentials["https://api.imjoy.io/roles"]
-            and request
-        ):
-            simulate_user_token(returned_token, request)
+        # if "create:roles" in payload["scope"]:
+        #     if "https://api.imjoy.io/roles" not in returned_token.credentials:
+        #         returned_token.credentials["https://api.imjoy.io/roles"] = ["admin"]
+        #     if "https://api.imjoy.io/email" not in returned_token.credentials:
+        #         returned_token.credentials["https://api.imjoy.io/email"] = None
 
         return returned_token
 
@@ -205,23 +209,63 @@ def valid_token(authorization: str, request: Optional[Request] = None):
         raise HTTPException(status_code=401, detail=traceback.format_exc()) from err
 
 
-def parse_token(authorization):
+def generate_anonymouse_user():
+    """Generate user info for a anonymouse user."""
+
+    iat = time.time()
+    return ValidToken(
+        credentials={
+            "iss": "https://imjoy.eu.auth0.com/",
+            "sub": str(uuid.uuid4()),  # user_id
+            "aud": "https://imjoy.eu.auth0.com/api/v2/",
+            "iat": iat,
+            "exp": iat + 600,
+            "azp": "aormkFV0l7T0shrIwjdeQIUmNLt09DmA",
+            "scope": "",
+            "gty": "client-credentials",
+            "https://api.imjoy.io/roles": [],
+            "https://api.imjoy.io/email": "anonymous@imjoy.io",
+        },
+        scopes=[],
+    )
+
+
+def parse_token(authorization: str, allow_anonymouse=False):
     """Parse the token."""
+    if not authorization:
+        if allow_anonymouse:
+            info = generate_anonymouse_user()
+            return get_user_info(info)
+        raise HTTPException(status_code=401, detail="Authorization header is expected")
+
     parts = authorization.split()
     if parts[0].lower() != "bearer":
-        raise Exception("Authorization header must start with" " Bearer")
+        raise HTTPException(
+            status_code=401, detail="Authorization header must start with" " Bearer"
+        )
     if len(parts) == 1:
-        raise Exception("Token not found")
+        raise HTTPException(status_code=401, detail="Token not found")
     if len(parts) > 2:
-        raise Exception("Authorization header must be 'Bearer' token")
+        raise HTTPException(
+            status_code=401, detail="Authorization header must be 'Bearer' token"
+        )
 
     token = parts[1]
     if "@imjoy@" not in token:
         # auth0 token
-        return get_user_info(valid_token(authorization))
-    # generated token
-    token = token.split("@imjoy@")[1]
-    return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        info = valid_token(authorization)
+    else:
+        # generated token
+        token = token.split("@imjoy@")[1]
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=["HS256"],
+            audience=AUTH0_AUDIENCE,
+            issuer="https://imjoy.io/",
+        )
+        info = ValidToken(credentials=payload, scopes=payload["scope"].split(" "))
+    return get_user_info(info)
 
 
 def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
@@ -237,20 +281,23 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
 
     # always generate a new user id
     uid = str(uuid.uuid4())
-    expires_in = config.expires_in
-    if expires_in:
-        expires_at = time.time() + expires_in
-    else:
-        expires_at = None
+    expires_in = config.expires_in or 10800
+    expires_at = time.time() + expires_in
+
     parent = user_info.parent if user_info.parent else user_info.id
+
     token = jwt.encode(
         {
-            "scopes": scopes,
-            "expires_at": expires_at,
-            "user_id": parent + "/" + uid,
+            "iss": "https://imjoy.io/",
+            "sub": parent + "/" + uid,  # user_id
+            "aud": "https://imjoy.eu.auth0.com/api/v2/",
+            "iat": expires_in,
+            "exp": expires_at,
+            "scope": " ".join(scopes),
             "parent": parent,
-            "email": config.email,
-            "roles": [],
+            "gty": "client-credentials",
+            "https://api.imjoy.io/roles": [],
+            "https://api.imjoy.io/email": config.email,
         },
         JWT_SECRET,
         algorithm="HS256",

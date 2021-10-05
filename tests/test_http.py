@@ -15,7 +15,20 @@ api.export({
             {
                 "_rintf": true,
                 "name": "test_service",
-                "type": "#test",
+                "type": "test_service",
+                "visibility": "public",
+                echo( data ){
+                    console.log("Echo: ", data)
+                    return data
+                }
+            }
+        )
+        await api.register_service(
+            {
+                "_rintf": true,
+                "name": "test_service_protected",
+                "type": "test_service",
+                "visibility": "protected",
                 echo( data ){
                     console.log("Echo: ", data)
                     return data
@@ -57,9 +70,26 @@ async def test_http_proxy(minio_server, socketio_server):
     service = await api.get_service(service_ws + "/test_service")
     assert await service.echo("233d") == "233d"
 
+    service = await api.get_service(service_ws + "/test_service_protected")
+    assert await service.echo("22") == "22"
+
+    # Without the token, we can only access to the protected service
     response = requests.get(f"{SIO_SERVER_URL}/services")
     assert response.ok
     assert find_item(response.json(), "name", "test_service")
+    assert not find_item(response.json(), "name", "test_service_protected")
+
+    service = await api.get_service(service_ws + "/test_service_protected")
+    assert await service.echo("22") == "22"
+
+    # With the token we can access the protected service
+    response = requests.get(
+        f"{SIO_SERVER_URL}/services",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.ok
+    assert find_item(response.json(), "name", "test_service")
+    assert find_item(response.json(), "name", "test_service_protected")
 
     response = requests.get(f"{SIO_SERVER_URL}/services/{service_ws}")
     assert response.ok
@@ -73,6 +103,11 @@ async def test_http_proxy(minio_server, socketio_server):
     response = requests.get(
         f"{SIO_SERVER_URL}/services/{service_ws}/test_service/echo?v=33"
     )
+
+    response = requests.get(
+        f"{SIO_SERVER_URL}/services/{service_ws}/test_service/echo?v=33",
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert response.ok, response.json()["detail"]
     service_info = response.json()
     assert service_info["v"] == 33
@@ -81,6 +116,15 @@ async def test_http_proxy(minio_server, socketio_server):
         f"{SIO_SERVER_URL}/services/{service_ws}/test_service/echo",
         data=msgpack.dumps({"data": 123}),
         headers={"Content-type": "application/msgpack"},
+    )
+
+    response = requests.post(
+        f"{SIO_SERVER_URL}/services/{service_ws}/test_service/echo",
+        data=msgpack.dumps({"data": 123}),
+        headers={
+            "Content-type": "application/msgpack",
+            "Authorization": f"Bearer {token}",
+        },
     )
     assert response.ok
     result = msgpack.loads(response.content)

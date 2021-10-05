@@ -5,6 +5,7 @@ import uuid
 from contextvars import copy_context
 from os import environ as env
 from typing import Union
+import argparse
 
 import socketio
 import uvicorn
@@ -57,12 +58,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
             try:
                 authorization = environ["HTTP_AUTHORIZATION"]  # JWT token
                 user_info = parse_token(authorization)
-                uid = user_info["user_id"]
-                email = user_info["email"]
-                roles = user_info["roles"]
-                parent = user_info.get("parent")
-                scopes = user_info.get("scopes") or []
-                expires_at = user_info.get("expires_at")
+                uid = user_info.id
             except Exception as err:  # pylint: disable=broad-except
                 logger.exception("Authentication failed: %s", err)
                 # The connect event handler can return False
@@ -71,11 +67,14 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
             logger.info("User connected: %s", uid)
         else:
             uid = str(uuid.uuid4())
-            email = None
-            roles = []
-            parent = None
-            scopes = []
-            expires_at = None
+            user_info = UserInfo(
+                id=uid,
+                email=None,
+                parent=None,
+                roles=[],
+                scopes=[],
+                expires_at=None,
+            )
             logger.info("Anonymized User connected: %s", uid)
 
         if uid == "root":
@@ -83,14 +82,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
             return False
 
         if uid not in all_users:
-            all_users[uid] = UserInfo(
-                id=uid,
-                email=email,
-                parent=parent,
-                roles=roles,
-                scopes=scopes,
-                expires_at=expires_at,
-            )
+            all_users[uid] = user_info
         all_users[uid]._sessions.append(sid)
         all_sessions[sid] = all_users[uid]
         event_bus.emit("user_connected", all_users[uid])
@@ -334,9 +326,7 @@ def start_server(args):
     uvicorn.run(application, host=args.host, port=int(args.port))
 
 
-if __name__ == "__main__":
-    import argparse
-
+def get_argparser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--host",
@@ -395,5 +385,10 @@ if __name__ == "__main__":
         default=None,
         help="set SecretAccessKey for S3",
     )
+    return parser
+
+
+if __name__ == "__main__":
+    parser = get_argparser()
     opt = parser.parse_args()
     start_server(opt)

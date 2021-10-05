@@ -1,6 +1,6 @@
 fastapi==0.68.1
 imjoy-jupyter-extension==0.2.17
-imjoy-rpc==0.3.26
+imjoy-rpc==0.3.27
 ipykernel==5.5.5
 jupyter==1.0.0
 numpy==1.19.5  # needs to stay compatible with latest tensorflow

@@ -1,21 +1,16 @@
-import secrets
 import sys
 import logging
-import string
+
 from imjoy.core import WorkspaceInfo
 from botocore.exceptions import ClientError
 import boto3
 
 from imjoy.minio import MinioClient
+from imjoy.utils import generate_password
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("s3")
 logger.setLevel(logging.INFO)
-
-
-def generate_password():
-    alphabet = string.ascii_letters + string.digits
-    return "".join(secrets.choice(alphabet) for i in range(20))
 
 
 class S3Controller:
@@ -61,7 +56,7 @@ class S3Controller:
 
     def setup_user(self, user_info):
         try:
-            self.mc.admin_group_info(user_info.id)
+            self.mc.admin_user_info(user_info.id)
         except Exception:
             # Note: we don't store the credentials, it can only be regenerated
             self.mc.admin_user_add(user_info.id, generate_password())

@@ -165,9 +165,15 @@ class CoreInterface:
             raise Exception("Service name should match the one in the service.config.")
         if config.get("type") and service["type"] != config.get("type"):
             raise Exception("Service type should match the one in the service.config.")
-
+        if config.get("visibility") and service["visibility"] != config.get(
+            "visibility"
+        ):
+            raise Exception(
+                "Service visibility should match the one in the service.config."
+            )
         config["name"] = service["name"]
         config["type"] = service["type"]
+        config["visibility"] = service.get("visibility", "protected")
         config["workspace"] = workspace.name
         config["id"] = id
         config["provider"] = plugin.name
@@ -207,7 +213,7 @@ class CoreInterface:
         user_info = current_user.get()
         if (
             not check_permission(workspace, user_info)
-            and service["config"]["visibility"] != "public"
+            and service["config"].get("visibility", "protected") != "public"
         ):
             raise Exception(f"Permission denied: {service_id}")
 
@@ -236,7 +242,7 @@ class CoreInterface:
                     # To access the service, it should be public or owned by the user
                     if (
                         not can_access_ws
-                        and service["config"]["visibility"] != "public"
+                        and service["config"].get("visibility", "protected") != "public"
                     ):
                         continue
                     match = True

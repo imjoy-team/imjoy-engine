@@ -3,6 +3,7 @@ import copy
 import json
 import os
 import string
+import secrets
 import sys
 import threading
 import time
@@ -31,6 +32,12 @@ _SERVER_THREAD = None
 _os_alt_seps: List[str] = list(
     sep for sep in [os.path.sep, os.path.altsep] if sep is not None and sep != "/"
 )
+
+
+def generate_password(length=20):
+    """Generate a password."""
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for i in range(length))
 
 
 def safe_join(directory: str, *pathnames: str) -> Optional[str]:
