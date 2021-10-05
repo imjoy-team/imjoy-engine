@@ -39,7 +39,7 @@ from imjoy.core.plugin import DynamicPlugin
 from imjoy.apps import ServerAppController
 from imjoy.fs import FSController
 from imjoy.s3 import S3Controller
-from imjoy.http_proxy import HTTPProxy
+from imjoy.http import HTTPProxy
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
