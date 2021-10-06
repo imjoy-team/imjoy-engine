@@ -63,3 +63,6 @@ class FSController:
     def cleanup_workspace(self, workspace):
         workspace_dir = self.fs_dir / workspace.name
         self.fs.rm(str(workspace_dir), recursive=True)
+
+    def get_file_system(self):
+        return self.fs

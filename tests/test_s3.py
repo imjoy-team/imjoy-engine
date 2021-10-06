@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 from . import SIO_SERVER_URL
 import boto3
 
@@ -34,13 +32,6 @@ async def test_s3(minio_server, socketio_server):
             region_name="EU",
         )
         bucket = s3.Bucket(info["bucket"])
-
-        # The listing should only work with the prefix
-        assert find_item(
-            list(bucket.objects.filter(Prefix=info["prefix"])),
-            "key",
-            f"{workspace}/_workspace_config.json",
-        )
 
         with pytest.raises(Exception, match=r".*An error occurred (AccessDenied)*"):
             print(list(bucket.objects.all()))
