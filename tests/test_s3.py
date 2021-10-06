@@ -33,6 +33,7 @@ async def test_s3(minio_server, socketio_server):
         )
         bucket = s3.Bucket(info["bucket"])
 
+        # Listing the root folder should fail
         with pytest.raises(Exception, match=r".*An error occurred (AccessDenied)*"):
             print(list(bucket.objects.all()))
 
