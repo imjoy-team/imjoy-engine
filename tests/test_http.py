@@ -91,21 +91,21 @@ async def test_http_proxy(minio_server, socketio_server):
     assert find_item(response.json(), "name", "test_service")
     assert find_item(response.json(), "name", "test_service_protected")
 
-    response = requests.get(f"{SIO_SERVER_URL}/services/{service_ws}")
+    response = requests.get(f"{SIO_SERVER_URL}/{service_ws}/services")
     assert response.ok
     assert find_item(response.json(), "name", "test_service")
 
-    response = requests.get(f"{SIO_SERVER_URL}/services/{service_ws}/test_service")
+    response = requests.get(f"{SIO_SERVER_URL}/{service_ws}/services/test_service")
     assert response.ok
     service_info = response.json()
     assert service_info["name"] == "test_service"
 
     response = requests.get(
-        f"{SIO_SERVER_URL}/services/{service_ws}/test_service/echo?v=33"
+        f"{SIO_SERVER_URL}/{service_ws}/services/test_service/echo?v=33"
     )
 
     response = requests.get(
-        f"{SIO_SERVER_URL}/services/{service_ws}/test_service/echo?v=33",
+        f"{SIO_SERVER_URL}/{service_ws}/services/test_service/echo?v=33",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.ok, response.json()["detail"]
@@ -113,13 +113,13 @@ async def test_http_proxy(minio_server, socketio_server):
     assert service_info["v"] == 33
 
     response = requests.post(
-        f"{SIO_SERVER_URL}/services/{service_ws}/test_service/echo",
+        f"{SIO_SERVER_URL}/{service_ws}/services/test_service/echo",
         data=msgpack.dumps({"data": 123}),
         headers={"Content-type": "application/msgpack"},
     )
 
     response = requests.post(
-        f"{SIO_SERVER_URL}/services/{service_ws}/test_service/echo",
+        f"{SIO_SERVER_URL}/{service_ws}/services/test_service/echo",
         data=msgpack.dumps({"data": 123}),
         headers={
             "Content-type": "application/msgpack",

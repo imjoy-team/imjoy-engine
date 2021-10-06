@@ -77,7 +77,7 @@ class HTTPProxy:
                     content={"success": False, "detail": str(exp)},
                 )
 
-        @router.get("/services/{workspace}")
+        @router.get("/{workspace}/services")
         def get_workspace_services(
             workspace: str,
             user_info: login_optional = Depends(login_optional),
@@ -96,7 +96,7 @@ class HTTPProxy:
                     content={"success": False, "detail": str(exp)},
                 )
 
-        @router.get("/services/{workspace}/{service}")
+        @router.get("/{workspace}/services/{service}")
         async def get_service_info(
             workspace: str,
             service: str,
@@ -116,8 +116,8 @@ class HTTPProxy:
                     content={"success": False, "detail": str(exp)},
                 )
 
-        @router.get("/services/{workspace}/{service}/{keys}")
-        @router.post("/services/{workspace}/{service}/{keys}")
+        @router.get("/{workspace}/services/{service}/{keys}")
+        @router.post("/{workspace}/services/{service}/{keys}")
         async def service_function(
             workspace: str,
             service: str,

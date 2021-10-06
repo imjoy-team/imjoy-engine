@@ -1,9 +1,17 @@
 import sys
 import logging
 
-from imjoy.core import WorkspaceInfo
 from botocore.exceptions import ClientError
-import boto3
+from fastapi import APIRouter, Depends
+from fastapi.responses import FileResponse, JSONResponse
+from imjoy.core import get_workspace
+from imjoy.core.auth import check_permission, login_optional
+from aiobotocore.session import get_session
+import botocore
+from imjoy.utils import safe_join
+from starlette.types import Receive, Scope, Send
+from email.utils import formatdate
+from datetime import datetime
 
 from imjoy.minio import MinioClient
 from imjoy.utils import generate_password
@@ -11,6 +19,64 @@ from imjoy.utils import generate_password
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("s3")
 logger.setLevel(logging.INFO)
+
+
+class FSFileResponse(FileResponse):
+    chunk_size = 4096
+
+    def __init__(self, s3client, bucket: str, key: str, **kwargs) -> None:
+        self.s3client = s3client
+        self.bucket = bucket
+        self.key = key
+        super().__init__(key, **kwargs)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        async with self.s3client as s3:
+            try:
+                obj_info = await s3.get_object(Bucket=self.bucket, Key=self.key)
+                last_modified = formatdate(
+                    datetime.timestamp(obj_info["LastModified"]), usegmt=True
+                )
+                self.headers.setdefault(
+                    "content-length", str(obj_info["ContentLength"])
+                )
+                self.headers.setdefault("last-modified", last_modified)
+                self.headers.setdefault("etag", obj_info["ETag"])
+            except Exception as exp:
+                raise RuntimeError(
+                    f"File at path {self.path} does not exist, details: {exp}"
+                )
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": self.status_code,
+                    "headers": self.raw_headers,
+                }
+            )
+            if self.send_header_only:
+                await send(
+                    {"type": "http.response.body", "body": b"", "more_body": False}
+                )
+            else:
+                # Tentatively ignoring type checking failure to work around the wrong type
+                # definitions for aiofile that come with typeshed. See
+                # https://github.com/python/typeshed/pull/4650
+
+                total_size = obj_info["ContentLength"]
+                sent_size = 0
+                chunks = obj_info["Body"].iter_chunks(chunk_size=self.chunk_size)
+                async for chunk in chunks:
+                    sent_size += len(chunk)
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": chunk,
+                            "more_body": sent_size < total_size,
+                        }
+                    )
+
+            if self.background is not None:
+                await self.background()
 
 
 class S3Controller:
@@ -24,6 +90,8 @@ class S3Controller:
         default_bucket="imjoy-workspaces",
     ):
         self.endpoint_url = endpoint_url
+        self.access_key_id = access_key_id
+        self.secret_access_key = secret_access_key
         self.mc = MinioClient(
             endpoint_url,
             access_key_id,
@@ -31,18 +99,13 @@ class S3Controller:
         )
         self.core_interface = core_interface
         self.default_bucket = default_bucket
-        self.s3_client = boto3.client(
-            "s3",
-            endpoint_url=endpoint_url,
-            aws_access_key_id=access_key_id,
-            aws_secret_access_key=secret_access_key,
-            region_name="EU",
-        )
-        s3 = self.mc.get_resource_sync()
-        bucket = s3.Bucket(self.default_bucket)
-        if bucket not in s3.buckets.all():
-            bucket.create()
+
+        s3client = self.create_client_sync()
+        try:
+            s3client.create_bucket(Bucket=self.default_bucket)
             logger.info("Bucket created: %s", self.default_bucket)
+        except s3client.exceptions.BucketAlreadyExists:
+            pass
 
         self.mc.admin_user_add(core_interface.root_user.id, generate_password())
         core_interface.register_interface("get_s3_controller", self.get_s3_controller)
@@ -53,6 +116,51 @@ class S3Controller:
         event_bus.on("user_connected", self.setup_user)
         event_bus.on("plugin_registered", self.setup_plugin)
         event_bus.on("user_entered_workspace", self.enter_workspace)
+
+        router = APIRouter()
+
+        @router.get("/{workspace}/files/{path:path}")
+        async def get_workspace_file(
+            workspace: str,
+            path: str,
+            user_info: login_optional = Depends(login_optional),
+        ):
+            ws = get_workspace(workspace)
+            if not ws:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "success": False,
+                        "detail": f"Workspace does not exists: {ws}",
+                    },
+                )
+            if not check_permission(ws, user_info):
+                return JSONResponse(
+                    status_code=403,
+                    content={"success": False, "detail": f"Permission denied: {ws}"},
+                )
+            path = safe_join(workspace, path)
+            return FSFileResponse(self.create_client_async(), self.default_bucket, path)
+
+        core_interface.register_router(router)
+
+    def create_client_sync(self):
+        return botocore.session.get_session().create_client(
+            "s3",
+            endpoint_url=self.endpoint_url,
+            aws_access_key_id=self.access_key_id,
+            aws_secret_access_key=self.secret_access_key,
+            region_name="EU",
+        )
+
+    def create_client_async(self):
+        return get_session().create_client(
+            "s3",
+            endpoint_url=self.endpoint_url,
+            aws_access_key_id=self.access_key_id,
+            aws_secret_access_key=self.secret_access_key,
+            region_name="EU",
+        )
 
     def setup_user(self, user_info):
         try:
@@ -66,6 +174,11 @@ class S3Controller:
 
     def cleanup_workspace(self, workspace):
         # TODO: if the program shutdown unexcpetedly, we need to clean it up
+        # We should empty the group before removing it
+        ginfo = self.mc.admin_group_info(workspace.name)
+        # remove all the members
+        self.mc.admin_group_remove(workspace.name, ginfo["members"])
+        # now remove the empty group
         self.mc.admin_group_remove(workspace.name)
 
     def setup_workspace(self, workspace):
@@ -126,7 +239,7 @@ class S3Controller:
             "prefix": workspace.name + "/",  # important to have the trailing slash
         }
 
-    def generate_presigned_url(
+    async def generate_presigned_url(
         self, bucket_name, object_name, client_method="get_object", expiration=3600
     ):
         try:
@@ -137,11 +250,12 @@ class S3Controller:
                 raise Exception(
                     f"Permission denied: bucket name must be {self.default_bucket} and the object name should be prefixed with workspace.name + '/'."
                 )
-            return self.s3_client.generate_presigned_url(
-                client_method,
-                Params={"Bucket": bucket_name, "Key": object_name},
-                ExpiresIn=expiration,
-            )
+            async with self.create_client_async() as s3:
+                return await s3.generate_presigned_url(
+                    client_method,
+                    Params={"Bucket": bucket_name, "Key": object_name},
+                    ExpiresIn=expiration,
+                )
         except ClientError as e:
             logging.error(e)
             raise

@@ -261,6 +261,7 @@ def setup_socketio_server(
     endpoint_url: str = None,
     access_key_id: str = None,
     secret_access_key: str = None,
+    default_bucket: str = "imjoy-workspaces",
     base_path: str = "/",
     allow_origins: Union[str, list] = "*",
     **kwargs,
@@ -274,9 +275,6 @@ def setup_socketio_server(
     if enable_server_apps:
         ServerAppController(event_bus, core_interface, port=port)
 
-    if enable_fs:
-        FSController(event_bus, core_interface)
-
     if enable_s3:
         S3Controller(
             event_bus,
@@ -284,6 +282,23 @@ def setup_socketio_server(
             endpoint_url=endpoint_url,
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
+            default_bucket=default_bucket,
+        )
+
+    if enable_fs and not enable_s3:
+        logger.warning("File system can only be enabled with S3")
+
+    if enable_s3 and enable_fs:
+        FSController(
+            event_bus,
+            core_interface,
+            fs_dir=default_bucket,
+            fs_type="s3",
+            fs_config=dict(
+                key=access_key_id,
+                secret=secret_access_key,
+                client_kwargs={"endpoint_url": endpoint_url, "region_name": "EU"},
+            ),
         )
 
     socketio_path = base_path.rstrip("/") + "/socket.io"

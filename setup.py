@@ -31,7 +31,9 @@ except ImportError:
         "fastapi>=0.63.0",
         "uvicorn>=0.13.4",
         "fsspec>=2021.10.0",
-        "aioboto3>=9.2.0",
+        "aiobotocore>=1.4.2",
+        "boto3>=1.17.106",
+        "s3fs>=2021.10.0",
         "msgpack>=1.0.2",
     ]
 

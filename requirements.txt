@@ -14,5 +14,7 @@ pyyaml==5.4.1
 uvicorn==0.15.0
 playwright==1.15.0
 fsspec==2021.10.0
-aioboto3==9.2.0
+aiobotocore==1.4.2
+boto3==1.17.106
+s3fs==2021.10.0
 msgpack==1.0.2

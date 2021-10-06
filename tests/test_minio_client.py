@@ -29,13 +29,6 @@ async def test_minio(minio_server):
     mc.admin_user_add(username2, "234slfj3")
     user_list = mc.admin_user_list()
 
-    async with mc.get_resource_async() as s3:
-        bucket = await s3.Bucket("test-bucket")
-        await bucket.create()
-        with open("/tmp/hello.txt", "w") as f:
-            f.write("hello")
-        await bucket.upload_file("/tmp/hello.txt", "hello.txt")
-
     assert find_item(user_list, "accessKey", username)
     assert find_item(user_list, "accessKey", username2)
     mc.admin_user_disable(username)

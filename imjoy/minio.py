@@ -7,8 +7,6 @@ import logging
 import tempfile
 import urllib.request
 import stat
-import aioboto3
-import boto3
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("minio")
@@ -177,28 +175,6 @@ class MinioClient:
             username=access_key_id,
             password=secret_access_key,
             **kwargs,
-        )
-
-    def get_resource_async(self):
-        """Get the s3 resource.
-        Documentation here: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html"""
-        return aioboto3.Session().resource(
-            "s3",
-            endpoint_url=self.endpoint_url,
-            aws_access_key_id=self.access_key_id,
-            aws_secret_access_key=self.secret_access_key,
-            region_name="EU",
-        )
-
-    def get_resource_sync(self):
-        """Get the s3 resource.
-        Documentation here: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html"""
-        return boto3.Session().resource(
-            "s3",
-            endpoint_url=self.endpoint_url,
-            aws_access_key_id=self.access_key_id,
-            aws_secret_access_key=self.secret_access_key,
-            region_name="EU",
         )
 
     def _execute(self, *args, **kwargs):
