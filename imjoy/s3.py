@@ -1,9 +1,10 @@
 import sys
 import logging
+import asyncio
 
 from botocore.exceptions import ClientError
-from fastapi import APIRouter, Depends
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Depends, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, Response
 from imjoy.core import get_workspace
 from imjoy.core.auth import check_permission, login_optional
 from aiobotocore.session import get_session
@@ -12,6 +13,8 @@ from imjoy.utils import safe_join
 from starlette.types import Receive, Scope, Send
 from email.utils import formatdate
 from datetime import datetime
+from typing import Any
+import json
 
 from imjoy.minio import MinioClient
 from imjoy.utils import generate_password
@@ -79,6 +82,20 @@ class FSFileResponse(FileResponse):
                 await self.background()
 
 
+class JSONResponse(Response):
+    media_type = "application/json"
+
+    def render(self, content: Any) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+            default=str,  # This will convert everything unknown to a string
+        ).encode("utf-8")
+
+
 class S3Controller:
     def __init__(
         self,
@@ -119,10 +136,11 @@ class S3Controller:
 
         router = APIRouter()
 
-        @router.get("/{workspace}/files/{path:path}")
-        async def get_workspace_file(
+        @router.put("/{workspace}/files/{path:path}")
+        async def upload_file(
             workspace: str,
             path: str,
+            request: Request,
             user_info: login_optional = Depends(login_optional),
         ):
             ws = get_workspace(workspace)
@@ -140,7 +158,168 @@ class S3Controller:
                     content={"success": False, "detail": f"Permission denied: {ws}"},
                 )
             path = safe_join(workspace, path)
-            return FSFileResponse(self.create_client_async(), self.default_bucket, path)
+
+            async with self.create_client_async() as s3:
+                mpu = await s3.create_multipart_upload(
+                    Bucket=self.default_bucket, Key=path
+                )
+                parts_info = {}
+                futs = []
+                count = 0
+                # Stream support: https://github.com/tiangolo/fastapi/issues/58#issuecomment-469355469
+                current_chunk = b""
+                async for chunk in request.stream():
+                    current_chunk += chunk
+                    if len(current_chunk) > 5 * 1024 * 1024:
+                        count += 1
+                        part_fut = s3.upload_part(
+                            Bucket=self.default_bucket,
+                            ContentLength=len(current_chunk),
+                            Key=path,
+                            PartNumber=count,
+                            UploadId=mpu["UploadId"],
+                            Body=current_chunk,
+                        )
+                        futs.append(part_fut)
+                        current_chunk = b""
+                # if multipart upload is activated
+                if len(futs) > 0:
+                    if len(current_chunk) > 0:
+                        # upload the last chunk
+                        count += 1
+                        part_fut = s3.upload_part(
+                            Bucket=self.default_bucket,
+                            ContentLength=len(current_chunk),
+                            Key=path,
+                            PartNumber=count,
+                            UploadId=mpu["UploadId"],
+                            Body=current_chunk,
+                        )
+                        futs.append(part_fut)
+
+                    parts = await asyncio.gather(*futs)
+                    parts_info["Parts"] = [
+                        {"PartNumber": i + 1, "ETag": part["ETag"]}
+                        for i, part in enumerate(parts)
+                    ]
+
+                    response = await s3.complete_multipart_upload(
+                        Bucket=self.default_bucket,
+                        Key=path,
+                        UploadId=mpu["UploadId"],
+                        MultipartUpload=parts_info,
+                    )
+                else:
+                    response = await s3.put_object(
+                        Body=current_chunk,
+                        Bucket=self.default_bucket,
+                        Key=path,
+                        ContentLength=len(current_chunk),
+                    )
+
+                assert "ETag" in response
+                return JSONResponse(
+                    status_code=200,
+                    content=response,
+                )
+
+        @router.get("/{workspace}/files/{path:path}")
+        @router.delete("/{workspace}/files/{path:path}")
+        async def get_or_delete_file(
+            workspace: str,
+            path: str,
+            request: Request,
+            user_info: login_optional = Depends(login_optional),
+        ):
+            ws = get_workspace(workspace)
+            if not ws:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "success": False,
+                        "detail": f"Workspace does not exists: {ws}",
+                    },
+                )
+            if not check_permission(ws, user_info):
+                return JSONResponse(
+                    status_code=403,
+                    content={"success": False, "detail": f"Permission denied: {ws}"},
+                )
+            path = safe_join(workspace, path)
+            if request.method == "GET":
+                async with self.create_client_async() as s3:
+                    if path.endswith("/"):
+                        response = await s3.list_objects_v2(
+                            Bucket=self.default_bucket, Prefix=path
+                        )
+                        items = response["Contents"]
+                        while response["IsTruncated"]:
+                            response = await s3.list_objects_v2(
+                                Bucket=self.default_bucket,
+                                Prefix=path,
+                                ContinuationToken=response["NextContinuationToken"],
+                            )
+                            items += response["Contents"]
+                        if len(items) == 0:
+                            return JSONResponse(
+                                status_code=404,
+                                content={
+                                    "success": False,
+                                    "detail": f"Directory does not exists: {path}",
+                                },
+                            )
+                        else:
+                            return JSONResponse(
+                                status_code=200,
+                                content={
+                                    "success": False,
+                                    "type": "directory",
+                                    "children": items,
+                                },
+                            )
+                    try:
+                        response = await s3.head_object(
+                            Bucket=self.default_bucket, Key=path
+                        )
+                        return FSFileResponse(
+                            self.create_client_async(), self.default_bucket, path
+                        )
+                    except ClientError:
+                        return JSONResponse(
+                            status_code=404,
+                            content={
+                                "success": False,
+                                "detail": f"File does not exists: {path}",
+                            },
+                        )
+
+            if request.method == "DELETE":
+                if path.endswith("/"):
+                    return JSONResponse(
+                        status_code=404,
+                        content={
+                            "success": False,
+                            "detail": f"Removing directory is not supported.",
+                        },
+                    )
+                async with self.create_client_async() as s3:
+                    try:
+                        response = await s3.delete_object(
+                            Bucket=self.default_bucket, Key=path
+                        )
+                        response["success"] = True
+                        return JSONResponse(
+                            status_code=200,
+                            content=response,
+                        )
+                    except ClientError:
+                        return JSONResponse(
+                            status_code=404,
+                            content={
+                                "success": False,
+                                "detail": f"File does not exists: {path}",
+                            },
+                        )
 
         core_interface.register_router(router)
 

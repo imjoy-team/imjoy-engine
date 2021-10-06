@@ -1,6 +1,6 @@
 from . import SIO_SERVER_URL
 import boto3
-
+import os
 import pytest
 from imjoy_rpc import connect_to_server
 import requests
@@ -10,7 +10,11 @@ pytestmark = pytest.mark.asyncio
 
 
 def find_item(items, key, value):
-    filtered = [item for item in items if getattr(item, key) == value]
+    filtered = [
+        item
+        for item in items
+        if (item[key] if isinstance(item, dict) else getattr(item, key)) == value
+    ]
     if len(filtered) == 0:
         return None
     else:
@@ -42,9 +46,63 @@ async def test_s3(minio_server, socketio_server):
             f.write("hello")
         obj.upload_file("/tmp/hello.txt")
 
+        # Upload small file (<5MB)
+        content = os.urandom(2 * 1024 * 1024)
+        response = requests.put(
+            f"{SIO_SERVER_URL}/{workspace}/files/my-data-small.txt",
+            headers={"Authorization": f"Bearer {token}"},
+            data=content,
+        )
+        assert (
+            response.status_code == 200
+        ), f"failed to upload {response.reason}: {response.text}"
+
+        # Upload large file with 100MB
+        content = os.urandom(100 * 1024 * 1024)
+        response = requests.put(
+            f"{SIO_SERVER_URL}/{workspace}/files/my-data-large.txt",
+            headers={"Authorization": f"Bearer {token}"},
+            data=content,
+        )
+        assert (
+            response.status_code == 200
+        ), f"failed to upload {response.reason}: {response.text}"
+
+        response = requests.get(
+            f"{SIO_SERVER_URL}/{workspace}/files/",
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()
+        assert find_item(response["children"], "Key", f"{workspace}/my-data-small.txt")
+        assert find_item(response["children"], "Key", f"{workspace}/my-data-large.txt")
+
+        # Delete the large file
+        response = requests.delete(
+            f"{SIO_SERVER_URL}/{workspace}/files/my-data-large.txt",
+            headers={"Authorization": f"Bearer {token}"},
+            data=content,
+        )
+        assert (
+            response.status_code == 200
+        ), f"failed to delete {response.reason}: {response.text}"
+
+        response = requests.get(
+            f"{SIO_SERVER_URL}/{workspace}/files/",
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()
+        assert find_item(response["children"], "Key", f"{workspace}/my-data-small.txt")
+        assert not find_item(
+            response["children"], "Key", f"{workspace}/my-data-large.txt"
+        )
+
         # Should fail if we don't pass the token
         response = requests.get(f"{SIO_SERVER_URL}/{workspace}/files/hello.txt")
         assert not response.ok
+
+        response = requests.get(
+            f"{SIO_SERVER_URL}/{workspace}/files/",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
 
         response = requests.get(
             f"{SIO_SERVER_URL}/{workspace}/files/hello.txt",
@@ -52,6 +110,12 @@ async def test_s3(minio_server, socketio_server):
         )
         assert response.ok
         assert response.content == b"hello"
+
+        response = requests.get(
+            f"{SIO_SERVER_URL}/{workspace}/files/he",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 404
 
         assert find_item(
             list(bucket.objects.filter(Prefix=info["prefix"])),
