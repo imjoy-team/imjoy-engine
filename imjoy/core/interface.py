@@ -88,43 +88,6 @@ class CoreInterface:
         )
         self._imjoy_api.update(imjoy_api)
 
-        # run server extensions
-        for entry_point in pkg_resources.iter_entry_points(
-            "imjoy_core_server_extension"
-        ):
-            user_info = UserInfo(
-                id=entry_point.name,
-                email=None,
-                parent=None,
-                roles=[],
-                scopes=[],
-                expires_at=None,
-            )
-            workspace = WorkspaceInfo(
-                name=str(uuid.uuid4()) + entry_point.name,
-                owners=[user_info.id],
-                visibility=VisibilityEnum.protected,
-                persistent=False,
-            )
-            connection = BasicConnection(lambda x: x)
-            plugin = DynamicPlugin(
-                {"workspace": workspace.name, "name": entry_point.name},
-                self.get_interface(),
-                self.get_codecs(),
-                connection,
-                workspace,
-                user_info,
-            )
-            current_user.set(user_info)
-            current_workspace.set(workspace)
-            current_plugin.set(plugin)
-            try:
-                setup_extension = entry_point.load()
-                setup_extension(self._imjoy_api)
-            except Exception:
-                logger.exception("Failed to setup extension: %s", entry_point.name)
-                raise
-
         # Create root user
         self.root_user = UserInfo(
             id="root",
@@ -142,6 +105,31 @@ class CoreInterface:
             persistent=True,
         )
         register_workspace(self.root_workspace)
+        self.load_extensions()
+
+    def load_extensions(self):
+        """Load imjoy engine extensions."""
+        # Support imjoy engine extensions
+        # See how it works: https://packaging.python.org/guides/creating-and-discovering-plugins/
+        for entry_point in pkg_resources.iter_entry_points("imjoy_engine_extension"):
+            connection = BasicConnection(lambda x: x)
+            plugin = DynamicPlugin(
+                {"workspace": self.root_workspace.name, "name": entry_point.name},
+                self.get_interface(),
+                self.get_codecs(),
+                connection,
+                self.root_workspace,
+                self.root_user,
+            )
+            current_user.set(self.root_user)
+            current_workspace.set(self.root_workspace)
+            current_plugin.set(plugin)
+            try:
+                setup_extension = entry_point.load()
+                setup_extension(self)
+            except Exception:
+                logger.exception("Failed to setup extension: %s", entry_point.name)
+                raise
 
     def register_router(self, router):
         self.app.include_router(router)

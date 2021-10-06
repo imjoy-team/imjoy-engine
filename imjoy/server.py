@@ -217,7 +217,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
     event_bus.emit("socketio_ready", None)
 
 
-def create_application(allow_origins) -> FastAPI:
+def create_application(allow_origins, base_path) -> FastAPI:
     """Set up the server application."""
     # pylint: disable=unused-variable, protected-access
 
@@ -238,10 +238,10 @@ def create_application(allow_origins) -> FastAPI:
         allow_headers=["Content-Type", "Authorization"],
     )
 
-    @app.get("/")
+    @app.get(base_path)
     async def root():
         return {
-            "name": "ImJoy Core Server",
+            "name": "ImJoy Engine",
             "version": VERSION,
             "all_users": {
                 uid: user_info._sessions for uid, user_info in all_users.items()
@@ -262,6 +262,7 @@ def setup_socketio_server(
     access_key_id: str = None,
     secret_access_key: str = None,
     default_bucket: str = "imjoy-workspaces",
+    base_path: str = "/",
     allow_origins: Union[str, list] = "*",
     **kwargs,
 ) -> None:
@@ -300,7 +301,9 @@ def setup_socketio_server(
             ),
         )
 
-    @app.get("/liveness")
+    socketio_path = base_path.rstrip("/") + "/socket.io"
+
+    @app.get(base_path.rstrip("/") + "/liveness")
     async def liveness(req: Request) -> JSONResponse:
         try:
             await sio.emit("liveness")
@@ -312,7 +315,7 @@ def setup_socketio_server(
         allow_origins = "*"
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=allow_origins)
 
-    _app = socketio.ASGIApp(socketio_server=sio, socketio_path="/socket.io")
+    _app = socketio.ASGIApp(socketio_server=sio, socketio_path=socketio_path)
 
     app.mount("/", _app)
     app.sio = sio
@@ -328,7 +331,7 @@ def start_server(args):
         args.allow_origin = args.allow_origin.split(",")
     else:
         args.allow_origin = env.get("ALLOW_ORIGINS", "*").split(",")
-    application = create_application(args.allow_origin)
+    application = create_application(args.allow_origin, args.base_path)
     setup_socketio_server(application, **vars(args))
     if args.host in ("127.0.0.1", "localhost"):
         print(
@@ -357,6 +360,12 @@ def get_argparser():
         type=str,
         default="*",
         help="origins for the socketio server",
+    )
+    parser.add_argument(
+        "--base-path",
+        type=str,
+        default="/",
+        help="the base path for the server",
     )
     parser.add_argument(
         "--enable-fs",
