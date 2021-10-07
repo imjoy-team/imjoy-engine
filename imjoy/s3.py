@@ -195,7 +195,7 @@ class S3Controller:
 
         router = APIRouter()
 
-        @router.put("/files/{workspace}/{path:path}")
+        @router.put("/{workspace}/files/{path:path}")
         async def upload_file(
             workspace: str,
             path: str,
@@ -282,8 +282,8 @@ class S3Controller:
                     content=response,
                 )
 
-        @router.get("/files/{workspace}/{path:path}")
-        @router.delete("/files/{workspace}/{path:path}")
+        @router.get("/{workspace}/files/{path:path}")
+        @router.delete("/{workspace}/files/{path:path}")
         async def get_or_delete_file(
             workspace: str,
             path: str,
