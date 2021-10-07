@@ -51,8 +51,6 @@ def create_flask_app():
     return WSGIMiddleware(app)
 
 
-
-
 async def setup():
     # Registering fastapi app
     fastapi_app = create_fastapi_app()
