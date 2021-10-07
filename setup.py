@@ -28,11 +28,9 @@ except ImportError:
         "python-jose==3.3.0",
         "python-socketio[asyncio_client]==5.0.4",
         "pyyaml",
-        "fastapi>=0.63.0",
+        "fastapi>=0.70.0",
         "uvicorn>=0.13.4",
-        "fsspec>=2021.10.0",
         "aiobotocore>=1.4.2",
-        "s3fs>=2021.10.0",
         "msgpack>=1.0.2",
         "shortuuid>=1.0.1",
     ]

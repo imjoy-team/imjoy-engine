@@ -39,7 +39,6 @@ from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.apps import ServerAppController
-from imjoy.fs import FSController
 from imjoy.s3 import S3Controller
 from imjoy.http import HTTPProxy
 from imjoy.asgi import ASGIGateway
@@ -290,19 +289,6 @@ def setup_socketio_server(
 
     if enable_fs and not enable_s3:
         logger.warning("File system can only be enabled with S3")
-
-    if enable_s3 and enable_fs:
-        FSController(
-            event_bus,
-            core_interface,
-            fs_dir=default_bucket,
-            fs_type="s3",
-            fs_config=dict(
-                key=access_key_id,
-                secret=secret_access_key,
-                client_kwargs={"endpoint_url": endpoint_url, "region_name": "EU"},
-            ),
-        )
 
     socketio_path = base_path.rstrip("/") + "/socket.io"
 

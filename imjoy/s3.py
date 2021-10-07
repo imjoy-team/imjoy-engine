@@ -1,7 +1,7 @@
 import sys
 import logging
 import asyncio
-
+import os
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -18,6 +18,7 @@ from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
 import json
 import re
+from pathlib import Path
 
 from imjoy.minio import MinioClient
 from imjoy.utils import generate_password
@@ -155,6 +156,52 @@ class JSONResponse(Response):
         ).encode("utf-8")
 
 
+class FSRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    """A rotating file handler for working with fsspec"""
+
+    def __init__(self, s3_client, s3_bucket, s3_prefix, start_index, *args, **kwargs):
+        """Initialize file handler"""
+        self.s3_client = s3_client
+        self.s3_bucket = s3_bucket
+        self.s3_prefix = s3_prefix
+        self.file_index = start_index
+        super().__init__(*args, **kwargs)
+
+    def doRollover(self):
+        """Rollover the file"""
+        # TODO: we need to write the logs if we logout
+        if self.stream:
+            self.stream.close()
+            self.stream = None
+            name = self.baseFilename + "." + str(self.file_index)
+            self.s3_client.put_object(
+                Body=open(self.baseFilename, "rb").read(),
+                Bucket=self.s3_bucket,
+                Key=self.s3_prefix + name,
+            )
+            self.file_index += 1
+
+        super().doRollover()
+
+
+def setup_logger(
+    s3_client, bucket, prefix, start_index, name, log_file, level=logging.INFO
+):
+    """To setup as many loggers as you want"""
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+
+    handler = FSRotatingFileHandler(
+        s3_client, bucket, prefix, start_index, log_file, maxBytes=2000000
+    )
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+
+    return logger
+
+
 class S3Controller:
     def __init__(
         self,
@@ -164,6 +211,7 @@ class S3Controller:
         access_key_id=None,
         secret_access_key=None,
         default_bucket="imjoy-workspaces",
+        local_log_dir="./logs",
     ):
         self.endpoint_url = endpoint_url
         self.access_key_id = access_key_id
@@ -175,6 +223,7 @@ class S3Controller:
         )
         self.core_interface = core_interface
         self.default_bucket = default_bucket
+        self.local_log_dir = Path(local_log_dir)
 
         s3client = self.create_client_sync()
         try:
@@ -182,6 +231,7 @@ class S3Controller:
             logger.info("Bucket created: %s", self.default_bucket)
         except s3client.exceptions.BucketAlreadyExists:
             pass
+        self.s3client = s3client
 
         self.mc.admin_user_add(core_interface.root_user.id, generate_password())
         core_interface.register_interface("get_s3_controller", self.get_s3_controller)
@@ -460,6 +510,45 @@ class S3Controller:
         )
 
         self.mc.admin_policy_set(policy_name, group=workspace.name)
+
+        # Save the workspace info
+        workspace_dir = self.local_log_dir / workspace.name
+        os.makedirs(workspace_dir, exist_ok=True)
+        self.s3client.put_object(
+            Body=workspace.json().encode("utf-8"),
+            Bucket=self.default_bucket,
+            Key=str(workspace_dir / "_workspace_config.json"),
+        )
+
+        # findout the latest log file number
+        log_base_name = str(workspace_dir / "log.txt")
+        response = self.s3client.list_objects_v2(
+            Bucket=self.default_bucket, Prefix=log_base_name
+        )
+        items = response.get("Contents", [])
+        while response["IsTruncated"]:
+            response = self.s3client.list_objects_v2(
+                Bucket=self.default_bucket,
+                Prefix=log_base_name,
+                ContinuationToken=response["NextContinuationToken"],
+            )
+            items += response["Contents"]
+        # sort the log files based on the last number
+        items = sorted(items, key=lambda file: -int(file["Key"].split(".")[-1]))
+        if len(items) > 0:
+            start_index = int(items[0]["Key"].split(".")[-1]) + 1
+        else:
+            start_index = 0
+
+        logger = setup_logger(
+            self.s3client,
+            self.default_bucket,
+            workspace.name,
+            start_index,
+            workspace.name,
+            log_base_name,
+        )
+        workspace._logger = logger
 
     def enter_workspace(self, ev):
         user_info, workspace = ev
