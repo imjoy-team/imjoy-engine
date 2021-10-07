@@ -3,6 +3,7 @@ import os
 import uuid
 from pathlib import Path
 import shutil
+import shortuuid
 import traceback
 import threading
 import time
@@ -227,7 +228,7 @@ class ServerAppController:
         elif not source:
             raise Exception("Source or template should be provided.")
 
-        id = id or str(uuid.uuid4())
+        id = id or shortuuid.uuid()
         if (self.apps_dir / user_id / id).exists() and not overwrite:
             raise Exception(
                 f"Another app with the same id ({id}) already exists in the user's app space {user_id}."
@@ -260,7 +261,7 @@ class ServerAppController:
         page._plugin = None
         self._capture_logs_from_browser_tabs(page)
         # TODO: dispose await context.close()
-        name = "app-" + str(uuid.uuid4())
+        name = shortuuid.uuid()
         if "/" not in id:
             id = workspace + "/" + id
         url = (

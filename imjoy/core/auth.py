@@ -9,6 +9,7 @@ import uuid
 from os import environ as env
 from typing import List, Optional
 from urllib.request import urlopen
+import shortuuid
 
 from dotenv import find_dotenv, load_dotenv
 from fastapi import Header, HTTPException, Request
@@ -216,7 +217,7 @@ def generate_anonymouse_user():
     return ValidToken(
         credentials={
             "iss": "https://imjoy.eu.auth0.com/",
-            "sub": str(uuid.uuid4()),  # user_id
+            "sub": shortuuid.uuid(),  # user_id
             "aud": "https://imjoy.eu.auth0.com/api/v2/",
             "iat": iat,
             "exp": iat + 600,
@@ -280,7 +281,7 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
             raise PermissionError(f"User has no permission to scope: {scope}")
 
     # always generate a new user id
-    uid = str(uuid.uuid4())
+    uid = shortuuid.uuid()
     expires_in = config.expires_in or 10800
     expires_at = time.time() + expires_in
 

@@ -2,7 +2,7 @@
 import asyncio
 import logging
 import sys
-import uuid
+import shortuuid
 
 from imjoy_rpc.rpc import RPC
 from imjoy_rpc.utils import ContextLocal, dotdict
@@ -25,7 +25,7 @@ class DynamicPlugin:
         assert self.config.workspace == workspace.name
         self.workspace = workspace
         self.user_info = user_info
-        self.id = self.config.id or str(uuid.uuid4())  # pylint: disable=invalid-name
+        self.id = self.config.id or shortuuid.uuid()  # pylint: disable=invalid-name
         self.name = self.config.name
         self.initializing = False
         self._disconnected = True

@@ -57,8 +57,8 @@ class FSController:
         self.fs.makedirs(str(workspace_dir), exist_ok=True)
         with self.fs.open(str(workspace_dir / "_workspace_config.json"), "w") as fil:
             fil.write(workspace.json())
-        logger = setup_logger(self.fs, workspace.name, str(workspace_dir / "log.txt"))
-        workspace._logger = logger
+        # logger = setup_logger(self.fs, workspace.name, str(workspace_dir / "log.txt"))
+        # workspace._logger = logger
 
     def cleanup_workspace(self, workspace):
         workspace_dir = self.fs_dir / workspace.name

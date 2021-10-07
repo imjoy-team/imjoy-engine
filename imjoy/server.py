@@ -6,6 +6,7 @@ from contextvars import copy_context
 from os import environ as env
 from typing import Union
 import argparse
+import shortuuid
 
 import socketio
 import uvicorn
@@ -66,7 +67,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
                 return False
             logger.info("User connected: %s", uid)
         else:
-            uid = str(uuid.uuid4())
+            uid = shortuuid.uuid()
             user_info = UserInfo(
                 id=uid,
                 email=None,
@@ -97,7 +98,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
         user_info = all_sessions[sid]
         ws = config.get("workspace") or user_info.id
         config["workspace"] = ws
-        config["name"] = config.get("name") or str(uuid.uuid4())
+        config["name"] = config.get("name") or shortuuid.uuid()
         workspace = get_workspace(ws)
         if workspace is None:
             if ws == user_info.id:

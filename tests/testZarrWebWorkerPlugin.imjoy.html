@@ -47,7 +47,6 @@ class ImJoyPlugin {
         const fetchOptions = { redirect: 'follow', headers: { 'Authorization': `Bearer ${token}` } };
         const supportedMethods = ['GET', 'PUT', 'HEAD']; // defaults
         const store = new zarr.HTTPStore(base_url, { fetchOptions, supportedMethods });
-        console.log('=====================>', base_url, path)
         const z = await zarr.openArray({
             store,
             path,

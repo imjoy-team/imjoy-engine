@@ -6,14 +6,16 @@
   <title>ImJoy Plugin Template</title>
   <meta name="description" content="Template for ImJoy plugin">
   <meta name="author" content="ImJoy-Team">
-  <script src="https://cdn.jsdelivr.net/npm/imjoy-rpc@0.3.27/dist/imjoy-rpc-socketio.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/imjoy-rpc@0.3.28/dist/imjoy-rpc-socketio.min.js"></script>
 </head>
 
 <body>
     <script>
         const config = Object.fromEntries(new URLSearchParams(window.location.search))
         if(!config.server_url) config.server_url = window.location.origin;
+        
         imjoyRPCSocketIO.connectToServer(config).then(async (api)=>{
+            await imjoyRPCSocketIO.loadRequirements([{% for req in requirements %}"{{req}}", {% endfor %}])
             {{ script | safe }}
         }).catch(console.error)
     </script>
