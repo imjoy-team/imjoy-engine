@@ -15,6 +15,7 @@ window = self;
 self.onmessage = function(e) {
 const config = e.data
 importScripts("https://cdn.jsdelivr.net/npm/imjoy-rpc@0.3.27/dist/imjoy-rpc-socketio.min.js")
+imjoyRPCSocketIO.loadRequirements([{% for req in requirements %}"{{req}}", {% endfor %}])
 imjoyRPCSocketIO.connectToServer(config).then(async (api)=>{
 {{ script | safe }}
 }).catch(console.error)

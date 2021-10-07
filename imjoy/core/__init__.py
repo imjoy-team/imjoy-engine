@@ -53,6 +53,14 @@ class VisibilityEnum(str, Enum):
     protected = "protected"
 
 
+class StatusEnum(str, Enum):
+    """Represent the status of a component."""
+
+    ready = "ready"
+    initializing = "initializing"
+    not_initialized = "not_initialized"
+
+
 class ServiceInfo(BaseModel):
     """Represent service."""
 

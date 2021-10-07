@@ -13,8 +13,11 @@ from imjoy.utils import safe_join
 from starlette.types import Receive, Scope, Send
 from email.utils import formatdate
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional, NamedTuple
+from starlette.datastructures import Headers
+from starlette.exceptions import HTTPException
 import json
+import re
 
 from imjoy.minio import MinioClient
 from imjoy.utils import generate_password
@@ -22,6 +25,34 @@ from imjoy.utils import generate_password
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("s3")
 logger.setLevel(logging.INFO)
+
+
+RANGE_REGEX = re.compile(r"^bytes=(?P<start>\d+)-(?P<end>\d*)$")
+
+
+class OpenRange(NamedTuple):
+    start: int
+    end: Optional[int] = None
+
+    def clamp(self, start: int, end: int) -> "ClosedRange":
+        begin = max(self.start, start)
+        end = min((x for x in (self.end, end) if x))
+
+        begin = min(begin, end)
+        end = max(begin, end)
+
+        return ClosedRange(begin, end)
+
+
+class ClosedRange(NamedTuple):
+    start: int
+    end: int
+
+    def __len__(self) -> int:
+        return self.end - self.start + 1
+
+    def __bool__(self) -> bool:
+        return len(self) > 0
 
 
 class FSFileResponse(FileResponse):
@@ -34,49 +65,77 @@ class FSFileResponse(FileResponse):
         super().__init__(key, **kwargs)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        request_headers = Headers(scope=scope)
+
+        range_header = request_headers.get("range", None)
         async with self.s3client as s3:
             try:
-                obj_info = await s3.get_object(Bucket=self.bucket, Key=self.key)
+                kwargs = {"Bucket": self.bucket, "Key": self.key}
+                if range_header is not None:
+                    kwargs["Range"] = range_header
+                obj_info = await s3.get_object(**kwargs)
                 last_modified = formatdate(
                     datetime.timestamp(obj_info["LastModified"]), usegmt=True
                 )
                 self.headers.setdefault(
                     "content-length", str(obj_info["ContentLength"])
                 )
+                self.headers.setdefault(
+                    "content-range", str(obj_info.get("ContentRange"))
+                )
                 self.headers.setdefault("last-modified", last_modified)
                 self.headers.setdefault("etag", obj_info["ETag"])
+            except ClientError as exp:
+                self.status_code = 404
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": self.status_code,
+                        "headers": self.raw_headers,
+                    }
+                )
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": f"File not found, details: {json.dumps(exp.response)}".encode(
+                            "utf-8"
+                        ),
+                        "more_body": False,
+                    }
+                )
             except Exception as exp:
                 raise RuntimeError(
                     f"File at path {self.path} does not exist, details: {exp}"
                 )
-            await send(
-                {
-                    "type": "http.response.start",
-                    "status": self.status_code,
-                    "headers": self.raw_headers,
-                }
-            )
-            if self.send_header_only:
-                await send(
-                    {"type": "http.response.body", "body": b"", "more_body": False}
-                )
             else:
-                # Tentatively ignoring type checking failure to work around the wrong type
-                # definitions for aiofile that come with typeshed. See
-                # https://github.com/python/typeshed/pull/4650
-
-                total_size = obj_info["ContentLength"]
-                sent_size = 0
-                chunks = obj_info["Body"].iter_chunks(chunk_size=self.chunk_size)
-                async for chunk in chunks:
-                    sent_size += len(chunk)
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": self.status_code,
+                        "headers": self.raw_headers,
+                    }
+                )
+                if self.send_header_only:
                     await send(
-                        {
-                            "type": "http.response.body",
-                            "body": chunk,
-                            "more_body": sent_size < total_size,
-                        }
+                        {"type": "http.response.body", "body": b"", "more_body": False}
                     )
+                else:
+                    # Tentatively ignoring type checking failure to work around the wrong type
+                    # definitions for aiofile that come with typeshed. See
+                    # https://github.com/python/typeshed/pull/4650
+
+                    total_size = obj_info["ContentLength"]
+                    sent_size = 0
+                    chunks = obj_info["Body"].iter_chunks(chunk_size=self.chunk_size)
+                    async for chunk in chunks:
+                        sent_size += len(chunk)
+                        await send(
+                            {
+                                "type": "http.response.body",
+                                "body": chunk,
+                                "more_body": sent_size < total_size,
+                            }
+                        )
 
             if self.background is not None:
                 await self.background()
@@ -136,7 +195,7 @@ class S3Controller:
 
         router = APIRouter()
 
-        @router.put("/{workspace}/files/{path:path}")
+        @router.put("/files/{workspace}/{path:path}")
         async def upload_file(
             workspace: str,
             path: str,
@@ -223,8 +282,8 @@ class S3Controller:
                     content=response,
                 )
 
-        @router.get("/{workspace}/files/{path:path}")
-        @router.delete("/{workspace}/files/{path:path}")
+        @router.get("/files/{workspace}/{path:path}")
+        @router.delete("/files/{workspace}/{path:path}")
         async def get_or_delete_file(
             workspace: str,
             path: str,
@@ -248,6 +307,7 @@ class S3Controller:
             path = safe_join(workspace, path)
             if request.method == "GET":
                 async with self.create_client_async() as s3:
+                    # List files in the folder
                     if path.endswith("/"):
                         response = await s3.list_objects_v2(
                             Bucket=self.default_bucket, Prefix=path
@@ -277,10 +337,11 @@ class S3Controller:
                                     "children": items,
                                 },
                             )
+                    # Download the file
                     try:
-                        response = await s3.head_object(
-                            Bucket=self.default_bucket, Key=path
-                        )
+                        # response = await s3.head_object(
+                        #     Bucket=self.default_bucket, Key=path
+                        # )
                         return FSFileResponse(
                             self.create_client_async(), self.default_bucket, path
                         )
@@ -324,6 +385,7 @@ class S3Controller:
         core_interface.register_router(router)
 
     def create_client_sync(self):
+        # Documentation for botocore client: https://botocore.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html
         return botocore.session.get_session().create_client(
             "s3",
             endpoint_url=self.endpoint_url,

@@ -1,0 +1,74 @@
+<docs>
+[TODO: write documentation for this plugin.]
+</docs>
+
+<config lang="json">
+{
+    "name": "ZarrWebWorkerPlugin",
+    "type": "web-worker",
+    "tags": [],
+    "ui": "",
+    "version": "0.1.0",
+    "cover": "",
+    "description": "[TODO: describe this plugin with one sentence.]",
+    "icon": "extension",
+    "inputs": null,
+    "outputs": null,
+    "api_version": "0.1.7",
+    "env": "",
+    "permissions": [],
+    "requirements": ["https://unpkg.com/zarr/zarr.umd.js"],
+    "dependencies": []
+}
+</config>
+
+<script lang="javascript">
+class ImJoyPlugin {
+    async setup() {
+        await api.log('initialized')
+    }
+
+    async test_zarr(size){
+        const store = new zarr.ObjectStore();
+
+        const myZarrArray = await zarr.ones(size, { store, chunks: [1, 2] });
+        console.log(myZarrArray.chunks); // [1, 2]
+
+        const arr = await myZarrArray.get([zarr.slice(0, 2)]);
+        console.log(arr instanceof zarr.NestedArray); // true
+        console.log(arr.shape); // [2, 4]
+        return arr.shape
+    }
+
+    async test_read_zarr(base_url, path){
+        const s3controller = api.get_s3_controller()
+        const token = await api.generate_token()
+        const workspace = api.config.workspace
+        const fetchOptions = { redirect: 'follow', headers: { 'Authorization': `Bearer ${token}` } };
+        const supportedMethods = ['GET', 'PUT', 'HEAD']; // defaults
+        const store = new zarr.HTTPStore(base_url, { fetchOptions, supportedMethods });
+        console.log('=====================>', base_url, path)
+        const z = await zarr.openArray({
+            store,
+            path,
+            mode: "r"
+        });
+        console.log(z);
+
+        return z.get(0, 2) == 100
+
+        // const z = await zarr.zeros([1000, 1000], {chunks: [100, 100], dtype: '<i4', store, overwrite: true});
+        // await z.set(null, 42);
+        // await z.set([0, null], zarr.NestedArray.arange(1000, "<i4")); 
+        // await z.set([null, 0], zarr.NestedArray.arange(1000, "<i4")); 
+        // console.log(await z.get([0, 0]));
+        // console.log(await z.get([-1, -1]));
+        // console.log(await z.get([0, null]))
+        // console.log(await z.get([null, 0]))
+        // console.log((await z.get(null)).shape) // Printing the array itself spams the console a lot
+        // return true
+    }
+}
+
+api.export(new ImJoyPlugin())
+</script>

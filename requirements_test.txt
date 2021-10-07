@@ -4,3 +4,5 @@ pytest-cov==2.12.1
 pytest-timeout==1.4.2
 requests==2.26.0
 websocket-client==1.2.1
+boto3==1.17.106
+zarr==2.10.1
