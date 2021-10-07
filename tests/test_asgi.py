@@ -35,10 +35,18 @@ async def test_http_proxy(minio_server, socketio_server):
     assert pid in apps
     config = await controller.start(pid, workspace, token)
     plugin = await api.get_plugin(config.name)
-    assert "serve" in plugin
+    await plugin.setup()
+    service = await api.get_service(config.workspace + "/hello-fastapi")
+    assert "serve" in service
 
-    response = requests.get(f"{SIO_SERVER_URL}/{workspace}/app/{config.name}")
+    response = requests.get(f"{SIO_SERVER_URL}/{workspace}/app/hello-fastapi/")
     assert response.ok
     assert response.json()["message"] == "Hello World"
+
+    service = await api.get_service(config.workspace + "/hello-flask")
+    assert "serve" in service
+    response = requests.get(f"{SIO_SERVER_URL}/{workspace}/app/hello-flask/")
+    assert response.ok
+    assert response.text == "<p>Hello, World!</p>"
 
     await controller.stop(config.name)

@@ -1,12 +1,11 @@
 import json
 import traceback
-from typing import Optional, Any
-from starlette.types import Receive, Scope, Send
+from typing import Any
+
 
 import msgpack
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import Response, JSONResponse
-from imjoy.core import get_workspace
 from imjoy.core.auth import login_optional
 
 
@@ -54,50 +53,12 @@ def get_value(keys, service):
     return value
 
 
-class RemoteResponse(Response):
-    chunk_size = 4096
-
-    def __init__(self, app, **kwargs) -> None:
-        self.app = app
-        assert self.app.serve is not None, "No serve function defined"
-        super().__init__(**kwargs)
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        scope = {
-            k: scope[k]
-            for k in scope
-            if isinstance(scope[k], (str, int, float, bool, tuple, list, dict))
-        }
-        # TODO: we need to dispose the interface after the send function if done
-        await self.app.serve(
-            {"scope": scope, "receive": receive, "send": send, "_rintf": True}
-        )
-        # await send(
-        #     {
-        #         "type": "http.response.start",
-        #         "status": 200,
-        #         "headers": scope["headers"],
-        #     }
-        # )
-        # if self.send_header_only:
-        #     await send(
-        #         {"type": "http.response.body", "body": b"", "more_body": False}
-        #     )
-        # else:
-        #     await send(
-        #         {
-        #             "type": "http.response.body",
-        #             "body": chunk,
-        #             "more_body": sent_size < total_size,
-        #         }
-        #     )
-
-
 class HTTPProxy:
     """File System Controller."""
 
     def __init__(self, event_bus, core_interface):
         router = APIRouter()
+        self.core_interface = core_interface
 
         @router.get("/services")
         def get_all_services(
@@ -114,34 +75,6 @@ class HTTPProxy:
             except Exception as exp:
                 return JSONResponse(
                     status_code=500,
-                    content={"success": False, "detail": str(exp)},
-                )
-
-        @router.get("/{workspace}/app/{app}")
-        async def call_app_api(
-            workspace: str,
-            app: str,
-            user_info: login_optional = Depends(login_optional),
-        ):
-            try:
-                core_interface.current_user.set(user_info)
-                ws = get_workspace(workspace)
-                core_interface.current_workspace.set(ws)
-                if not ws:
-                    return JSONResponse(
-                        status_code=404,
-                        content={
-                            "success": False,
-                            "detail": f"Workspace does not exists: {ws}",
-                        },
-                    )
-                plugin = await core_interface.get_plugin(app)
-                if not plugin:
-                    raise Exception("App not found: " + app)
-                return RemoteResponse(plugin)
-            except Exception as exp:
-                return JSONResponse(
-                    status_code=404,
                     content={"success": False, "detail": str(exp)},
                 )
 

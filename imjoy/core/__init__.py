@@ -12,6 +12,8 @@ from pydantic import (  # pylint: disable=no-name-in-module
     Extra,
 )
 
+from imjoy.core.plugin import DynamicPlugin
+
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("core")
 logger.setLevel(logging.INFO)
@@ -68,6 +70,7 @@ class ServiceInfo(BaseModel):
     name: str
     type: str
     visibility: VisibilityEnum = VisibilityEnum.protected
+    _provider: DynamicPlugin = PrivateAttr(default_factory=lambda: None)
 
     class Config:
         extra = Extra.allow

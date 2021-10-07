@@ -23,6 +23,7 @@ from imjoy.core.auth import check_permission, generate_presigned_token
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.utils import dotdict
 from imjoy.core.connection import BasicConnection
+from starlette.routing import Mount
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
@@ -55,7 +56,7 @@ class CoreInterface:
         self.current_plugin = current_plugin
         self.current_user = current_user
         self.current_workspace = current_workspace
-        self.app = app
+        self._app = app
         self.app_controller = app_controller
         imjoy_api = imjoy_api or {}
         self._codecs = {}
@@ -132,7 +133,7 @@ class CoreInterface:
                 raise
 
     def register_router(self, router):
-        self.app.include_router(router)
+        self._app.include_router(router)
 
     def register_interface(self, name, func):
         """Register a interface function."""
@@ -170,6 +171,7 @@ class CoreInterface:
         config["provider_id"] = plugin.id
         service["config"] = config
         formated_service = ServiceInfo.parse_obj(service)
+        formated_service._provider = plugin
         # service["_rintf"] = True
         # Note: service can set its `visiblity` to `public` or `protected`
         workspace._services[formated_service.name] = formated_service
@@ -419,3 +421,9 @@ class CoreInterface:
     def get_codecs(self):
         """Return registered codecs for rpc"""
         return self._codecs
+
+    def mount_app(self, path, app, name=None, priority=-1):
+        """Mount an app to fastapi"""
+        route = Mount(path, app, name=name)
+        # The default priority is -1 which assumes the last one is websocket
+        self._app.routes.insert(priority, route)

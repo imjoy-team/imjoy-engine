@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import sys
+from jose.backends.base import Key
 import shortuuid
 
 from imjoy_rpc.rpc import RPC
@@ -59,6 +60,16 @@ class DynamicPlugin:
 
         self.connection.on("initialized", initialized)
         self.connection.connect()
+
+    def dispose_object(self, obj):
+        store = self._rpc._object_store
+        found = False
+        for k in list(store):
+            if store[k] == obj:
+                del store[k]
+                found = True
+        if not found:
+            raise KeyError("Object not found in the store")
 
     async def get_api(self):
         """Get the plugin api."""

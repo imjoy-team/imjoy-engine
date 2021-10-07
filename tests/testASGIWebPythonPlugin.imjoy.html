@@ -18,7 +18,7 @@
     "api_version": "0.1.7",
     "env": "",
     "permissions": [],
-    "requirements": ["fastapi"],
+    "requirements": ["fastapi", "flask", "a2wsgi"],
     "dependencies": []
 }
 </config>
@@ -26,20 +26,55 @@
 <script lang="python">
 from imjoy import api
 
+from flask import Flask
+from a2wsgi import WSGIMiddleware
+
 from fastapi import FastAPI
 
-app = FastAPI()
+def create_fastapi_app():
+    app = FastAPI()
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
+    @app.get("/")
+    async def root():
+        return {"message": "Hello World"}
+
+    return app
+
+def create_flask_app():
+    app = Flask("hello-flask")
+
+    @app.route("/")
+    def hello_world():
+        return "<p>Hello, World!</p>"
+
+    # convert WSGI to ASGI
+    return WSGIMiddleware(app)
+
+
+
 
 async def setup():
-    await api.log('initialized')
+    # Registering fastapi app
+    fastapi_app = create_fastapi_app()
+    async def serve_fastapi(args):
+        await fastapi_app(args["scope"], args["receive"], args["send"])
+    await api.register_service({
+        "name": "hello-fastapi",
+        "type": "ASGI",
+        "serve": serve_fastapi,
+        "visibility": "public"
+    })
 
-async def serve(args):
-    await app(args["scope"], args["receive"], args["send"])
-    #TODO: dispose the args
+    # Registering flask app
+    flask_app = create_flask_app()
+    async def serve_flask(args):
+        await flask_app(args["scope"], args["receive"], args["send"])
+    await api.register_service({
+        "name": "hello-flask",
+        "type": "ASGI",
+        "serve": serve_flask,
+        "visibility": "public"
+    })
 
-api.export({"setup": setup, "serve": serve})
+api.export({"setup": setup})
 </script>
