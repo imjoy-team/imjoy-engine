@@ -46,6 +46,7 @@ def serialize(obj):
 
 
 def get_value(keys, service):
+    """Get service function by a key string."""
     keys = keys.split(".")
     key = keys[0]
     value = service[key]
@@ -61,6 +62,7 @@ class HTTPProxy:
     """A proxy for accessing services from HTTP."""
 
     def __init__(self, core_interface):
+        """Initialize the http proxy."""
         router = APIRouter()
         self.core_interface = core_interface
 
@@ -68,6 +70,7 @@ class HTTPProxy:
         def get_all_services(
             user_info: login_optional = Depends(login_optional),
         ):
+            """Route for listing all the services."""
             try:
                 core_interface.current_user.set(user_info)
                 services = core_interface.list_services()
@@ -87,6 +90,7 @@ class HTTPProxy:
             workspace: str,
             user_info: login_optional = Depends(login_optional),
         ):
+            """Route for get services under a workspace."""
             try:
                 core_interface.current_user.set(user_info)
                 services = core_interface.list_services({"workspace": workspace})
@@ -107,6 +111,7 @@ class HTTPProxy:
             service: str,
             user_info: login_optional = Depends(login_optional),
         ):
+            """Route for checking details of a service."""
             try:
                 core_interface.current_user.set(user_info)
                 service = await core_interface.get_service(f"{workspace}/{service}")
@@ -130,7 +135,8 @@ class HTTPProxy:
             request: Request,
             user_info: login_optional = Depends(login_optional),
         ):
-            """Get function info, keys can contain dot to refer deeper object"""
+            """Run service function by keys.
+            (It can contain dot to refer deeper object)"""
             try:
                 core_interface.current_user.set(user_info)
                 service = await core_interface.get_service(f"{workspace}/{service}")
@@ -201,7 +207,7 @@ class HTTPProxy:
 
             except Exception:
                 return JSONResponse(
-                    status_code=404,
+                    status_code=500,
                     content={"success": False, "detail": traceback.format_exc()},
                 )
 
