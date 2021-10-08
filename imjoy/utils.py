@@ -41,8 +41,9 @@ def generate_password(length=20):
 
 
 def safe_join(directory: str, *pathnames: str) -> Optional[str]:
-    """Safely join zero or more untrusted path components to a base
-    directory to avoid escaping the base directory.
+    """Safely join zero or more untrusted path components to a base directory.
+
+    This avoids escaping the base directory.
     :param directory: The trusted base directory.
     :param pathnames: The untrusted path components relative to the
         base directory.
