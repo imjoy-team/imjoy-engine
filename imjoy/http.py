@@ -54,7 +54,7 @@ def get_value(keys, service):
 
 
 class HTTPProxy:
-    """File System Controller."""
+    """A proxy for accessing services from HTTP."""
 
     def __init__(self, event_bus, core_interface):
         router = APIRouter()
