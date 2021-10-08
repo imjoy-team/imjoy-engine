@@ -18,6 +18,7 @@ def socketio_server_fixture():
             sys.executable,
             "-m",
             "imjoy.server",
+            "--enable-server-apps",
             f"--port={SIO_PORT}",
         ]
     ) as proc:

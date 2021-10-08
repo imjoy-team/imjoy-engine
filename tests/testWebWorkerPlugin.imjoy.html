@@ -1,0 +1,41 @@
+<docs>
+[TODO: write documentation for this plugin.]
+</docs>
+
+<config lang="json">
+{
+    "name": "WebWorkerPlugin",
+    "type": "web-worker",
+    "tags": [],
+    "ui": "",
+    "version": "0.1.0",
+    "cover": "",
+    "description": "[TODO: describe this plugin with one sentence.]",
+    "icon": "extension",
+    "inputs": null,
+    "outputs": null,
+    "api_version": "0.1.7",
+    "env": "",
+    "permissions": [],
+    "requirements": [],
+    "dependencies": []
+}
+</config>
+
+<script lang="javascript">
+class ImJoyPlugin {
+    async setup() {
+        await api.log('initialized')
+    }
+
+    async add2(a){
+        return a + 2
+    }
+
+    async run(ctx) {
+        await api.alert('hello world.')
+    }
+}
+
+api.export(new ImJoyPlugin())
+</script>
