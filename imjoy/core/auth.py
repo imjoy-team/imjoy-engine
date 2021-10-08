@@ -198,13 +198,6 @@ def valid_token(authorization: str):
             credentials=payload, scopes=payload["scope"].split(" ")
         )
 
-        # This is needed for patching the test token
-        # if "create:roles" in payload["scope"]:
-        #     if "https://api.imjoy.io/roles" not in returned_token.credentials:
-        #         returned_token.credentials["https://api.imjoy.io/roles"] = ["admin"]
-        #     if "https://api.imjoy.io/email" not in returned_token.credentials:
-        #         returned_token.credentials["https://api.imjoy.io/email"] = None
-
         return returned_token
 
     except jwt.ExpiredSignatureError as err:
