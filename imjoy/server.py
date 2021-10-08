@@ -44,7 +44,7 @@ if ENV_FILE:
     load_dotenv(ENV_FILE)
 
 
-def initialize_socketio(sio, core_interface, event_bus: EventBus):
+def initialize_socketio(sio, core_interface, bus: EventBus):
     """Initialize socketio."""
     # pylint: disable=too-many-statements, unused-variable, protected-access
 
@@ -83,7 +83,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
             all_users[uid] = user_info
         all_users[uid]._sessions.append(sid)
         all_sessions[sid] = all_users[uid]
-        event_bus.emit("user_connected", all_users[uid])
+        bus.emit("user_connected", all_users[uid])
 
     @sio.event
     async def echo(sid, data):
@@ -148,7 +148,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
         workspace._plugins[plugin.name] = plugin
         logger.info("New plugin registered successfully (%s)", plugin_id)
 
-        event_bus.emit(
+        bus.emit(
             "plugin_registered",
             plugin,
         )
@@ -212,9 +212,9 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
                     if service.config.get("provider_id") == plugin.id:
                         del plugin.workspace._services[service.name]
         del all_sessions[sid]
-        event_bus.emit("plugin_disconnected", {"sid": sid})
+        bus.emit("plugin_disconnected", {"sid": sid})
 
-    event_bus.emit("socketio_ready", None)
+    bus.emit("socketio_ready", None)
 
 
 def create_application(allow_origins, base_path) -> FastAPI:
