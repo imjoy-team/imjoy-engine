@@ -2,8 +2,7 @@
 from enum import Enum
 import logging
 import sys
-from contextvars import ContextVar
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import (  # pylint: disable=no-name-in-module
     BaseModel,
@@ -147,9 +146,7 @@ class WorkspaceInfo(BaseModel):
     docs: Optional[str]
     allow_list: Optional[List[str]]
     deny_list: Optional[List[str]]
-    authorizer: Optional[str]
     _logger: Optional[logging.Logger] = PrivateAttr(default_factory=lambda: logger)
-    _authorizer: Optional[Callable] = PrivateAttr(default_factory=lambda: None)
     _plugins: Dict[str, DynamicPlugin] = PrivateAttr(
         default_factory=lambda: {}
     )  # name: plugin
@@ -158,10 +155,6 @@ class WorkspaceInfo(BaseModel):
     def get_logger(self) -> Optional[logging.Logger]:
         """Return the logger."""
         return self._logger
-
-    def get_authorizer(self) -> Optional[Callable]:
-        """Return the authorizer."""
-        return self._authorizer
 
     def get_plugins(self) -> Dict[str, Any]:
         """Return the plugins."""
@@ -190,50 +183,3 @@ class WorkspaceInfo(BaseModel):
     def remove_service(self, service_name: str) -> None:
         """Remove a service."""
         del self._services[service_name]
-
-
-event_bus = EventBus()
-current_user = ContextVar("current_user")
-current_plugin = ContextVar("current_plugin")
-current_workspace = ContextVar("current_workspace")
-all_sessions: Dict[str, UserInfo] = {}  # sid:user_info
-all_users: Dict[str, UserInfo] = {}  # uid:user_info
-_all_workspaces: Dict[str, WorkspaceInfo] = {}  # wid:workspace_info
-
-
-def get_all_workspace():
-    """Return all workspaces."""
-    return list(_all_workspaces.values())
-
-
-def is_workspace_registered(ws):
-    """Return true if workspace is registered."""
-    if ws in _all_workspaces.values():
-        return True
-    return False
-
-
-def get_workspace(name):
-    """Return the workspace."""
-    if name in _all_workspaces:
-        return _all_workspaces[name]
-    return None
-
-
-def register_workspace(ws):
-    """Register the workspace."""
-    if ws.name in _all_workspaces:
-        raise Exception(
-            f"Another workspace with the same name {ws.name} already exist."
-        )
-    _all_workspaces[ws.name] = ws
-    event_bus.emit("workspace_registered", ws)
-
-
-def unregister_workspace(name):
-    """Unregister the workspace."""
-    if name not in _all_workspaces:
-        raise Exception(f"Workspace has not been registered: {name}")
-    ws = _all_workspaces[name]
-    del _all_workspaces[name]
-    event_bus.emit("workspace_unregistered", ws)

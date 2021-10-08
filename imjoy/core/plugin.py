@@ -31,7 +31,6 @@ class DynamicPlugin:
         self._disconnected = True
         self._log_history = []
         self.connection = connection
-        self.authorizer = None
         self.api = None
         self.running = False
         self.terminating = False

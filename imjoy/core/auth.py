@@ -16,7 +16,7 @@ from fastapi import Header, HTTPException
 from jose import jwt
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
-from imjoy.core import UserInfo, VisibilityEnum, TokenConfig, all_users, get_workspace
+from imjoy.core import UserInfo, TokenConfig
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
@@ -273,9 +273,6 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
     Child user may generate more child user token if it has admin permission.
     """
     scopes = config.scopes
-    for scope in scopes:
-        if not check_permission(scope, user_info):
-            raise PermissionError(f"User has no permission to scope: {scope}")
 
     # always generate a new user id
     uid = shortuuid.uuid()
@@ -301,56 +298,3 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
         algorithm="HS256",
     )
     return uid + "@imjoy@" + token
-
-
-def check_permission(workspace, user_info):
-    """Check user permission for a workspace."""
-    # pylint: disable=too-many-return-statements
-    if isinstance(workspace, str):
-        workspace = get_workspace(workspace)
-        if not workspace:
-            logger.warning("Workspace %s not found", workspace)
-            return False
-
-    # Make exceptions for root user, the children of root and test workspace
-    if (
-        user_info.id == "root"
-        or user_info.parent == "root"
-        or workspace.name == "public"
-    ):
-        return True
-
-    if workspace.name == user_info.id:
-        return True
-
-    if user_info.parent:
-        parent = all_users.get(user_info.parent)
-        if not parent:
-            return False
-        if not check_permission(workspace, parent):
-            return False
-        # if the parent has access
-        # and the workspace is in the scopes
-        # then we allow the access
-        if workspace.name in user_info.scopes:
-            return True
-
-    _id = user_info.email or user_info.id
-
-    if _id in workspace.owners:
-        return True
-
-    if workspace.visibility == VisibilityEnum.public:
-        if workspace.deny_list and user_info.email not in workspace.deny_list:
-            return True
-    elif workspace.visibility == VisibilityEnum.protected:
-        if workspace.allow_list and user_info.email in workspace.allow_list:
-            return True
-
-    if "admin" in user_info.roles:
-        logger.info(
-            "Allowing access to %s for admin user %s", workspace.name, user_info.id
-        )
-        return True
-
-    return False

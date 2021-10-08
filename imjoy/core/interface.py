@@ -1,26 +1,22 @@
 """Provide interface functions for the core."""
 import logging
 import sys
+from contextvars import ContextVar
 from functools import partial
-from typing import Optional
+from typing import Dict, Optional
 
 import pkg_resources
 from starlette.routing import Mount
 
 from imjoy.core import (
+    EventBus,
     ServiceInfo,
     TokenConfig,
     UserInfo,
     VisibilityEnum,
     WorkspaceInfo,
-    current_plugin,
-    current_user,
-    current_workspace,
-    get_all_workspace,
-    get_workspace,
-    register_workspace,
 )
-from imjoy.core.auth import check_permission, generate_presigned_token
+from imjoy.core.auth import generate_presigned_token
 from imjoy.core.connection import BasicConnection
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.utils import dotdict
@@ -30,32 +26,20 @@ logger = logging.getLogger("imjoy-core")
 logger.setLevel(logging.INFO)
 
 
-# Add public workspace
-register_workspace(
-    WorkspaceInfo.parse_obj(
-        {
-            "name": "public",
-            "persistent": True,
-            "owners": ["root"],
-            "allow_list": [],
-            "deny_list": [],
-            "visibility": "public",
-        }
-    )
-)
-
-
 class CoreInterface:
     """Represent the interface of the ImJoy core."""
 
     # pylint: disable=no-self-use, too-many-instance-attributes, too-many-public-methods
 
-    def __init__(self, app, event_bus, imjoy_api=None, app_controller=None):
+    def __init__(self, app, imjoy_api=None, app_controller=None):
         """Set up instance."""
-        self.event_bus = event_bus
-        self.current_plugin = current_plugin
-        self.current_user = current_user
-        self.current_workspace = current_workspace
+        self.event_bus = EventBus()
+        self.current_user = ContextVar("current_user")
+        self.current_plugin = ContextVar("current_plugin")
+        self.current_workspace = ContextVar("current_workspace")
+        self.all_sessions: Dict[str, UserInfo] = {}  # sid:user_info
+        self.all_users: Dict[str, UserInfo] = {}  # uid:user_info
+        self._all_workspaces: Dict[str, WorkspaceInfo] = {}  # wid:workspace_info
         self._app = app
         self.app_controller = app_controller
         imjoy_api = imjoy_api or {}
@@ -83,11 +67,25 @@ class CoreInterface:
                 "generate_token": self.generate_token,
                 "create_workspace": self.create_workspace,
                 "createWorkspace": self.create_workspace,
-                "get_workspace": self.get_workspace,
-                "getWorkspace": self.get_workspace,
+                "get_workspace": self.get_workspace_interface,
+                "getWorkspace": self.get_workspace_interface,
             }
         )
         self._imjoy_api.update(imjoy_api)
+
+        # Add public workspace
+        self.register_workspace(
+            WorkspaceInfo.parse_obj(
+                {
+                    "name": "public",
+                    "persistent": True,
+                    "owners": ["root"],
+                    "allow_list": [],
+                    "deny_list": [],
+                    "visibility": "public",
+                }
+            )
+        )
 
         # Create root user
         self.root_user = UserInfo(
@@ -106,8 +104,93 @@ class CoreInterface:
             visibility=VisibilityEnum.protected,
             persistent=True,
         )
-        register_workspace(self.root_workspace)
+        self.register_workspace(self.root_workspace)
         self.load_extensions()
+
+    def check_permission(self, workspace, user_info):
+        """Check user permission for a workspace."""
+        # pylint: disable=too-many-return-statements
+        if isinstance(workspace, str):
+            workspace = self.get_workspace(workspace)
+            if not workspace:
+                logger.warning("Workspace %s not found", workspace)
+                return False
+
+        # Make exceptions for root user, the children of root and test workspace
+        if (
+            user_info.id == "root"
+            or user_info.parent == "root"
+            or workspace.name == "public"
+        ):
+            return True
+
+        if workspace.name == user_info.id:
+            return True
+
+        if user_info.parent:
+            parent = self.all_users.get(user_info.parent)
+            if not parent:
+                return False
+            if not self.check_permission(workspace, parent):
+                return False
+            # if the parent has access
+            # and the workspace is in the scopes
+            # then we allow the access
+            if workspace.name in user_info.scopes:
+                return True
+
+        _id = user_info.email or user_info.id
+
+        if _id in workspace.owners:
+            return True
+
+        if workspace.visibility == VisibilityEnum.public:
+            if workspace.deny_list and user_info.email not in workspace.deny_list:
+                return True
+        elif workspace.visibility == VisibilityEnum.protected:
+            if workspace.allow_list and user_info.email in workspace.allow_list:
+                return True
+
+        if "admin" in user_info.roles:
+            logger.info(
+                "Allowing access to %s for admin user %s", workspace.name, user_info.id
+            )
+            return True
+
+        return False
+
+    def get_all_workspace(self):
+        """Return all workspaces."""
+        return list(self._all_workspaces.values())
+
+    def is_workspace_registered(self, ws):
+        """Return true if workspace is registered."""
+        if ws in self._all_workspaces.values():
+            return True
+        return False
+
+    def get_workspace(self, name):
+        """Return the workspace."""
+        if name in self._all_workspaces:
+            return self._all_workspaces[name]
+        return None
+
+    def register_workspace(self, ws):
+        """Register the workspace."""
+        if ws.name in self._all_workspaces:
+            raise Exception(
+                f"Another workspace with the same name {ws.name} already exist."
+            )
+        self._all_workspaces[ws.name] = ws
+        self.event_bus.emit("workspace_registered", ws)
+
+    def unregister_workspace(self, name):
+        """Unregister the workspace."""
+        if name not in self._all_workspaces:
+            raise Exception(f"Workspace has not been registered: {name}")
+        ws = self._all_workspaces[name]
+        del self._all_workspaces[name]
+        self.event_bus.emit("workspace_unregistered", ws)
 
     def load_extensions(self):
         """Load imjoy engine extensions."""
@@ -124,9 +207,9 @@ class CoreInterface:
                 self.root_workspace,
                 self.root_user,
             )
-            current_user.set(self.root_user)
-            current_workspace.set(self.root_workspace)
-            current_plugin.set(plugin)
+            self.current_user.set(self.root_user)
+            self.current_workspace.set(self.root_workspace)
+            self.current_plugin.set(plugin)
             try:
                 setup_extension = entry_point.load()
                 setup_extension(self)
@@ -145,8 +228,8 @@ class CoreInterface:
 
     def register_service(self, service: dict):
         """Register a service."""
-        plugin = current_plugin.get()
-        workspace = current_workspace.get()
+        plugin = self.current_plugin.get()
+        workspace = self.current_workspace.get()
         service_id = f'{workspace.name}/{service["name"]}'
         if "name" not in service or "type" not in service:
             raise Exception("Service should at least contain `name` and `type`")
@@ -183,12 +266,12 @@ class CoreInterface:
 
     def list_plugins(self):
         """List all plugins in the workspace."""
-        workspace = current_workspace.get()
+        workspace = self.current_workspace.get()
         return list(workspace.get_plugins())
 
     async def get_plugin(self, name):
         """Return a plugin by its name."""
-        workspace = current_workspace.get()
+        workspace = self.current_workspace.get()
         workspace_plugins = workspace.get_plugins()
         if name in workspace_plugins:
             return await workspace_plugins[name].get_api()
@@ -203,15 +286,15 @@ class CoreInterface:
                 "Invalid service_id format, it must be <workspace>/<service_name>"
             )
         ws, service_name = service_id.split("/")
-        workspace = get_workspace(ws)
+        workspace = self.get_workspace(ws)
         if not workspace:
             raise Exception(f"Service not found: {service_id} (workspace unavailable)")
 
         workspace_services = workspace.get_services()
         service = workspace_services.get(service_name)
-        user_info = current_user.get()
+        user_info = self.current_user.get()
         if (
-            not check_permission(workspace, user_info)
+            not self.check_permission(workspace, user_info)
             and service.config.get("visibility", "protected") != "public"
         ):
             raise Exception(f"Permission denied: {service_id}")
@@ -225,7 +308,7 @@ class CoreInterface:
         # if workspace is not set, then it means current workspace
         # if workspace = *, it means search globally
         # otherwise, it search the specified workspace
-        user_info = current_user.get()
+        user_info = self.current_user.get()
         if query is None:
             query = {"workspace": "*"}
 
@@ -234,8 +317,8 @@ class CoreInterface:
             del query["workspace"]
         if ws == "*":
             ret = []
-            for workspace in get_all_workspace():
-                can_access_ws = check_permission(workspace, user_info)
+            for workspace in self.get_all_workspace():
+                can_access_ws = self.check_permission(workspace, user_info)
                 for service in workspace.get_services().values():
                     # To access the service, it should be public or owned by the user
                     if (
@@ -251,9 +334,9 @@ class CoreInterface:
                         ret.append(service.config)
             return ret
         if ws is not None:
-            workspace = get_workspace(ws)
+            workspace = self.get_workspace(ws)
         else:
-            workspace = current_workspace.get()
+            workspace = self.current_workspace.get()
         ret = []
         workspace_services = workspace.get_services()
         for service in workspace_services.values():
@@ -271,7 +354,7 @@ class CoreInterface:
 
     def info(self, msg):
         """Log a plugin message."""
-        plugin = current_plugin.get()
+        plugin = self.current_plugin.get()
         logger.info("%s: %s", plugin.name, msg)
         workspace_logger = plugin.workspace.get_logger()
         if workspace_logger:
@@ -279,66 +362,69 @@ class CoreInterface:
 
     def warning(self, msg):
         """Log a plugin message (warning)."""
-        plugin = current_plugin.get()
+        plugin = self.current_plugin.get()
         workspace_logger = plugin.workspace.get_logger()
         if workspace_logger:
             workspace_logger.warning("%s: %s", plugin.name, msg)
 
     def error(self, msg):
         """Log a plugin error message (error)."""
-        plugin = current_plugin.get()
+        plugin = self.current_plugin.get()
         workspace_logger = plugin.workspace.get_logger()
         if workspace_logger:
             workspace_logger.error("%s: %s", plugin.name, msg)
 
     def critical(self, msg):
         """Log a plugin error message (critical)."""
-        plugin = current_plugin.get()
+        plugin = self.current_plugin.get()
         workspace_logger = plugin.workspace.get_logger()
         if workspace_logger:
             workspace_logger.critical("%s: %s", plugin.name, msg)
 
     def generate_token(self, config: Optional[dict] = None):
         """Generate a token for the current workspace."""
-        workspace = current_workspace.get()
+        workspace = self.current_workspace.get()
+        user_info = self.current_user.get()
         config = config or {}
         if "scopes" in config and config["scopes"] != [workspace.name]:
             raise Exception("Scopes must be empty or contains only the workspace name.")
         config["scopes"] = [workspace.name]
         token_config = TokenConfig.parse_obj(config)
-        token = generate_presigned_token(current_user.get(), token_config)
+        scopes = token_config.scopes
+        for scope in scopes:
+            if not self.check_permission(scope, user_info):
+                raise PermissionError(f"User has no permission to scope: {scope}")
+        token = generate_presigned_token(user_info, token_config)
         return token
 
     def create_workspace(self, config: dict):
         """Create a new workspace."""
-        user_info = current_user.get()
+        user_info = self.current_user.get()
         config["persistent"] = config.get("persistent") or False
         if user_info.is_anonymous and config["persistent"]:
             raise Exception("Only registered user can create persistent workspace.")
         workspace = WorkspaceInfo.parse_obj(config)
-        if get_workspace(workspace.name):
+        if self.get_workspace(workspace.name):
             raise Exception(f"Workspace {workspace.name} already exists.")
-        if workspace.authorizer:
-            raise Exception("Workspace authorizer is not supported yet.")
-        user_info = current_user.get()
+        user_info = self.current_user.get()
         # make sure we add the user's email to owners
         _id = user_info.email or user_info.id
         if _id not in workspace.owners:
             workspace.owners.append(_id)
         workspace.owners = [o.strip() for o in workspace.owners if o.strip()]
         user_info.scopes.append(workspace.name)
-        register_workspace(workspace)
-        return self.get_workspace(workspace.name)
+        self.register_workspace(workspace)
+        return self.get_workspace_interface(workspace.name)
 
     def _update_workspace(self, name, config: dict):
         """Bind the context to the generated workspace."""
         if not name:
             raise Exception("Workspace name is not specified.")
-        if not get_workspace(name):
+        if not self.get_workspace(name):
             raise Exception(f"Workspace {name} not found")
-        workspace = get_workspace(name)
-        user_info = current_user.get()
-        if not check_permission(workspace, user_info):
+        workspace = self.get_workspace(name)
+        user_info = self.current_user.get()
+        if not self.check_permission(workspace, user_info):
             raise PermissionError(f"Permission denied for workspace {name}")
 
         if "name" in config:
@@ -359,13 +445,13 @@ class CoreInterface:
             workspace.owners.append(_id)
         workspace.owners = [o.strip() for o in workspace.owners if o.strip()]
 
-    def get_workspace(self, name: str):
+    def get_workspace_interface(self, name: str):
         """Bind the context to the generated workspace."""
-        workspace = get_workspace(name)
+        workspace = self.get_workspace(name)
         if not workspace:
             raise Exception(f"Workspace {name} not found")
-        user_info = current_user.get()
-        if not check_permission(workspace, user_info):
+        user_info = self.current_user.get()
+        if not self.check_permission(workspace, user_info):
             raise PermissionError(f"Permission denied for workspace {name}")
 
         interface = self.get_interface()
@@ -375,17 +461,17 @@ class CoreInterface:
 
                 def wrap_func(func, *args, **kwargs):
                     try:
-                        workspace_bk = current_workspace.get()
+                        workspace_bk = self.current_workspace.get()
                     except LookupError:
                         workspace_bk = None
                     ret = None
                     try:
-                        current_workspace.set(workspace)
+                        self.current_workspace.set(workspace)
                         ret = func(*args, **kwargs)
                     except Exception as exp:
                         raise exp
                     finally:
-                        current_workspace.set(workspace_bk)
+                        self.current_workspace.set(workspace_bk)
                     return ret
 
                 bound_interface[key] = partial(wrap_func, interface[key])
@@ -400,16 +486,16 @@ class CoreInterface:
 
     def get_workspace_as_root(self, name="root"):
         """Get a workspace api as root user."""
-        current_user.set(self.root_user)
-        return dotdict(self.get_workspace(name))
+        self.current_user.set(self.root_user)
+        return dotdict(self.get_workspace_interface(name))
 
     async def get_plugin_as_root(self, name, workspace):
         """Get a plugin api as root user."""
-        current_user.set(self.root_user)
-        workspace = get_workspace(workspace)
+        self.current_user.set(self.root_user)
+        workspace = self.get_workspace(workspace)
         if not workspace:
             raise Exception(f"Workspace {workspace} does not exist.")
-        current_workspace.set(workspace)
+        self.current_workspace.set(workspace)
         return dotdict(await self.get_plugin(name))
 
     def get_interface(self):

@@ -201,20 +201,6 @@ async def test_workspace(socketio_server):
     with pytest.raises(Exception, match=r".*Plugin my plugin 2 not found.*"):
         await api.get_plugin("my plugin 2")
 
-    with pytest.raises(
-        Exception, match=r".*Workspace authorizer is not supported yet.*"
-    ):
-        await api.create_workspace(
-            {
-                "name": "my-workspace",
-                "owners": ["user1@imjoy.io", "user2@imjoy.io"],
-                "allow_list": [],
-                "deny_list": [],
-                "visibility": "protected",  # or public
-                "authorizer": "my-plugin::my_authorizer",
-            }
-        )
-
     ws2 = await api.get_workspace("test-workspace")
     assert ws.config == ws2.config
 

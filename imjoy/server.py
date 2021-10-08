@@ -21,19 +21,9 @@ from imjoy.core import (
     UserInfo,
     VisibilityEnum,
     WorkspaceInfo,
-    all_users,
-    all_sessions,
-    current_user,
-    current_plugin,
-    current_workspace,
-    event_bus,
-    get_workspace,
-    register_workspace,
-    unregister_workspace,
-    get_all_workspace,
     EventBus,
 )
-from imjoy.core.auth import parse_token, check_permission
+from imjoy.core.auth import parse_token
 from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
@@ -79,11 +69,11 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
             logger.info("Root user is not allowed to connect remotely")
             return False
 
-        if uid not in all_users:
-            all_users[uid] = user_info
-        all_users[uid].add_session(sid)
-        all_sessions[sid] = all_users[uid]
-        bus.emit("user_connected", all_users[uid])
+        if uid not in core_interface.all_users:
+            core_interface.all_users[uid] = user_info
+        core_interface.all_users[uid].add_session(sid)
+        core_interface.all_sessions[sid] = core_interface.all_users[uid]
+        bus.emit("user_connected", core_interface.all_users[uid])
 
     @sio.event
     async def echo(sid, data):
@@ -92,11 +82,11 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
 
     @sio.event
     async def register_plugin(sid, config):
-        user_info = all_sessions[sid]
+        user_info = core_interface.all_sessions[sid]
         ws = config.get("workspace") or user_info.id
         config["workspace"] = ws
         config["name"] = config.get("name") or shortuuid.uuid()
-        workspace = get_workspace(ws)
+        workspace = core_interface.get_workspace(ws)
         if workspace is None:
             if ws == user_info.id:
                 # only registered user can have persistent workspace
@@ -108,11 +98,13 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
                     visibility=VisibilityEnum.protected,
                     persistent=persistent,
                 )
-                register_workspace(workspace)
+                core_interface.register_workspace(workspace)
             else:
                 return {"success": False, "detail": f"Workspace {ws} does not exist."}
 
-        if user_info.id != ws and not check_permission(workspace, user_info):
+        if user_info.id != ws and not core_interface.check_permission(
+            workspace, user_info
+        ):
             return {
                 "success": False,
                 "detail": f"Permission denied for workspace: {ws}",
@@ -157,13 +149,15 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
 
     @sio.event
     async def plugin_message(sid, data):
-        user_info = all_sessions[sid]
+        user_info = core_interface.all_sessions[sid]
         plugin_id = data["plugin_id"]
         ws, name = os.path.split(plugin_id)
-        workspace = get_workspace(ws)
+        workspace = core_interface.get_workspace(ws)
         if not workspace:
             return {"success": False, "detail": f"Workspace not found: {ws}"}
-        if user_info.id != ws and not check_permission(workspace, user_info):
+        if user_info.id != ws and not core_interface.check_permission(
+            workspace, user_info
+        ):
             logger.error(
                 "Permission denied: workspace=%s, user_id=%s", workspace, user_info.id
             )
@@ -177,9 +171,9 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
                 "detail": f"Plugin {name} not found in workspace {workspace.name}",
             }
 
-        current_user.set(user_info)
-        current_plugin.set(plugin)
-        current_workspace.set(workspace)
+        core_interface.current_user.set(user_info)
+        core_interface.current_plugin.set(plugin)
+        core_interface.current_workspace.set(workspace)
         ctx = copy_context()
         ctx.run(plugin.connection.handle_message, data)
         return {"success": True}
@@ -187,12 +181,12 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
     @sio.event
     async def disconnect(sid):
         """Event handler called when the client is disconnected."""
-        user_info = all_sessions[sid]
-        all_users[user_info.id].remove_session(sid)
+        user_info = core_interface.all_sessions[sid]
+        core_interface.all_users[user_info.id].remove_session(sid)
         # if the user has no more all_sessions
-        user_sessions = all_users[user_info.id].get_sessions()
+        user_sessions = core_interface.all_users[user_info.id].get_sessions()
         if not user_sessions:
-            del all_users[user_info.id]
+            del core_interface.all_users[user_info.id]
             user_plugins = user_info.get_plugins()
             for pid, plugin in list(user_plugins.items()):
                 # TODO: how to allow plugin running when the user disconnected
@@ -202,7 +196,7 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
                 # if there is no plugins in the workspace then we remove it
                 workspace_plugins = plugin.workspace.get_plugins()
                 if not workspace_plugins and not plugin.workspace.persistent:
-                    unregister_workspace(plugin.workspace.name)
+                    core_interface.unregister_workspace(plugin.workspace.name)
                 asyncio.ensure_future(plugin.terminate())
                 user_info.remove_plugin(pid)
 
@@ -215,7 +209,7 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
                 for service in list(plugin_services.values()):
                     if service.config.get("provider_id") == plugin.id:
                         plugin.workspace.remove_service(service.name)
-        del all_sessions[sid]
+        del core_interface.all_sessions[sid]
         bus.emit("plugin_disconnected", {"sid": sid})
 
     bus.emit("socketio_ready", None)
@@ -242,33 +236,33 @@ def create_application(allow_origins, base_path) -> FastAPI:
         allow_headers=["Content-Type", "Authorization"],
     )
 
-    @app.get(base_path)
-    async def root():
-        return {
-            "name": "ImJoy Engine",
-            "version": VERSION,
-            "all_users": {
-                uid: user_info.get_sessions() for uid, user_info in all_users.items()
-            },
-            "all_workspaces": {
-                w.name: len(w.get_plugins()) for w in get_all_workspace()
-            },
-        }
-
     return app
 
 
 def setup_socketio_server(
     app: FastAPI,
+    core_interface: CoreInterface,
     port: int,
     base_path: str = "/",
     allow_origins: Union[str, list] = "*",
     **kwargs,
 ) -> None:
     """Set up the socketio server."""
-    core_interface = CoreInterface(app, event_bus)
-
     socketio_path = base_path.rstrip("/") + "/socket.io"
+
+    @app.get(base_path)
+    async def root():
+        return {
+            "name": "ImJoy Engine",
+            "version": VERSION,
+            "all_users": {
+                uid: user_info.get_sessions()
+                for uid, user_info in core_interface.all_users.items()
+            },
+            "all_workspaces": {
+                w.name: len(w.get_plugins()) for w in core_interface.get_all_workspace()
+            },
+        }
 
     @app.get(base_path.rstrip("/") + "/liveness")
     async def liveness(req: Request) -> JSONResponse:
@@ -287,15 +281,15 @@ def setup_socketio_server(
     app.mount("/", _app)
     app.sio = sio
 
-    initialize_socketio(sio, core_interface, event_bus)
+    initialize_socketio(sio, core_interface, core_interface.event_bus)
 
     @app.on_event("startup")
     async def startup_event():
-        event_bus.emit("startup")
+        core_interface.event_bus.emit("startup")
 
     @app.on_event("shutdown")
     def shutdown_event():
-        event_bus.emit("shutdown")
+        core_interface.event_bus.emit("shutdown")
 
     return sio
 
@@ -307,7 +301,8 @@ def start_server(args):
     else:
         args.allow_origin = env.get("ALLOW_ORIGINS", "*").split(",")
     application = create_application(args.allow_origin, args.base_path)
-    setup_socketio_server(application, **vars(args))
+    core_interface = CoreInterface(application)
+    setup_socketio_server(application, core_interface, **vars(args))
     if args.host in ("127.0.0.1", "localhost"):
         print(
             "***Note: If you want to enable access from another host, "

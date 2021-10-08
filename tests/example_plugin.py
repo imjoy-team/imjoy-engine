@@ -7,10 +7,6 @@ from imjoy_rpc import api
 class ImJoyPlugin:
     """Represent an ImJoy plugin."""
 
-    def authorizer(self, user_info, context):
-        """Authorize users."""
-        return True
-
     async def setup(self):
         """Set up the plugin."""
         token = await api.generateToken()
