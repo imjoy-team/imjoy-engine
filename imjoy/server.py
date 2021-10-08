@@ -1,10 +1,11 @@
 """Provide the server."""
 import asyncio
 import os
-import uuid
 from contextvars import copy_context
 from os import environ as env
 from typing import Union
+import argparse
+import shortuuid
 
 import socketio
 import uvicorn
@@ -25,19 +26,25 @@ from imjoy.core import (
     current_user,
     current_plugin,
     current_workspace,
-    all_workspaces,
+    event_bus,
+    get_workspace,
+    register_workspace,
+    unregister_workspace,
+    get_all_workspace,
+    EventBus,
 )
 from imjoy.core.auth import parse_token, check_permission
 from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
 
+
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
 
 
-def initialize_socketio(sio, core_api):
+def initialize_socketio(sio, core_interface, event_bus: EventBus):
     """Initialize socketio."""
     # pylint: disable=too-many-statements, unused-variable, protected-access
 
@@ -48,12 +55,7 @@ def initialize_socketio(sio, core_api):
             try:
                 authorization = environ["HTTP_AUTHORIZATION"]  # JWT token
                 user_info = parse_token(authorization)
-                uid = user_info["user_id"]
-                email = user_info["email"]
-                roles = user_info["roles"]
-                parent = user_info.get("parent")
-                scopes = user_info.get("scopes") or []
-                expires_at = user_info.get("expires_at")
+                uid = user_info.id
             except Exception as err:  # pylint: disable=broad-except
                 logger.exception("Authentication failed: %s", err)
                 # The connect event handler can return False
@@ -61,25 +63,27 @@ def initialize_socketio(sio, core_api):
                 return False
             logger.info("User connected: %s", uid)
         else:
-            uid = str(uuid.uuid4())
-            email = None
-            roles = []
-            parent = None
-            scopes = []
-            expires_at = None
+            uid = shortuuid.uuid()
+            user_info = UserInfo(
+                id=uid,
+                is_anonymous=True,
+                email=None,
+                parent=None,
+                roles=[],
+                scopes=[],
+                expires_at=None,
+            )
             logger.info("Anonymized User connected: %s", uid)
 
+        if uid == "root":
+            logger.info("Root user is not allowed to connect remotely")
+            return False
+
         if uid not in all_users:
-            all_users[uid] = UserInfo(
-                id=uid,
-                email=email,
-                parent=parent,
-                roles=roles,
-                scopes=scopes,
-                expires_at=expires_at,
-            )
+            all_users[uid] = user_info
         all_users[uid]._sessions.append(sid)
         all_sessions[sid] = all_users[uid]
+        event_bus.emit("user_connected", all_users[uid])
 
     @sio.event
     async def echo(sid, data):
@@ -91,19 +95,20 @@ def initialize_socketio(sio, core_api):
         user_info = all_sessions[sid]
         ws = config.get("workspace") or user_info.id
         config["workspace"] = ws
-        config["name"] = config.get("name") or str(uuid.uuid4())
-        if ws in all_workspaces:
-            workspace = all_workspaces[ws]
-        else:
+        config["name"] = config.get("name") or shortuuid.uuid()
+        workspace = get_workspace(ws)
+        if workspace is None:
             if ws == user_info.id:
+                # only registered user can have persistent workspace
+                persistent = not user_info.is_anonymous
                 # create the user workspace automatically
                 workspace = WorkspaceInfo(
                     name=ws,
                     owners=[user_info.id],
                     visibility=VisibilityEnum.protected,
-                    persistent=(config.get("persistent") is True),
+                    persistent=persistent,
                 )
-                all_workspaces[ws] = workspace
+                register_workspace(workspace)
             else:
                 return {"success": False, "detail": f"Workspace {ws} does not exist."}
 
@@ -126,7 +131,14 @@ def initialize_socketio(sio, core_api):
             )
 
         connection = BasicConnection(send)
-        plugin = DynamicPlugin(config, core_api.get_interface(), connection, workspace)
+        plugin = DynamicPlugin(
+            config,
+            core_interface.get_interface(),
+            core_interface.get_codecs(),
+            connection,
+            workspace,
+            user_info,
+        )
 
         user_info._plugins[plugin.id] = plugin
         if plugin.name in workspace._plugins:
@@ -135,6 +147,11 @@ def initialize_socketio(sio, core_api):
             del user_info._plugins[plugin.id]
         workspace._plugins[plugin.name] = plugin
         logger.info("New plugin registered successfully (%s)", plugin_id)
+
+        event_bus.emit(
+            "plugin_registered",
+            plugin,
+        )
         return {"success": True, "plugin_id": plugin_id}
 
     @sio.event
@@ -142,9 +159,9 @@ def initialize_socketio(sio, core_api):
         user_info = all_sessions[sid]
         plugin_id = data["plugin_id"]
         ws, name = os.path.split(plugin_id)
-        if ws not in all_workspaces:
+        workspace = get_workspace(ws)
+        if not workspace:
             return {"success": False, "detail": f"Workspace not found: {ws}"}
-        workspace = all_workspaces[ws]
         if user_info.id != ws and not check_permission(workspace, user_info):
             logger.error(
                 "Permission denied: workspace=%s, user_id=%s", workspace, user_info.id
@@ -182,7 +199,7 @@ def initialize_socketio(sio, core_api):
                 del plugin.workspace._plugins[plugin.name]
                 # if there is no plugins in the workspace then we remove it
                 if not plugin.workspace._plugins and not plugin.workspace.persistent:
-                    del all_workspaces[plugin.workspace.name]
+                    unregister_workspace(plugin.workspace.name)
                 asyncio.ensure_future(plugin.terminate())
                 del user_info._plugins[pid]
 
@@ -191,10 +208,13 @@ def initialize_socketio(sio, core_api):
                 # Importantly, if we want to recycle the workspace name,
                 # we need to make sure we don't mess up with the permission
                 # with the plugins of the previous owners
-                for service in plugin.workspace._services.copy():
-                    if service.providerId == plugin.id:
-                        plugin.workspace._services.remove(service)
+                for service in list(plugin.workspace._services.values()):
+                    if service.config.get("provider_id") == plugin.id:
+                        del plugin.workspace._services[service.name]
         del all_sessions[sid]
+        event_bus.emit("plugin_disconnected", {"sid": sid})
+
+    event_bus.emit("socketio_ready", None)
 
 
 def create_application(allow_origins, base_path) -> FastAPI:
@@ -221,14 +241,12 @@ def create_application(allow_origins, base_path) -> FastAPI:
     @app.get(base_path)
     async def root():
         return {
-            "name": "ImJoy Core Server",
+            "name": "ImJoy Engine",
             "version": VERSION,
             "all_users": {
                 uid: user_info._sessions for uid, user_info in all_users.items()
             },
-            "all_workspaces": {
-                w.name: len(w._plugins) for w in all_workspaces.values()
-            },
+            "all_workspaces": {w.name: len(w._plugins) for w in get_all_workspace()},
         }
 
     return app
@@ -236,10 +254,21 @@ def create_application(allow_origins, base_path) -> FastAPI:
 
 def setup_socketio_server(
     app: FastAPI,
+    port: int,
+    enable_server_apps: bool = False,
+    enable_s3: bool = False,
+    endpoint_url: str = None,
+    access_key_id: str = None,
+    secret_access_key: str = None,
+    default_bucket: str = "imjoy-workspaces",
     base_path: str = "/",
     allow_origins: Union[str, list] = "*",
+    **kwargs,
 ) -> None:
     """Set up the socketio server."""
+
+    core_interface = CoreInterface(app, event_bus)
+
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
     @app.get(base_path.rstrip("/") + "/liveness")
@@ -258,8 +287,16 @@ def setup_socketio_server(
 
     app.mount("/", _app)
     app.sio = sio
-    core_api = CoreInterface()
-    initialize_socketio(sio, core_api)
+
+    initialize_socketio(sio, core_interface, event_bus)
+
+    @app.on_event("startup")
+    async def startup_event():
+        event_bus.emit("startup")
+
+    @app.on_event("shutdown")
+    def shutdown_event():
+        event_bus.emit("shutdown")
 
     return sio
 
@@ -267,24 +304,20 @@ def setup_socketio_server(
 def start_server(args):
     """Start the socketio server."""
     if args.allow_origin:
-        allow_origin = args.allow_origin.split(",")
+        args.allow_origin = args.allow_origin.split(",")
     else:
-        allow_origin = env.get("ALLOW_ORIGINS", "*").split(",")
-    application = create_application(allow_origin, args.base_path)
-    setup_socketio_server(
-        application, base_path=args.base_path, allow_origins=allow_origin
-    )
+        args.allow_origin = env.get("ALLOW_ORIGINS", "*").split(",")
+    application = create_application(args.allow_origin, args.base_path)
+    setup_socketio_server(application, **vars(args))
     if args.host in ("127.0.0.1", "localhost"):
         print(
-            "***Note: If you want to enable access from another host,\
-                 please start with `--host=0.0.0.0`.***"
+            "***Note: If you want to enable access from another host, "
+            "please start with `--host=0.0.0.0`.***"
         )
     uvicorn.run(application, host=args.host, port=int(args.port))
 
 
-if __name__ == "__main__":
-    import argparse
-
+def get_argparser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--host",
@@ -310,5 +343,28 @@ if __name__ == "__main__":
         default="/",
         help="the base path for the server",
     )
+    parser.add_argument(
+        "--endpoint-url",
+        type=str,
+        default=None,
+        help="set endpoint URL for S3",
+    )
+    parser.add_argument(
+        "--access-key-id",
+        type=str,
+        default=None,
+        help="set AccessKeyID for S3",
+    )
+    parser.add_argument(
+        "--secret-access-key",
+        type=str,
+        default=None,
+        help="set SecretAccessKey for S3",
+    )
+    return parser
+
+
+if __name__ == "__main__":
+    parser = get_argparser()
     opt = parser.parse_args()
     start_server(opt)

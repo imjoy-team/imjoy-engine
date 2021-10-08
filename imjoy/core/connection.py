@@ -70,7 +70,7 @@ class BasicConnection(MessageEmitter):
         if target_id and self.peer_id and target_id != self.peer_id:
             conn = all_connections[target_id]
             if conn:
-                conn._fire(data.type, data)  # pylint: disable=protected-access
+                conn._fire(data["type"], data)  # pylint: disable=protected-access
             else:
                 logger.warning(
                     "Connection with target_id %s not found, discarding data: %s",

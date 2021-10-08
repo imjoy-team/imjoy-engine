@@ -2,7 +2,7 @@
 import asyncio
 import logging
 import sys
-import uuid
+import shortuuid
 
 from imjoy_rpc.rpc import RPC
 from imjoy_rpc.utils import ContextLocal, dotdict
@@ -17,13 +17,15 @@ class DynamicPlugin:
 
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, config, interface, connection, workspace):
+    def __init__(self, config, interface, codecs, connection, workspace, user_info):
         """Set up instance."""
         self.loop = asyncio.get_event_loop()
         self.config = dotdict(config)
+        self._codecs = codecs
         assert self.config.workspace == workspace.name
         self.workspace = workspace
-        self.id = self.config.id or str(uuid.uuid4())  # pylint: disable=invalid-name
+        self.user_info = user_info
+        self.id = self.config.id or shortuuid.uuid()  # pylint: disable=invalid-name
         self.name = self.config.name
         self.initializing = False
         self._disconnected = True
@@ -33,6 +35,7 @@ class DynamicPlugin:
         self.api = None
         self.running = False
         self.terminating = False
+        self._api_fut = asyncio.Future()
 
         # Note: we don't need to bind the interface
         # to the plugin as we do in the js version
@@ -57,6 +60,20 @@ class DynamicPlugin:
         self.connection.on("initialized", initialized)
         self.connection.connect()
 
+    def dispose_object(self, obj):
+        store = self._rpc._object_store
+        found = False
+        for k in list(store):
+            if store[k] == obj:
+                del store[k]
+                found = True
+        if not found:
+            raise KeyError("Object not found in the store")
+
+    async def get_api(self):
+        """Get the plugin api."""
+        return await self._api_fut
+
     async def _setup_rpc(self, connection, plugin_config):
         """Set up rpc."""
         self.initializing = True
@@ -64,7 +81,8 @@ class DynamicPlugin:
         _rpc_context = ContextLocal()
         _rpc_context.api = self._initial_interface
         _rpc_context.default_config = {}
-        self._rpc = RPC(connection, _rpc_context)
+        self._rpc = RPC(connection, _rpc_context, codecs=self._codecs)
+
         self._register_rpc_events()
         self._rpc.set_interface(self._initial_interface)
         await self._send_interface()
@@ -103,6 +121,7 @@ class DynamicPlugin:
             self.config.description,
             list(self.api),
         )
+        self._api_fut.set_result(self.api)
 
     def error(self, *args):
         """Log an error."""
@@ -163,7 +182,7 @@ class DynamicPlugin:
 
     async def _execute_plugin(self):
         """Execute plugin."""
-        raise NotImplementedError
+        logger.warn("Skipping plugin execution.")
 
     def _send_interface(self):
         """Send the interface."""
