@@ -1,12 +1,12 @@
 """Provide the server."""
+import argparse
 import asyncio
 import os
 from contextvars import copy_context
 from os import environ as env
 from typing import Union
-import argparse
-import shortuuid
 
+import shortuuid
 import socketio
 import uvicorn
 from dotenv import find_dotenv, load_dotenv
@@ -17,17 +17,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from imjoy import __version__ as VERSION
-from imjoy.core import (
-    UserInfo,
-    VisibilityEnum,
-    WorkspaceInfo,
-    EventBus,
-)
+from imjoy.core import EventBus, UserInfo, VisibilityEnum, WorkspaceInfo
 from imjoy.core.auth import parse_token
 from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
-
+from imjoy.http import HTTPProxy
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -249,6 +244,8 @@ def setup_socketio_server(
 ) -> None:
     """Set up the socketio server."""
     socketio_path = base_path.rstrip("/") + "/socket.io"
+
+    HTTPProxy(core_interface)
 
     @app.get(base_path)
     async def root():
