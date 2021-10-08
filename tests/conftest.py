@@ -2,24 +2,43 @@
 import subprocess
 import sys
 import time
+import requests
+import shutil
 
 import pytest
-import requests
-from requests import RequestException
 
-from . import SIO_PORT, SIO_PORT2
+import tempfile
+import os
+from requests import RequestException
+from imjoy.core import auth
+from fastapi.requests import Request
+from imjoy.server import start_server, get_argparser
+
+from . import (
+    SIO_PORT,
+    SIO_PORT2,
+    MINIO_PORT,
+    MINIO_SERVER_URL,
+    MINIO_ROOT_USER,
+    MINIO_ROOT_PASSWORD,
+)
+from imjoy.minio import setup_minio_executables
 
 
 @pytest.fixture(name="socketio_server", scope="session")
-def socketio_server_fixture():
+def socketio_server_fixture(minio_server):
     """Start server as test fixture and tear down after test."""
     with subprocess.Popen(
         [
             sys.executable,
             "-m",
             "imjoy.server",
-            "--enable-server-apps",
             f"--port={SIO_PORT}",
+            "--enable-server-apps",
+            "--enable-s3",
+            f"--endpoint-url={MINIO_SERVER_URL}",
+            f"--access-key-id={MINIO_ROOT_USER}",
+            f"--secret-access-key={MINIO_ROOT_PASSWORD}",
         ]
     ) as proc:
 
@@ -39,7 +58,7 @@ def socketio_server_fixture():
 
 
 @pytest.fixture(name="socketio_subpath_server")
-def socketio_subpath_server_fixture():
+def socketio_subpath_server_fixture(minio_server):
     """Start server (under /my/engine) as test fixture and tear down after test."""
     with subprocess.Popen(
         [
@@ -66,3 +85,38 @@ def socketio_subpath_server_fixture():
         yield
         proc.kill()
         proc.terminate()
+
+
+@pytest.fixture(name="minio_server", scope="session")
+def minio_server_fixture():
+    """Start minio server as test fixture and tear down after test."""
+    setup_minio_executables()
+    dirpath = tempfile.mkdtemp()
+    my_env = os.environ.copy()
+    my_env["MINIO_ROOT_USER"] = MINIO_ROOT_USER
+    my_env["MINIO_ROOT_PASSWORD"] = MINIO_ROOT_PASSWORD
+    with subprocess.Popen(
+        [
+            "./bin/minio",
+            "server",
+            f"--address=:{MINIO_PORT}",
+            f"--console-address=:{MINIO_PORT+1}",
+            f"{dirpath}",
+        ],
+        env=my_env,
+    ) as proc:
+
+        timeout = 10
+        while timeout > 0:
+            try:
+                response = requests.get(f"{MINIO_SERVER_URL}/minio/health/live")
+                if response.ok:
+                    break
+            except RequestException:
+                pass
+            timeout -= 0.1
+            time.sleep(0.1)
+        yield
+
+        proc.terminate()
+        shutil.rmtree(dirpath)
