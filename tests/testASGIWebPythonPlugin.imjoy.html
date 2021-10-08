@@ -1,0 +1,78 @@
+<docs lang="markdown">
+[TODO: write documentation for this plugin.]
+</docs>
+
+<config lang="json">
+{
+    "name": "ASGIWebPythonPlugin",
+    "type": "web-python",
+    "version": "0.1.0",
+    "description": "[TODO: describe this plugin with one sentence.]",
+    "tags": [],
+    "ui": "",
+    "cover": "",
+    "inputs": null,
+    "outputs": null,
+    "flags": [],
+    "icon": "extension",
+    "api_version": "0.1.7",
+    "env": "",
+    "permissions": [],
+    "requirements": ["fastapi==0.70.0", "flask==2.0.2", "a2wsgi==1.4.0"],
+    "dependencies": []
+}
+</config>
+
+<script lang="python">
+from imjoy import api
+
+from flask import Flask
+from a2wsgi import WSGIMiddleware
+
+from fastapi import FastAPI
+
+def create_fastapi_app():
+    app = FastAPI()
+
+    @app.get("/")
+    async def root():
+        return {"message": "Hello World"}
+
+    return app
+
+def create_flask_app():
+    app = Flask("hello-flask")
+
+    @app.route("/")
+    def hello_world():
+        return "<p>Hello, World!</p>"
+
+    # convert WSGI to ASGI
+    return WSGIMiddleware(app)
+
+
+async def setup():
+    # Registering fastapi app
+    fastapi_app = create_fastapi_app()
+    async def serve_fastapi(args):
+        await fastapi_app(args["scope"], args["receive"], args["send"])
+    await api.register_service({
+        "name": "hello-fastapi",
+        "type": "ASGI",
+        "serve": serve_fastapi,
+        "visibility": "public"
+    })
+
+    # Registering flask app
+    flask_app = create_flask_app()
+    async def serve_flask(args):
+        await flask_app(args["scope"], args["receive"], args["send"])
+    await api.register_service({
+        "name": "hello-flask",
+        "type": "ASGI",
+        "serve": serve_flask,
+        "visibility": "public"
+    })
+
+api.export({"setup": setup})
+</script>

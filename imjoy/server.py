@@ -41,6 +41,7 @@ from imjoy.core.plugin import DynamicPlugin
 from imjoy.apps import ServerAppController
 from imjoy.s3 import S3Controller
 from imjoy.http import HTTPProxy
+from imjoy.asgi import ASGIGateway
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -273,6 +274,7 @@ def setup_socketio_server(
     core_interface = CoreInterface(app, event_bus)
 
     HTTPProxy(event_bus, core_interface)
+    ASGIGateway(event_bus, core_interface)
 
     if enable_server_apps:
         ServerAppController(event_bus, core_interface, port=port)
