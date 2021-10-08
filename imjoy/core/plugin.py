@@ -61,11 +61,12 @@ class DynamicPlugin:
         self.connection.connect()
 
     def dispose_object(self, obj):
-        store = self._rpc._object_store
+        """Dispose object in RPC store."""
+        store = self._rpc._object_store  # pylint: disable=protected-access
         found = False
-        for k in list(store):
-            if store[k] == obj:
-                del store[k]
+        for object_id, object_instance in list(store.items()):
+            if object_instance == obj:
+                del store[object_id]
                 found = True
         if not found:
             raise KeyError("Object not found in the store")
@@ -182,7 +183,8 @@ class DynamicPlugin:
 
     async def _execute_plugin(self):
         """Execute plugin."""
-        logger.warn("Skipping plugin execution.")
+        # pylint: disable=no-self-use
+        logger.warning("Skipping plugin execution.")
 
     def _send_interface(self):
         """Send the interface."""
