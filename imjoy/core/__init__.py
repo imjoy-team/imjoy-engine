@@ -26,18 +26,19 @@ class EventBus:
         """Initialize the event bus."""
         self._callbacks = {}
 
-    def on(self, event_name, f):
+    def on(self, event_name, func):
         """Register an event callback."""
-        self._callbacks[event_name] = self._callbacks.get(event_name, []) + [f]
-        return f
+        self._callbacks[event_name] = self._callbacks.get(event_name, []) + [func]
+        return func
 
     def emit(self, event_name, *data):
         """Trigger an event."""
-        [f(*data) for f in self._callbacks.get(event_name, [])]
+        for func in self._callbacks.get(event_name, []):
+            func(*data)
 
-    def off(self, event_name, f):
+    def off(self, event_name, func):
         """Remove an event callback."""
-        self._callbacks.get(event_name, []).remove(f)
+        self._callbacks.get(event_name, []).remove(func)
 
 
 class TokenConfig(BaseModel):

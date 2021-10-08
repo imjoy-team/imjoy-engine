@@ -21,4 +21,5 @@ max-returns=8
 
 class-const-naming-style = any
 good-names =
+  on,
   ws,
