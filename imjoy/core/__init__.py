@@ -81,6 +81,7 @@ class UserInfo(BaseModel):
 
     id: str
     roles: List[str]
+    is_anonymous: bool
     email: Optional[EmailStr]
     parent: Optional[str]
     scopes: Optional[List[str]]  # a list of workspace

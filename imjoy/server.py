@@ -70,6 +70,7 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
             uid = shortuuid.uuid()
             user_info = UserInfo(
                 id=uid,
+                is_anonymous=True,
                 email=None,
                 parent=None,
                 roles=[],
@@ -102,12 +103,14 @@ def initialize_socketio(sio, core_interface, event_bus: EventBus):
         workspace = get_workspace(ws)
         if workspace is None:
             if ws == user_info.id:
+                # only registered user can have persistent workspace
+                persistent = not user_info.is_anonymous
                 # create the user workspace automatically
                 workspace = WorkspaceInfo(
                     name=ws,
                     owners=[user_info.id],
                     visibility=VisibilityEnum.protected,
-                    persistent=(config.get("persistent") is True),
+                    persistent=persistent,
                 )
                 register_workspace(workspace)
             else:

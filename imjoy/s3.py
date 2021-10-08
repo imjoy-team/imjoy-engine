@@ -492,6 +492,10 @@ class S3Controller:
         # now remove the empty group
         self.mc.admin_group_remove(workspace.name)
 
+        # TODO: we will remove the files if it's not persistent
+        if not workspace.persistent:
+            pass
+
     def setup_workspace(self, workspace):
         # make sure we have the root user in every workspace
         self.mc.admin_group_add(workspace.name, self.core_interface.root_user.id)

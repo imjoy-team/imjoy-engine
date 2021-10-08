@@ -92,6 +92,7 @@ class CoreInterface:
         # Create root user
         self.root_user = UserInfo(
             id="root",
+            is_anonymous=False,
             email=None,
             parent=None,
             roles=[],
@@ -303,7 +304,10 @@ class CoreInterface:
 
     def create_workspace(self, config: dict):
         """Create a new workspace."""
+        user_info = current_user.get()
         config["persistent"] = config.get("persistent") or False
+        if user_info.is_anonymous and config["persistent"]:
+            raise Exception("Only registered user can create persistent workspace.")
         workspace = WorkspaceInfo.parse_obj(config)
         if get_workspace(workspace.name):
             raise Exception(f"Workspace {workspace.name} already exists.")

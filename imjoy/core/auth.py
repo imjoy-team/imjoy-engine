@@ -103,6 +103,7 @@ def get_user_info(token):
     expires_at = credentials["exp"]
     return UserInfo(
         id=credentials.get("sub"),
+        is_anonymous=False,
         email=credentials.get("https://api.imjoy.io/email"),
         parent=credentials.get("parent", None),
         roles=credentials.get("https://api.imjoy.io/roles", []),
