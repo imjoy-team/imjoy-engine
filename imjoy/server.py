@@ -311,6 +311,14 @@ def setup_socketio_server(
 
     initialize_socketio(sio, core_interface, event_bus)
 
+    @app.on_event("startup")
+    async def startup_event():
+        event_bus.emit("startup")
+
+    @app.on_event("shutdown")
+    def shutdown_event():
+        event_bus.emit("shutdown")
+
     return sio
 
 

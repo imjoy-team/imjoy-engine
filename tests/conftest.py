@@ -52,7 +52,7 @@ def socketio_server_fixture(minio_server):
             timeout -= 0.1
             time.sleep(0.1)
         yield
-
+        proc.kill()
         proc.terminate()
 
 
@@ -82,7 +82,7 @@ def socketio_subpath_server_fixture(minio_server):
             timeout -= 0.1
             time.sleep(0.1)
         yield
-
+        proc.kill()
         proc.terminate()
 
 

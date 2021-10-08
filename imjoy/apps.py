@@ -105,6 +105,11 @@ class ServerAppController:
 
         core_interface.register_router(router)
 
+        def close():
+            asyncio.get_running_loop().create_task(self.close())
+
+        event_bus.on("shutdown", close)
+
     def _capture_logs_from_browser_tabs(self, page):
         def _app_info(message):
             if page._plugin and page._plugin.workspace:
@@ -174,8 +179,10 @@ class ServerAppController:
 
     async def close(self):
         """Close the app controller."""
+        logger.info("Closing the browser app controller...")
         if self.browser:
             await self.browser.close()
+        logger.info("Browser app controller closed.")
 
     async def get_public_api(self):
         """Get a list of public api."""
