@@ -260,7 +260,6 @@ def setup_socketio_server(
     app: FastAPI,
     port: int,
     enable_server_apps: bool = False,
-    enable_fs: bool = False,
     enable_s3: bool = False,
     endpoint_url: str = None,
     access_key_id: str = None,
@@ -289,9 +288,6 @@ def setup_socketio_server(
             secret_access_key=secret_access_key,
             default_bucket=default_bucket,
         )
-
-    if enable_fs and not enable_s3:
-        logger.warning("File system can only be enabled with S3")
 
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
@@ -366,11 +362,6 @@ def get_argparser():
         type=str,
         default="/",
         help="the base path for the server",
-    )
-    parser.add_argument(
-        "--enable-fs",
-        action="store_true",
-        help="enable file system support",
     )
     parser.add_argument(
         "--enable-server-apps",

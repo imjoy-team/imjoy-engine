@@ -10,7 +10,7 @@ from imjoy_rpc import connect_to_server
 pytestmark = pytest.mark.asyncio
 
 
-async def test_http_proxy(minio_server, socketio_server):
+async def test_asgi(minio_server, socketio_server):
     api = await connect_to_server({"name": "test client", "server_url": SIO_SERVER_URL})
     workspace = api.config["workspace"]
     token = await api.generate_token()
