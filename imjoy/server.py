@@ -38,6 +38,7 @@ from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.http import HTTPProxy
+from imjoy.apps import ServerAppController
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -271,6 +272,9 @@ def setup_socketio_server(
 
     HTTPProxy(event_bus, core_interface)
 
+    if enable_server_apps:
+        ServerAppController(event_bus, core_interface, port=port)
+
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
     @app.get(base_path.rstrip("/") + "/liveness")
@@ -344,6 +348,11 @@ def get_argparser():
         type=str,
         default="/",
         help="the base path for the server",
+    )
+    parser.add_argument(
+        "--enable-server-apps",
+        action="store_true",
+        help="enable server applications",
     )
     parser.add_argument(
         "--endpoint-url",
