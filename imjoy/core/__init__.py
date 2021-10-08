@@ -78,6 +78,10 @@ class ServiceInfo(BaseModel):
 
         extra = Extra.allow
 
+    def set_provider(self, provider: DynamicPlugin) -> None:
+        """Return the plugins."""
+        self._provider = provider
+
 
 class UserInfo(BaseModel):
     """Represent user info."""
@@ -89,11 +93,23 @@ class UserInfo(BaseModel):
     parent: Optional[str]
     scopes: Optional[List[str]]  # a list of workspace
     expires_at: Optional[int]
-    _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})  # id:plugin
-    _sessions: List[str] = PrivateAttr(default_factory=lambda: [])  # session ids
     _metadata: Dict[str, Any] = PrivateAttr(
         default_factory=lambda: {}
     )  # e.g. s3 credential
+    _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})  # id:plugin
+    _sessions: List[str] = PrivateAttr(default_factory=lambda: [])  # session ids
+
+    def metadata(self) -> Dict[str, Any]:
+        """Return the metadata."""
+        return self._metadata
+
+    def plugins(self) -> Dict[str, Any]:
+        """Return the plugins."""
+        return self._plugins
+
+    def sessions(self) -> List[str]:
+        """Return the sessions."""
+        return self._sessions
 
 
 class WorkspaceInfo(BaseModel):
@@ -114,6 +130,26 @@ class WorkspaceInfo(BaseModel):
     _authorizer: Optional[Callable] = PrivateAttr(default_factory=lambda: None)
     _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})  # name: plugin
     _services: Dict[str, ServiceInfo] = PrivateAttr(default_factory=lambda: {})
+
+    def get_logger(self) -> Optional[logging.Logger]:
+        """Return the logger."""
+        return self._logger
+
+    def get_authorizer(self) -> Optional[Callable]:
+        """Return the authorizer."""
+        return self._authorizer
+
+    def get_plugins(self) -> Dict[str, Any]:
+        """Return the plugins."""
+        return self._plugins
+
+    def get_services(self) -> Dict[str, ServiceInfo]:
+        """Return the services."""
+        return self._services
+
+    def set_service(self, service_name: str, service: ServiceInfo) -> None:
+        """Set a service."""
+        self._services[service_name] = service
 
 
 event_bus = EventBus()

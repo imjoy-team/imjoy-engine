@@ -3,14 +3,16 @@ import logging
 import sys
 from functools import partial
 from typing import Optional
+
 import pkg_resources
+from starlette.routing import Mount
 
 from imjoy.core import (
+    ServiceInfo,
+    TokenConfig,
     UserInfo,
     VisibilityEnum,
-    TokenConfig,
     WorkspaceInfo,
-    ServiceInfo,
     current_plugin,
     current_user,
     current_workspace,
@@ -19,10 +21,9 @@ from imjoy.core import (
     register_workspace,
 )
 from imjoy.core.auth import check_permission, generate_presigned_token
+from imjoy.core.connection import BasicConnection
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.utils import dotdict
-from imjoy.core.connection import BasicConnection
-from starlette.routing import Mount
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
@@ -47,7 +48,7 @@ register_workspace(
 class CoreInterface:
     """Represent the interface of the ImJoy core."""
 
-    # pylint: disable=no-self-use, protected-access
+    # pylint: disable=no-self-use, too-many-instance-attributes, too-many-public-methods
 
     def __init__(self, app, event_bus, imjoy_api=None, app_controller=None):
         """Set up instance."""
@@ -134,6 +135,7 @@ class CoreInterface:
                 raise
 
     def register_router(self, router):
+        """Register a router."""
         self._app.include_router(router)
 
     def register_interface(self, name, func):
@@ -145,7 +147,7 @@ class CoreInterface:
         """Register a service."""
         plugin = current_plugin.get()
         workspace = current_workspace.get()
-        id = f'{workspace.name}/{service["name"]}'
+        service_id = f'{workspace.name}/{service["name"]}'
         if "name" not in service or "type" not in service:
             raise Exception("Service should at least contain `name` and `type`")
 
@@ -167,32 +169,33 @@ class CoreInterface:
         config["type"] = service["type"]
         config["visibility"] = service["visibility"]
         config["workspace"] = workspace.name
-        config["id"] = id
+        config["id"] = service_id
         config["provider"] = plugin.name
         config["provider_id"] = plugin.id
         service["config"] = config
         formated_service = ServiceInfo.parse_obj(service)
-        formated_service._provider = plugin
+        formated_service.set_provider(plugin)
         # service["_rintf"] = True
-        # Note: service can set its `visiblity` to `public` or `protected`
-        workspace._services[formated_service.name] = formated_service
+        # Note: service can set its `visibility` to `public` or `protected`
+        workspace.set_service(formated_service.name, formated_service)
         self.event_bus.emit("service_registered", formated_service)
-        return id
+        return service_id
 
     def list_plugins(self):
         """List all plugins in the workspace."""
         workspace = current_workspace.get()
-        return [name for name in workspace._plugins]
+        return list(workspace.get_plugins())
 
     async def get_plugin(self, name):
         """Return a plugin by its name."""
         workspace = current_workspace.get()
-
-        if name in workspace._plugins:
-            return await workspace._plugins[name].get_api()
+        workspace_plugins = workspace.get_plugins()
+        if name in workspace_plugins:
+            return await workspace_plugins[name].get_api()
         raise Exception(f"Plugin {name} not found")
 
     async def get_service(self, service_id):
+        """Return a service."""
         if isinstance(service_id, dict):
             service_id = service_id["id"]
         if "/" not in service_id:
@@ -204,7 +207,8 @@ class CoreInterface:
         if not workspace:
             raise Exception(f"Service not found: {service_id} (workspace unavailable)")
 
-        service = workspace._services.get(service_name)
+        workspace_services = workspace.get_services()
+        service = workspace_services.get(service_name)
         user_info = current_user.get()
         if (
             not check_permission(workspace, user_info)
@@ -219,7 +223,7 @@ class CoreInterface:
     def list_services(self, query: Optional[dict] = None):
         """Return a list of services based on the query."""
         # if workspace is not set, then it means current workspace
-        # if workspace = *, it means search gloabally
+        # if workspace = *, it means search globally
         # otherwise, it search the specified workspace
         user_info = current_user.get()
         if query is None:
@@ -232,8 +236,7 @@ class CoreInterface:
             ret = []
             for workspace in get_all_workspace():
                 can_access_ws = check_permission(workspace, user_info)
-                for k in workspace._services:
-                    service = workspace._services[k]
+                for service in workspace.get_services().values():
                     # To access the service, it should be public or owned by the user
                     if (
                         not can_access_ws
@@ -247,13 +250,13 @@ class CoreInterface:
                     if match:
                         ret.append(service.config)
             return ret
-        elif ws is not None:
+        if ws is not None:
             workspace = get_workspace(ws)
         else:
             workspace = current_workspace.get()
         ret = []
-        for k in workspace._services:
-            service = workspace._services[k]
+        workspace_services = workspace.get_services()
+        for service in workspace_services.values():
             match = True
             for key in query:
                 if service.config[key] != query[key]:
@@ -270,26 +273,30 @@ class CoreInterface:
         """Log a plugin message."""
         plugin = current_plugin.get()
         logger.info("%s: %s", plugin.name, msg)
-        if plugin.workspace._logger:
-            plugin.workspace._logger.info("%s: %s", plugin.name, msg)
+        workspace_logger = plugin.workspace.get_logger()
+        if workspace_logger:
+            workspace_logger.info("%s: %s", plugin.name, msg)
 
     def warning(self, msg):
         """Log a plugin message (warning)."""
         plugin = current_plugin.get()
-        if plugin.workspace._logger:
-            plugin.workspace._logger.warning("%s: %s", plugin.name, msg)
+        workspace_logger = plugin.workspace.get_logger()
+        if workspace_logger:
+            workspace_logger.warning("%s: %s", plugin.name, msg)
 
     def error(self, msg):
         """Log a plugin error message (error)."""
         plugin = current_plugin.get()
-        if plugin.workspace._logger:
-            plugin.workspace._logger.error("%s: %s", plugin.name, msg)
+        workspace_logger = plugin.workspace.get_logger()
+        if workspace_logger:
+            workspace_logger.error("%s: %s", plugin.name, msg)
 
     def critical(self, msg):
         """Log a plugin error message (critical)."""
         plugin = current_plugin.get()
-        if plugin.workspace._logger:
-            plugin.workspace._logger.critical("%s: %s", plugin.name, msg)
+        workspace_logger = plugin.workspace.get_logger()
+        if workspace_logger:
+            workspace_logger.critical("%s: %s", plugin.name, msg)
 
     def generate_token(self, config: Optional[dict] = None):
         """Generate a token for the current workspace."""
@@ -410,24 +417,23 @@ class CoreInterface:
         return self._imjoy_api.copy()
 
     def register_codec(self, config):
-        """Register a codec"""
+        """Register a codec."""
         assert "name" in config
         assert "encoder" in config or "decoder" in config
         if "type" in config:
-            for tp in list(self._codecs.keys()):
-                codec = self._codecs[tp]
-                if codec.type == config["type"] or tp == config["name"]:
-                    logger.info("Removing duplicated codec: " + tp)
-                    del self._codecs[tp]
+            for codec_type, codec in list(self._codecs.items()):
+                if codec.type == config["type"] or codec_type == config["name"]:
+                    logger.info("Removing duplicated codec: %s", codec_type)
+                    del self._codecs[codec_type]
 
         self._codecs[config["name"]] = dotdict(config)
 
     def get_codecs(self):
-        """Return registered codecs for rpc"""
+        """Return registered codecs for rpc."""
         return self._codecs
 
     def mount_app(self, path, app, name=None, priority=-1):
-        """Mount an app to fastapi"""
+        """Mount an app to fastapi."""
         route = Mount(path, app, name=name)
         # The default priority is -1 which assumes the last one is websocket
         self._app.routes.insert(priority, route)
