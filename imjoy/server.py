@@ -46,7 +46,7 @@ if ENV_FILE:
 
 def initialize_socketio(sio, core_interface, bus: EventBus):
     """Initialize socketio."""
-    # pylint: disable=too-many-statements, unused-variable, protected-access
+    # pylint: disable=too-many-statements, unused-variable
 
     @sio.event
     async def connect(sid, environ):
@@ -81,7 +81,7 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
 
         if uid not in all_users:
             all_users[uid] = user_info
-        all_users[uid]._sessions.append(sid)
+        all_users[uid].add_session(sid)
         all_sessions[sid] = all_users[uid]
         bus.emit("user_connected", all_users[uid])
 
@@ -140,12 +140,13 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
             user_info,
         )
 
-        user_info._plugins[plugin.id] = plugin
-        if plugin.name in workspace._plugins:
+        user_info.set_plugin(plugin.id, plugin)
+        workspace_plugins = workspace.get_plugins()
+        if plugin.name in workspace_plugins:
             # kill the plugin if already exist
             asyncio.ensure_future(plugin.terminate(True))
-            del user_info._plugins[plugin.id]
-        workspace._plugins[plugin.name] = plugin
+            user_info.remove_plugin(plugin.id)
+        workspace.set_plugin(plugin.name, plugin)
         logger.info("New plugin registered successfully (%s)", plugin_id)
 
         bus.emit(
@@ -168,7 +169,7 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
             )
             return {"success": False, "detail": "Permission denied"}
 
-        plugin = workspace._plugins.get(name)
+        plugin = workspace.get_plugin(name)
         if not plugin:
             logger.warning("Plugin %s not found in workspace %s", name, workspace.name)
             return {
@@ -187,30 +188,33 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
     async def disconnect(sid):
         """Event handler called when the client is disconnected."""
         user_info = all_sessions[sid]
-        all_users[user_info.id]._sessions.remove(sid)
+        all_users[user_info.id].remove_session(sid)
         # if the user has no more all_sessions
-        if not all_users[user_info.id]._sessions:
+        user_sessions = all_users[user_info.id].get_sessions()
+        if not user_sessions:
             del all_users[user_info.id]
-            for pid in list(user_info._plugins.keys()):
-                plugin = user_info._plugins[pid]
+            user_plugins = user_info.get_plugins()
+            for pid, plugin in list(user_plugins.items()):
                 # TODO: how to allow plugin running when the user disconnected
                 # we will also need to handle the case when the user login again
                 # the plugin should be reclaimed for the user
-                del plugin.workspace._plugins[plugin.name]
+                plugin.workspace.remove_plugin(plugin.name)
                 # if there is no plugins in the workspace then we remove it
-                if not plugin.workspace._plugins and not plugin.workspace.persistent:
+                workspace_plugins = plugin.workspace.get_plugins()
+                if not workspace_plugins and not plugin.workspace.persistent:
                     unregister_workspace(plugin.workspace.name)
                 asyncio.ensure_future(plugin.terminate())
-                del user_info._plugins[pid]
+                user_info.remove_plugin(pid)
 
                 # TODO: if a workspace has no plugins anymore
                 # we should destroy it completely
                 # Importantly, if we want to recycle the workspace name,
                 # we need to make sure we don't mess up with the permission
                 # with the plugins of the previous owners
-                for service in list(plugin.workspace._services.values()):
+                plugin_services = plugin.workspace.get_services()
+                for service in list(plugin_services.values()):
                     if service.config.get("provider_id") == plugin.id:
-                        del plugin.workspace._services[service.name]
+                        plugin.workspace.remove_service(service.name)
         del all_sessions[sid]
         bus.emit("plugin_disconnected", {"sid": sid})
 
@@ -219,7 +223,7 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
 
 def create_application(allow_origins, base_path) -> FastAPI:
     """Set up the server application."""
-    # pylint: disable=unused-variable, protected-access
+    # pylint: disable=unused-variable
 
     app = FastAPI(
         title="ImJoy Core Server",
@@ -244,9 +248,11 @@ def create_application(allow_origins, base_path) -> FastAPI:
             "name": "ImJoy Engine",
             "version": VERSION,
             "all_users": {
-                uid: user_info._sessions for uid, user_info in all_users.items()
+                uid: user_info.get_sessions() for uid, user_info in all_users.items()
             },
-            "all_workspaces": {w.name: len(w._plugins) for w in get_all_workspace()},
+            "all_workspaces": {
+                w.name: len(w.get_plugins()) for w in get_all_workspace()
+            },
         }
 
     return app

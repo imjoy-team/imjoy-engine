@@ -109,9 +109,29 @@ class UserInfo(BaseModel):
         """Return the plugins."""
         return self._plugins
 
+    def get_plugin(self, plugin_name: str) -> Optional[DynamicPlugin]:
+        """Return a plugin."""
+        return self._plugins.get(plugin_name)
+
+    def set_plugin(self, plugin_name: str, plugin: DynamicPlugin) -> None:
+        """Set a plugin."""
+        self._plugins[plugin_name] = plugin
+
+    def remove_plugin(self, plugin_name: str) -> None:
+        """Remove a plugin."""
+        del self._plugins[plugin_name]
+
     def get_sessions(self) -> List[str]:
         """Return the sessions."""
         return self._sessions
+
+    def add_session(self, session: str) -> None:
+        """Add a session."""
+        self._sessions.append(session)
+
+    def remove_session(self, session: str) -> None:
+        """Remove a session."""
+        self._sessions.remove(session)
 
 
 class WorkspaceInfo(BaseModel):
@@ -130,7 +150,9 @@ class WorkspaceInfo(BaseModel):
     authorizer: Optional[str]
     _logger: Optional[logging.Logger] = PrivateAttr(default_factory=lambda: logger)
     _authorizer: Optional[Callable] = PrivateAttr(default_factory=lambda: None)
-    _plugins: Dict[str, Any] = PrivateAttr(default_factory=lambda: {})  # name: plugin
+    _plugins: Dict[str, DynamicPlugin] = PrivateAttr(
+        default_factory=lambda: {}
+    )  # name: plugin
     _services: Dict[str, ServiceInfo] = PrivateAttr(default_factory=lambda: {})
 
     def get_logger(self) -> Optional[logging.Logger]:
@@ -145,6 +167,18 @@ class WorkspaceInfo(BaseModel):
         """Return the plugins."""
         return self._plugins
 
+    def get_plugin(self, plugin_name: str) -> Optional[DynamicPlugin]:
+        """Return a plugin."""
+        return self._plugins.get(plugin_name)
+
+    def set_plugin(self, plugin_name: str, plugin: DynamicPlugin) -> None:
+        """Set a plugin."""
+        self._plugins[plugin_name] = plugin
+
+    def remove_plugin(self, plugin_name: str) -> None:
+        """Remove a plugin."""
+        del self._plugins[plugin_name]
+
     def get_services(self) -> Dict[str, ServiceInfo]:
         """Return the services."""
         return self._services
@@ -152,6 +186,10 @@ class WorkspaceInfo(BaseModel):
     def set_service(self, service_name: str, service: ServiceInfo) -> None:
         """Set a service."""
         self._services[service_name] = service
+
+    def remove_service(self, service_name: str) -> None:
+        """Remove a service."""
+        del self._services[service_name]
 
 
 event_bus = EventBus()
