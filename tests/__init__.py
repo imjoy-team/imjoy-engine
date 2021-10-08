@@ -14,5 +14,5 @@ def find_item(items, key, value):
     ]
     if len(filtered) == 0:
         return None
-    else:
-        return filtered[0]
+
+    return filtered[0]

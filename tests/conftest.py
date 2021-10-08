@@ -1,15 +1,13 @@
-import pytest
+"""Provide common pytest fixtures."""
 import subprocess
 import sys
 import time
-import requests
 
+import pytest
+import requests
 from requests import RequestException
 
-from . import (
-    SIO_PORT,
-    SIO_PORT2,
-)
+from . import SIO_PORT, SIO_PORT2
 
 
 @pytest.fixture(name="socketio_server", scope="session")
