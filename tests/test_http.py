@@ -1,4 +1,4 @@
-from . import SIO_SERVER_URL
+from . import SIO_SERVER_URL, find_item
 import requests
 import msgpack
 
@@ -38,14 +38,6 @@ api.export({
     }
 })
 """
-
-
-def find_item(items, key, value):
-    filtered = [item for item in items if item[key] == value]
-    if len(filtered) == 0:
-        return None
-    else:
-        return filtered[0]
 
 
 async def test_http_proxy(minio_server, socketio_server):

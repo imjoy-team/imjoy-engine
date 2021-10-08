@@ -1,25 +1,12 @@
-from . import SIO_SERVER_URL
+from . import SIO_SERVER_URL, find_item
 import boto3
 import os
 import pytest
 from imjoy_rpc import connect_to_server
 import requests
-from pathlib import Path
 
 # All test coroutines will be treated as marked.
 pytestmark = pytest.mark.asyncio
-
-
-def find_item(items, key, value):
-    filtered = [
-        item
-        for item in items
-        if (item[key] if isinstance(item, dict) else getattr(item, key)) == value
-    ]
-    if len(filtered) == 0:
-        return None
-    else:
-        return filtered[0]
 
 
 async def test_s3(minio_server, socketio_server):

@@ -1,17 +1,9 @@
 import pytest
 from imjoy.minio import MinioClient
-from . import MINIO_SERVER_URL, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD
+from . import MINIO_SERVER_URL, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD, find_item
 
 # All test coroutines will be treated as marked.
 pytestmark = pytest.mark.asyncio
-
-
-def find_item(items, key, value):
-    filtered = [item for item in items if item[key] == value]
-    if len(filtered) == 0:
-        return None
-    else:
-        return filtered[0]
 
 
 async def test_minio(minio_server):

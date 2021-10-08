@@ -202,6 +202,36 @@ def setup_logger(
     return logger
 
 
+def list_objects_sync(s3, bucket, prefix):
+    """List a objects synchronously"""
+    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, Delimiter="/")
+    items = response.get("Contents", [])
+    while response["IsTruncated"]:
+        response = s3.list_objects_v2(
+            Bucket=bucket,
+            Prefix=prefix,
+            Delimiter="/",
+            ContinuationToken=response["NextContinuationToken"],
+        )
+        items += response["Contents"]
+    return items
+
+
+async def list_objects_async(s3, bucket, prefix):
+    """List objects asynchronously"""
+    response = await s3.list_objects_v2(Bucket=bucket, Prefix=prefix, Delimiter="/")
+    items = response.get("Contents", [])
+    while response["IsTruncated"]:
+        response = await s3.list_objects_v2(
+            Bucket=bucket,
+            Prefix=prefix,
+            Delimiter="/",
+            ContinuationToken=response["NextContinuationToken"],
+        )
+        items += response["Contents"]
+    return items
+
+
 class S3Controller:
     def __init__(
         self,
@@ -359,17 +389,7 @@ class S3Controller:
                 async with self.create_client_async() as s3:
                     # List files in the folder
                     if path.endswith("/"):
-                        response = await s3.list_objects_v2(
-                            Bucket=self.default_bucket, Prefix=path
-                        )
-                        items = response["Contents"]
-                        while response["IsTruncated"]:
-                            response = await s3.list_objects_v2(
-                                Bucket=self.default_bucket,
-                                Prefix=path,
-                                ContinuationToken=response["NextContinuationToken"],
-                            )
-                            items += response["Contents"]
+                        items = await list_objects_async(s3, self.default_bucket, path)
                         if len(items) == 0:
                             return JSONResponse(
                                 status_code=404,
@@ -522,17 +542,8 @@ class S3Controller:
 
         # findout the latest log file number
         log_base_name = str(workspace_dir / "log.txt")
-        response = self.s3client.list_objects_v2(
-            Bucket=self.default_bucket, Prefix=log_base_name
-        )
-        items = response.get("Contents", [])
-        while response["IsTruncated"]:
-            response = self.s3client.list_objects_v2(
-                Bucket=self.default_bucket,
-                Prefix=log_base_name,
-                ContinuationToken=response["NextContinuationToken"],
-            )
-            items += response["Contents"]
+
+        items = list_objects_sync(self.s3client, self.default_bucket, log_base_name)
         # sort the log files based on the last number
         items = sorted(items, key=lambda file: -int(file["Key"].split(".")[-1]))
         if len(items) > 0:
