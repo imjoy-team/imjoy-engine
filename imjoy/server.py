@@ -37,7 +37,7 @@ from imjoy.core.auth import parse_token, check_permission
 from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
-
+from imjoy.http import HTTPProxy
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -268,6 +268,8 @@ def setup_socketio_server(
     """Set up the socketio server."""
 
     core_interface = CoreInterface(app, event_bus)
+
+    HTTPProxy(event_bus, core_interface)
 
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
