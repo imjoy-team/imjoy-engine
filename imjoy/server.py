@@ -255,12 +255,6 @@ def create_application(allow_origins, base_path) -> FastAPI:
 def setup_socketio_server(
     app: FastAPI,
     port: int,
-    enable_server_apps: bool = False,
-    enable_s3: bool = False,
-    endpoint_url: str = None,
-    access_key_id: str = None,
-    secret_access_key: str = None,
-    default_bucket: str = "imjoy-workspaces",
     base_path: str = "/",
     allow_origins: Union[str, list] = "*",
     **kwargs,
@@ -342,24 +336,6 @@ def get_argparser():
         type=str,
         default="/",
         help="the base path for the server",
-    )
-    parser.add_argument(
-        "--endpoint-url",
-        type=str,
-        default=None,
-        help="set endpoint URL for S3",
-    )
-    parser.add_argument(
-        "--access-key-id",
-        type=str,
-        default=None,
-        help="set AccessKeyID for S3",
-    )
-    parser.add_argument(
-        "--secret-access-key",
-        type=str,
-        default=None,
-        help="set SecretAccessKey for S3",
     )
     return parser
 
