@@ -260,7 +260,6 @@ def setup_socketio_server(
     **kwargs,
 ) -> None:
     """Set up the socketio server."""
-
     core_interface = CoreInterface(app, event_bus)
 
     socketio_path = base_path.rstrip("/") + "/socket.io"
@@ -312,6 +311,7 @@ def start_server(args):
 
 
 def get_argparser():
+    """Return the argument parser."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--host",
@@ -341,6 +341,6 @@ def get_argparser():
 
 
 if __name__ == "__main__":
-    parser = get_argparser()
-    opt = parser.parse_args()
+    arg_parser = get_argparser()
+    opt = arg_parser.parse_args()
     start_server(opt)
