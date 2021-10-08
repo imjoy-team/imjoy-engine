@@ -39,8 +39,8 @@ def jupyter_server_fixture():
         proc.terminate()
 
 
-@pytest.fixture(name="websocket_connection")
-def websocket_connection_fixture(jupyter_server):
+@pytest.fixture(name="kernel_connection")
+def kernel_connection_fixture(jupyter_server):
     """Create websocket connection."""
     url = BASE_URL + "/api/kernels"
     response = requests.post(url)
@@ -98,6 +98,6 @@ api.export({})
 """
 
 
-def test_jupyter_rpc(websocket_connection):
+def test_jupyter_rpc(kernel_connection):
     """Test jupyter rpc."""
-    execute(websocket_connection, TEST_CODE)
+    execute(kernel_connection, TEST_CODE)
