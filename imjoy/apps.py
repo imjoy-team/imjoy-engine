@@ -1,26 +1,24 @@
+"""Provide an apps controller."""
 import asyncio
 import os
-import uuid
-from pathlib import Path
 import shutil
-import shortuuid
-import traceback
 import threading
 import time
+from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.logger import logger
 import requests
-
+import shortuuid
+from fastapi import APIRouter
+from fastapi.logger import logger
+from fastapi.responses import FileResponse, JSONResponse
+from jinja2 import Environment, PackageLoader, select_autoescape
 from playwright.async_api import async_playwright
 
-from imjoy.utils import dotdict, safe_join
 from imjoy.core import StatusEnum
+from imjoy.utils import dotdict, safe_join
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-
-from jinja2 import Environment, PackageLoader, select_autoescape
 
 
 def is_safe_path(basedir, path, follow_symlinks=True):
@@ -35,6 +33,8 @@ def is_safe_path(basedir, path, follow_symlinks=True):
 
 class ServerAppController:
     """Server App Controller."""
+
+    # pylint: disable=too-many-instance-attributes
 
     instance_counter: int = 0
 
@@ -57,7 +57,7 @@ class ServerAppController:
         self.port = int(port)
         self.in_docker = in_docker
         self.server_url = f"http://127.0.0.1:{self.port}"
-        self.event_bus = core_interface.event_bus
+        event_bus = self.event_bus = core_interface.event_bus
         self.core_interface = core_interface
         core_interface.register_interface("get_app_controller", self.get_public_api)
         core_interface.register_interface("getAppController", self.get_public_api)
@@ -68,19 +68,20 @@ class ServerAppController:
         self.templates_dir = Path(__file__).parent / "templates"
         self.startup_dir = Path(__file__).parent / "startup_apps"
         router = APIRouter()
+        self._initialize_future: Optional[asyncio.Future] = None
 
         @router.get("/apps/{path:path}")
         def get_app_file(path: str):
             path = safe_join(str(self.apps_dir), path)
             if os.path.exists(path):
                 return FileResponse(path)
-            else:
-                return JSONResponse(
-                    status_code=404,
-                    content={"success": False, "detail": f"File not found: {path}"},
-                )
 
-        # The following code is a hacky solution to call self.intialize
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "detail": f"File not found: {path}"},
+            )
+
+        # The following code is a hacky solution to call self.initialize
         # We need to find a better way to call it
         # If we try to run initialize() in the startup event callback,
         # It give connection error.
@@ -109,7 +110,8 @@ class ServerAppController:
 
         event_bus.on("shutdown", close)
 
-    def _capture_logs_from_browser_tabs(self, page):
+    @staticmethod
+    def _capture_logs_from_browser_tabs(page):
         def _app_info(message):
             if page._plugin and page._plugin.workspace:
                 if page._plugin.workspace._logger:
@@ -160,7 +162,7 @@ class ServerAppController:
                 source = (app_file).open().read()
                 pid = app_file.stem
                 await self.deploy(
-                    source, user_id="root", template=None, id=pid, overwrite=True
+                    source, user_id="root", template=None, app_id=pid, overwrite=True
                 )
                 if pid == "imjoy-plugin-parser":
                     self.plugin_parser = await self._launch_as_root(
@@ -171,10 +173,10 @@ class ServerAppController:
             assert self.plugin_parser is not None, "Failed to load the plugin parser"
             self._status = StatusEnum.ready
             self._initialize_future.set_result(None)
-        except Exception as exp:
+        except Exception as err:  # pylint: disable=broad-except
             self._status = StatusEnum.not_initialized
             logger.exception("Failed to initialize the app controller")
-            self._initialize_future.set_exception(exp)
+            self._initialize_future.set_exception(err)
 
     async def close(self):
         """Close the app controller."""
@@ -208,57 +210,63 @@ class ServerAppController:
             if not app_name.startswith(".")
         ]
 
-    async def deploy(self, source, user_id, template=None, id=None, overwrite=False):
+    async def deploy(
+        self, source, user_id, template=None, app_id=None, overwrite=False
+    ):
         """Deploy a server app."""
         if template == "imjoy":
             if not source:
                 raise Exception("Source should be provided for imjoy plugin.")
             config = await self.plugin_parser.parsePluginCode(source)
-            if id and id != config.name:
+            if app_id and app_id != config.name:
                 raise Exception(
-                    f"You cannot specify a different id ({id}) for ImJoy plugin, it has to be `{config.name}`."
+                    f"You cannot specify a different id ({app_id}) "
+                    f"for ImJoy plugin, it has to be `{config.name}`."
                 )
-            id = config.name
+            app_id = config.name
             try:
                 temp = self.jinja_env.get_template(config.type + "-plugin.html")
                 source = temp.render(
                     script=config.script, requirements=config.requirements
                 )
-            except Exception:
+            except Exception as err:
                 raise Exception(
-                    f"Failed to compile the imjoy plugin, error: {traceback.format_exc()}"
-                )
+                    "Failed to compile the imjoy plugin, " f"error: {err}"
+                ) from err
         elif template:
             temp = self.jinja_env.get_template(template)
             source = temp.render(script=source)
         elif not source:
             raise Exception("Source or template should be provided.")
 
-        id = id or shortuuid.uuid()
-        if (self.apps_dir / user_id / id).exists() and not overwrite:
+        app_id = app_id or shortuuid.uuid()
+        if (self.apps_dir / user_id / app_id).exists() and not overwrite:
             raise Exception(
-                f"Another app with the same id ({id}) already exists in the user's app space {user_id}."
+                f"Another app with the same id ({app_id}) "
+                f"already exists in the user's app space {user_id}."
             )
 
-        os.makedirs(self.apps_dir / user_id / id, exist_ok=True)
+        os.makedirs(self.apps_dir / user_id / app_id, exist_ok=True)
 
-        with open(self.apps_dir / user_id / id / "index.html", "w") as fil:
+        with open(
+            self.apps_dir / user_id / app_id / "index.html", "w", encoding="utf-8"
+        ) as fil:
             fil.write(source)
 
-        return user_id + "/" + id
+        return user_id + "/" + app_id
 
-    async def undeploy(self, id):
+    async def undeploy(self, app_id):
         """Deploy a server app."""
-        if "/" not in id:
+        if "/" not in app_id:
             raise Exception(
-                f"Invalid app id: {id}, the correct format is `user-id/app-id`"
+                f"Invalid app id: {app_id}, the correct format is `user-id/app-id`"
             )
-        if (self.apps_dir / id).exists():
-            shutil.rmtree(self.apps_dir / id, ignore_errors=True)
+        if (self.apps_dir / app_id).exists():
+            shutil.rmtree(self.apps_dir / app_id, ignore_errors=True)
         else:
-            raise Exception(f"Server app not found: {id}")
+            raise Exception(f"Server app not found: {app_id}")
 
-    async def start(self, id: str, workspace: str, token: str = None):
+    async def start(self, app_id: str, workspace: str, token: str = None):
         """Start a server app instance."""
         if self.browser is None:
             raise Exception("The app controller is not ready yet")
@@ -268,10 +276,10 @@ class ServerAppController:
         self._capture_logs_from_browser_tabs(page)
         # TODO: dispose await context.close()
         name = shortuuid.uuid()
-        if "/" not in id:
-            id = workspace + "/" + id
+        if "/" not in app_id:
+            app_id = workspace + "/" + app_id
         url = (
-            f"{self.server_url}/apps/{id}/index.html?"
+            f"{self.server_url}/apps/{app_id}/index.html?"
             + f"name={name}&workspace={workspace}&server_url={self.server_url}"
             + (f"&token={token}" if token else "")
         )
@@ -289,9 +297,10 @@ class ServerAppController:
         self.event_bus.on("plugin_registered", registered)
         try:
             response = await page.goto(url)
-            assert (
-                response.status == 200
-            ), f"Failed to start server app instance, status: {response.status}, url: {url}"
+            assert response.status == 200, (
+                "Failed to start server app instance, "
+                f"status: {response.status}, url: {url}"
+            )
             self.browser_pages[name] = page
         except Exception:
             self.event_bus.off("plugin_registered", registered)
