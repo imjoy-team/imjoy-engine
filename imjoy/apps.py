@@ -23,7 +23,7 @@ from imjoy.utils import dotdict, safe_join
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 
-def is_safe_path(basedir, path, follow_symlinks=True):
+def is_safe_path(basedir: str, path: str, follow_symlinks: bool = True) -> bool:
     """Check if the file path is safe."""
     # resolves symbolic links
     if follow_symlinks:
