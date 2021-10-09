@@ -63,13 +63,22 @@ class StatusEnum(str, Enum):
     not_initialized = "not_initialized"
 
 
+class ServiceConfig(BaseModel):
+    """Represent service config."""
+
+    visibility: VisibilityEnum = VisibilityEnum.protected
+    require_context: bool = False
+    workspace: str
+    id: str
+
+
 class ServiceInfo(BaseModel):
     """Represent service."""
 
-    config: Dict[str, Any]
+    config: ServiceConfig
     name: str
     type: str
-    visibility: VisibilityEnum = VisibilityEnum.protected
+
     _provider: DynamicPlugin = PrivateAttr(default_factory=lambda: None)
 
     class Config:
@@ -78,8 +87,21 @@ class ServiceInfo(BaseModel):
         extra = Extra.allow
 
     def set_provider(self, provider: DynamicPlugin) -> None:
-        """Return the plugins."""
+        """Set the provider plugin."""
         self._provider = provider
+
+    def get_provider(self) -> DynamicPlugin:
+        """Get the provider plugin."""
+        return self._provider
+
+    def get_summary(self) -> dict:
+        """Get a summary about the service."""
+        return {
+            "name": self.name,
+            "type": self.type,
+            "provider": self._provider.name,
+            "provider_id": self._provider.id,
+        }.update(self.config.dict())
 
 
 class UserInfo(BaseModel):

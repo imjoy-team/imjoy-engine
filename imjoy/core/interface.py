@@ -235,29 +235,31 @@ class CoreInterface:
             raise Exception("Service should at least contain `name` and `type`")
 
         # TODO: check if it's already exists
-        config = service.get("config", {})
-        assert isinstance(config, dict), "service.config must be a dictionary"
-        if config.get("name") and service["name"] != config.get("name"):
-            raise Exception("Service name should match the one in the service.config.")
-        if config.get("type") and service["type"] != config.get("type"):
-            raise Exception("Service type should match the one in the service.config.")
-        if config.get("visibility") and service["visibility"] != config.get(
-            "visibility"
-        ):
-            raise Exception(
-                "Service visibility should match the one in the service.config."
-            )
-        service["visibility"] = service.get("visibility", "protected")
-        config["name"] = service["name"]
-        config["type"] = service["type"]
-        config["visibility"] = service["visibility"]
-        config["workspace"] = workspace.name
-        config["id"] = service_id
-        config["provider"] = plugin.name
-        config["provider_id"] = plugin.id
-        service["config"] = config
+        service.config = service.get("config", {})
+        assert isinstance(service.config, dict), "service.config must be a dictionary"
+        service.config["id"] = service_id
+        service.config["workspace"] = workspace.name
         formated_service = ServiceInfo.parse_obj(service)
         formated_service.set_provider(plugin)
+        service_dict = formated_service.dict()
+        if formated_service.config.require_context:
+            for key in service_dict:
+                if callable(service_dict[key]):
+
+                    def wrap_func(func, *args, **kwargs):
+                        user_info = self.current_user.get()
+                        workspace = self.current_workspace.get()
+                        kwargs["context"] = {
+                            "user_id": user_info.id,
+                            "email": user_info.email,
+                            "is_anonymous": user_info.email,
+                            "workspace": workspace.name,
+                        }
+                        return func(*args, **kwargs)
+
+                    setattr(
+                        formated_service, key, partial(wrap_func, service_dict[key])
+                    )
         # service["_rintf"] = True
         # Note: service can set its `visibility` to `public` or `protected`
         workspace.set_service(formated_service.name, formated_service)
@@ -295,7 +297,7 @@ class CoreInterface:
         user_info = self.current_user.get()
         if (
             not self.check_permission(workspace, user_info)
-            and service.config.get("visibility", "protected") != "public"
+            and service.config.visibility != VisibilityEnum.public
         ):
             raise Exception(f"Permission denied: {service_id}")
 
@@ -323,15 +325,15 @@ class CoreInterface:
                     # To access the service, it should be public or owned by the user
                     if (
                         not can_access_ws
-                        and service.config.get("visibility", "protected") != "public"
+                        and service.config.visibility != VisibilityEnum.public
                     ):
                         continue
                     match = True
                     for key in query:
-                        if service.config[key] != query[key]:
+                        if getattr(service, key) != query[key]:
                             match = False
                     if match:
-                        ret.append(service.config)
+                        ret.append(service.get_summary())
             return ret
         if ws is not None:
             workspace = self.get_workspace(ws)
@@ -342,10 +344,10 @@ class CoreInterface:
         for service in workspace_services.values():
             match = True
             for key in query:
-                if service.config[key] != query[key]:
+                if getattr(service, key) != query[key]:
                     match = False
             if match:
-                ret.append(service.config)
+                ret.append(service.get_summary())
 
         if workspace is None:
             raise Exception("Workspace not found: {ws}")
