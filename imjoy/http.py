@@ -1,12 +1,14 @@
+"""Provide the http proxy."""
 import json
 import traceback
 from typing import Any
 
-
 import msgpack
-from fastapi import APIRouter, Request, Depends
-from fastapi.responses import Response, JSONResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse, Response
+
 from imjoy.core.auth import login_optional
+from imjoy.core.interface import CoreInterface
 
 
 class MsgpackResponse(Response):
@@ -15,18 +17,19 @@ class MsgpackResponse(Response):
     media_type = "application/msgpack"
 
     def render(self, content: Any) -> bytes:
+        """Render the response."""
         return msgpack.dumps(content)
 
 
-def normalize(s):
+def normalize(string):
     """Normalize numbers in URL query."""
-    if s.isnumeric():
-        return int(s)
-    else:
-        try:
-            return float(s)
-        except ValueError:
-            return s
+    if string.isnumeric():
+        return int(string)
+
+    try:
+        return float(string)
+    except ValueError:
+        return string
 
 
 def serialize(obj):
@@ -35,14 +38,14 @@ def serialize(obj):
         return None
     if isinstance(obj, (int, float, tuple, str, bool)):
         return obj
-    elif isinstance(obj, dict):
+    if isinstance(obj, dict):
         return {k: serialize(obj[k]) for k in obj}
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         return [serialize(k) for k in obj]
-    elif callable(obj):
+    if callable(obj):
         return f"<function: {str(obj)}>"
-    else:
-        raise ValueError(f"unsupported data type: {type(obj)}")
+
+    raise ValueError(f"unsupported data type: {type(obj)}")
 
 
 def get_value(keys, service):
@@ -61,8 +64,9 @@ def get_value(keys, service):
 class HTTPProxy:
     """A proxy for accessing services from HTTP."""
 
-    def __init__(self, core_interface):
+    def __init__(self, core_interface: CoreInterface) -> None:
         """Initialize the http proxy."""
+        # pylint: disable=broad-except
         router = APIRouter()
         self.core_interface = core_interface
 
@@ -136,7 +140,9 @@ class HTTPProxy:
             user_info: login_optional = Depends(login_optional),
         ):
             """Run service function by keys.
-            (It can contain dot to refer deeper object)"""
+
+            It can contain dot to refer to deeper object.
+            """
             try:
                 core_interface.current_user.set(user_info)
                 service = await core_interface.get_service(f"{workspace}/{service}")
@@ -163,7 +169,8 @@ class HTTPProxy:
                             status_code=500,
                             content={
                                 "success": False,
-                                "detail": f"Invalid content-type (supported types: application/msgpack, application/json, text/plain)",
+                                "detail": "Invalid content-type (supported types: "
+                                "application/msgpack, application/json, text/plain)",
                             },
                         )
                 else:
@@ -174,36 +181,35 @@ class HTTPProxy:
                             "detail": f"Invalid request method: {request.method}",
                         },
                     )
-                if callable(value):
-                    try:
-                        result = await value(**kwargs)
-                    except Exception:
-                        return JSONResponse(
-                            status_code=500,
-                            content={
-                                "success": False,
-                                "detail": traceback.format_exc(),
-                            },
-                        )
-
-                    if request.method == "GET":
-                        return JSONResponse(
-                            status_code=200,
-                            content=result,
-                        )
-                    elif request.method == "POST":
-                        if content_type == "application/json":
-                            return JSONResponse(
-                                status_code=200,
-                                content=result,
-                            )
-                        elif content_type == "application/msgpack":
-                            return MsgpackResponse(
-                                status_code=200,
-                                content=result,
-                            )
-                else:
+                if not callable(value):
                     return JSONResponse(status_code=200, content=serialize(value))
+                try:
+                    result = await value(**kwargs)
+                except Exception:
+                    return JSONResponse(
+                        status_code=500,
+                        content={
+                            "success": False,
+                            "detail": traceback.format_exc(),
+                        },
+                    )
+
+                if (
+                    request.method == "GET"
+                    or request.method == "POST"
+                    and content_type == "application/json"
+                ):
+                    return JSONResponse(
+                        status_code=200,
+                        content=result,
+                    )
+                if request.method == "POST" and content_type == "application/msgpack":
+                    return MsgpackResponse(
+                        status_code=200,
+                        content=result,
+                    )
+
+                # What should be returned here?
 
             except Exception:
                 return JSONResponse(
