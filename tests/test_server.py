@@ -166,7 +166,23 @@ async def test_workspace(socketio_server):
         }
     )
     service = await ws.get_service(service_id)
-    assert service.config["name"] == "test_service"
+    assert service["name"] == "test_service"
+
+    def test(context=None):
+        return context
+
+    service_id = await ws.register_service(
+        {
+            "name": "test_service",
+            "type": "#test",
+            "config": {"require_context": True},
+            "test": test,
+        }
+    )
+    service = await ws.get_service(service_id)
+    context = await service.test()
+    assert "user_id" in context and "email" in context
+    assert service["name"] == "test_service"
 
     # we should not get it because api is in another workspace
     ss2 = await api.list_services({"type": "#test"})

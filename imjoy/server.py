@@ -207,7 +207,7 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
                 # with the plugins of the previous owners
                 plugin_services = plugin.workspace.get_services()
                 for service in list(plugin_services.values()):
-                    if service.config.get("provider_id") == plugin.id:
+                    if service.get_provider() == plugin:
                         plugin.workspace.remove_service(service.name)
         del core_interface.all_sessions[sid]
         bus.emit("plugin_disconnected", {"sid": sid})
