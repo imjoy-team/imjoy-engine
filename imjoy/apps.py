@@ -118,17 +118,19 @@ class ServerAppController:
 
         def _app_info(message: str) -> None:
             """Log message at info level."""
-            if page._plugin and page._plugin.workspace:
-                if page._plugin.workspace._logger:
-                    page._plugin.workspace._logger.info(message)
+            if page.plugin and page.plugin.workspace:
+                workspace_logger = page.plugin.workspace.get_logger()
+                if workspace_logger:
+                    workspace_logger.info(message)
                     return
             logger.info(message)
 
         def _app_error(message: str) -> None:
             """Log message at error level."""
-            if page._plugin and page._plugin.workspace:
-                if page._plugin.workspace._logger:
-                    page._plugin.workspace._logger.error(message)
+            if page.plugin and page.plugin.workspace:
+                workspace_logger = page.plugin.workspace.get_logger()
+                if workspace_logger:
+                    workspace_logger.error(message)
                     return
             logger.error(message)
 
@@ -286,7 +288,7 @@ class ServerAppController:
             raise Exception("The app controller is not ready yet")
         # context = await self.browser.createIncognitoBrowserContext()
         page = await self.browser.new_page()
-        page._plugin = None
+        page.plugin = None
         self._capture_logs_from_browser_tabs(page)
         # TODO: dispose await context.close()
         name = shortuuid.uuid()
@@ -303,7 +305,7 @@ class ServerAppController:
         def registered(plugin):
             if plugin.name == name:
                 # return the plugin api
-                page._plugin = plugin
+                page.plugin = plugin
                 fut.set_result(plugin.config)
                 self.event_bus.off("plugin_registered", registered)
 
