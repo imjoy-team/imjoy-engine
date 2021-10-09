@@ -1,11 +1,12 @@
+"""Test server apps."""
 from pathlib import Path
 
-
 import pytest
-
 from imjoy_rpc import connect_to_server
 
 from . import SIO_SERVER_URL
+
+# pylint: disable=too-many-statements
 
 # All test coroutines will be treated as marked.
 pytestmark = pytest.mark.asyncio
