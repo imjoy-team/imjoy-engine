@@ -5,7 +5,7 @@ import shutil
 import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 import shortuuid
@@ -13,9 +13,11 @@ from fastapi import APIRouter
 from fastapi.logger import logger
 from fastapi.responses import FileResponse, JSONResponse
 from jinja2 import Environment, PackageLoader, select_autoescape
-from playwright.async_api import async_playwright
+from playwright.async_api import Page, async_playwright
+from starlette.responses import Response
 
 from imjoy.core import StatusEnum
+from imjoy.core.interface import CoreInterface
 from imjoy.utils import dotdict, safe_join
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -40,9 +42,9 @@ class ServerAppController:
 
     def __init__(
         self,
-        core_interface,
+        core_interface: CoreInterface,
         port: int,
-        in_docker=False,
+        in_docker: bool = False,
         apps_dir: str = "./apps",
     ):
         """Initialize the class."""
@@ -71,7 +73,7 @@ class ServerAppController:
         self._initialize_future: Optional[asyncio.Future] = None
 
         @router.get("/apps/{path:path}")
-        def get_app_file(path: str):
+        def get_app_file(path: str) -> Response:
             path = safe_join(str(self.apps_dir), path)
             if os.path.exists(path):
                 return FileResponse(path)
@@ -86,11 +88,11 @@ class ServerAppController:
         # If we try to run initialize() in the startup event callback,
         # It give connection error.
         @router.get("/initialize-apps")
-        async def initialize_apps():
+        async def initialize_apps() -> JSONResponse:
             await self.initialize()
             return JSONResponse({"status": "OK"})
 
-        def do_initialization():
+        def do_initialization() -> None:
             while True:
                 try:
                     time.sleep(0.2)
@@ -105,21 +107,25 @@ class ServerAppController:
 
         core_interface.register_router(router)
 
-        def close():
+        def close() -> None:
             asyncio.get_running_loop().create_task(self.close())
 
         event_bus.on("shutdown", close)
 
     @staticmethod
-    def _capture_logs_from_browser_tabs(page):
-        def _app_info(message):
+    def _capture_logs_from_browser_tabs(page: Page) -> None:
+        """Capture browser tab logs."""
+
+        def _app_info(message: str) -> None:
+            """Log message at info level."""
             if page._plugin and page._plugin.workspace:
                 if page._plugin.workspace._logger:
                     page._plugin.workspace._logger.info(message)
                     return
             logger.info(message)
 
-        def _app_error(message):
+        def _app_error(message: str) -> None:
+            """Log message at error level."""
             if page._plugin and page._plugin.workspace:
                 if page._plugin.workspace._logger:
                     page._plugin.workspace._logger.error(message)
@@ -134,12 +140,13 @@ class ServerAppController:
         page.on("error", lambda target: _app_error(target.text))
         page.on("pageerror", lambda target: _app_error(str(target)))
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the app controller."""
         if self._status == StatusEnum.ready:
             return
         if self._status == StatusEnum.initializing:
-            return await self._initialize_future
+            await self._initialize_future
+            return
 
         self._status = StatusEnum.initializing
         self._initialize_future = asyncio.Future()
@@ -178,14 +185,14 @@ class ServerAppController:
             logger.exception("Failed to initialize the app controller")
             self._initialize_future.set_exception(err)
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the app controller."""
         logger.info("Closing the browser app controller...")
         if self.browser:
             await self.browser.close()
         logger.info("Browser app controller closed.")
 
-    async def get_public_api(self):
+    async def get_public_api(self) -> Dict[str, Any]:
         """Get a list of public api."""
         if self._status != StatusEnum.ready:
             await self.initialize()
@@ -202,17 +209,22 @@ class ServerAppController:
         controller["_rintf"] = True
         return controller
 
-    async def list(self, user_id):
+    async def list(self, user_id: str) -> List[str]:
         """List the deployed apps."""
         return [
-            user_id + "/" + app_name
+            f"{user_id}/{app_name}"
             for app_name in os.listdir(self.apps_dir / user_id)
             if not app_name.startswith(".")
         ]
 
     async def deploy(
-        self, source, user_id, template=None, app_id=None, overwrite=False
-    ):
+        self,
+        source: str,
+        user_id: str,
+        template: Optional[str] = None,
+        app_id: Optional[str] = None,
+        overwrite: bool = False,
+    ) -> str:
         """Deploy a server app."""
         if template == "imjoy":
             if not source:
@@ -253,9 +265,9 @@ class ServerAppController:
         ) as fil:
             fil.write(source)
 
-        return user_id + "/" + app_id
+        return f"{user_id}/{app_id}"
 
-    async def undeploy(self, app_id):
+    async def undeploy(self, app_id: str) -> None:
         """Deploy a server app."""
         if "/" not in app_id:
             raise Exception(
@@ -266,7 +278,9 @@ class ServerAppController:
         else:
             raise Exception(f"Server app not found: {app_id}")
 
-    async def start(self, app_id: str, workspace: str, token: str = None):
+    async def start(
+        self, app_id: str, workspace: str, token: Optional[str] = None
+    ) -> dotdict:
         """Start a server app instance."""
         if self.browser is None:
             raise Exception("The app controller is not ready yet")
@@ -308,7 +322,7 @@ class ServerAppController:
 
         return await fut
 
-    async def _launch_as_root(self, app_name, workspace="root"):
+    async def _launch_as_root(self, app_name: str, workspace: str = "root") -> dotdict:
         """Launch an app as root user."""
         rws = self.core_interface.get_workspace_as_root(workspace)
         token = rws.generate_token()
@@ -317,7 +331,7 @@ class ServerAppController:
             config.name, config.workspace
         )
 
-    async def stop(self, name):
+    async def stop(self, name: str) -> None:
         """Stop a server app instance."""
         if name in self.browser_pages:
             await self.browser_pages[name].close()
