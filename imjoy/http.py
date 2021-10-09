@@ -194,22 +194,16 @@ class HTTPProxy:
                         },
                     )
 
-                if (
-                    request.method == "GET"
-                    or request.method == "POST"
-                    and content_type == "application/json"
-                ):
-                    return JSONResponse(
-                        status_code=200,
-                        content=result,
-                    )
                 if request.method == "POST" and content_type == "application/msgpack":
                     return MsgpackResponse(
                         status_code=200,
                         content=result,
                     )
-
-                # What should be returned here?
+                else:
+                    return JSONResponse(
+                        status_code=200,
+                        content=result,
+                    )
 
             except Exception:
                 return JSONResponse(
