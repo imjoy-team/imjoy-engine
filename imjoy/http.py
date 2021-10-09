@@ -199,11 +199,11 @@ class HTTPProxy:
                         status_code=200,
                         content=result,
                     )
-                else:
-                    return JSONResponse(
-                        status_code=200,
-                        content=result,
-                    )
+
+                return JSONResponse(
+                    status_code=200,
+                    content=result,
+                )
 
             except Exception:
                 return JSONResponse(
