@@ -29,6 +29,7 @@ except ImportError:
         "fastapi>=0.63.0",
         "uvicorn>=0.13.4",
         "shortuuid>=1.0.1",
+        "msgpack>=1.0.2",
     ]
 
 ROOT_DIR = Path(__file__).parent.resolve()
