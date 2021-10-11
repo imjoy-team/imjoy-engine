@@ -2,7 +2,7 @@
 from enum import Enum
 import logging
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Tuple, Optional
 
 from pydantic import (  # pylint: disable=no-name-in-module
     BaseModel,
@@ -134,9 +134,9 @@ class UserInfo(BaseModel):
         """Return a plugin."""
         return self._plugins.get(plugin_name)
 
-    def set_plugin(self, plugin_name: str, plugin: DynamicPlugin) -> None:
-        """Set a plugin."""
-        self._plugins[plugin_name] = plugin
+    def add_plugin(self, plugin: DynamicPlugin) -> None:
+        """Add a plugin."""
+        self._plugins[plugin.id] = plugin
 
     def remove_plugin(self, plugin_name: str) -> None:
         """Remove a plugin."""
@@ -173,6 +173,9 @@ class WorkspaceInfo(BaseModel):
         default_factory=lambda: {}
     )  # name: plugin
     _services: Dict[str, ServiceInfo] = PrivateAttr(default_factory=lambda: {})
+    _event_handlers: Dict[str, List[Tuple[Any]]] = PrivateAttr(
+        default_factory=lambda: {}
+    )
 
     def get_logger(self) -> Optional[logging.Logger]:
         """Return the logger."""
@@ -186,22 +189,88 @@ class WorkspaceInfo(BaseModel):
         """Return a plugin."""
         return self._plugins.get(plugin_name)
 
-    def set_plugin(self, plugin_name: str, plugin: DynamicPlugin) -> None:
+    def add_plugin(self, plugin: DynamicPlugin) -> None:
         """Set a plugin."""
-        self._plugins[plugin_name] = plugin
+        self._plugins[plugin.name] = plugin
 
     def remove_plugin(self, plugin_name: str) -> None:
-        """Remove a plugin."""
-        del self._plugins[plugin_name]
+        """Remove a plugin form the workspace."""
+        if plugin_name not in self._plugins:
+            raise KeyError(f"Plugin not fould (name={plugin_name})")
+        plugin = self._plugins[plugin_name]
+        del self._plugins[plugin.name]
+        # remove the services that registered by this plugin
+        # note: we might need to emit service_unregister event
+        # pylint: disable=protected-access
+        self._services = {
+            k: self._services[k]
+            for k in self._services
+            if self._services[k]._provider != plugin
+        }
+        # remove event hanlders
+        self._event_handlers = {
+            evt: self._event_handlers[evt]
+            for evt in self._event_handlers
+            if self._event_handlers[evt][0] != plugin
+        }
 
     def get_services(self) -> Dict[str, ServiceInfo]:
         """Return the services."""
         return self._services
 
-    def set_service(self, service_name: str, service: ServiceInfo) -> None:
-        """Set a service."""
+    def add_service(self, service_name: str, service: ServiceInfo) -> None:
+        """Add a service."""
         self._services[service_name] = service
+
+    def get_service(self, service_name: str) -> ServiceInfo:
+        """Get a service."""
+        return self._services[service_name]
 
     def remove_service(self, service_name: str) -> None:
         """Remove a service."""
         del self._services[service_name]
+
+    def add_event_hander(
+        self,
+        plugin: DynamicPlugin,
+        event: str,
+        handler: Callable,
+        run_once: bool = False,
+    ) -> None:
+        """Register an event handler."""
+        if event not in self._event_handlers:
+            self._event_handlers[event] = []
+        # a tuple with the plugin, the event handler,
+        # or whether remove it after triggered
+        self._event_handlers[event].append((plugin, handler, run_once))
+
+    def remove_event_hander(self, plugin: DynamicPlugin, event: str) -> None:
+        """Register an event handler."""
+        if event not in self._event_handlers:
+            raise KeyError("No event handler found for " + event)
+        # Remove all the events belongs to the current plugin
+        self._event_handlers[event] = [
+            v for v in self._event_handlers[event] if v[0] != plugin
+        ]
+
+    def fire_event(self, plugin: DynamicPlugin, event: str, data: Any = None) -> None:
+        """Execute the event handlers for an event."""
+        if event not in self._event_handlers:
+            return
+        for (_, handler, run_once) in self._event_handlers[event].copy():
+            try:
+                handler(
+                    {
+                        "target": {"plugin_name": plugin.name, "plugin_id": plugin.id},
+                        "data": data,
+                    }
+                )
+            # pylint: disable=broad-except
+            except Exception as exp:
+                plugin.log(f"Failed to handle event '{event}', error: {exp}")
+
+            # Remove the handler
+            if run_once:
+                self._event_handlers[event] = [
+                    v for v in self._event_handlers[event] if v[1] != handler
+                ]

@@ -69,6 +69,10 @@ class CoreInterface:
                 "createWorkspace": self.create_workspace,
                 "get_workspace": self.get_workspace_interface,
                 "getWorkspace": self.get_workspace_interface,
+                "on": self.on,
+                "off": self.off,
+                "emit": self.emit,
+                "disconnect": self.disconnect,
             }
         )
         self._imjoy_api.update(imjoy_api)
@@ -106,6 +110,31 @@ class CoreInterface:
         )
         self.register_workspace(self.root_workspace)
         self.load_extensions()
+
+    def on(self, event, handler):
+        """Register an event handler."""
+        workspace = self.current_workspace.get()
+        plugin = self.current_plugin.get()
+        workspace.add_event_hander(plugin, event, handler)
+
+    def off(self, event):
+        """Remove an event handler."""
+        workspace = self.current_workspace.get()
+        plugin = self.current_plugin.get()
+        workspace.remove_event_hander(plugin, event)
+
+    def emit(self, event, data=None):
+        """Emit an event to the workspace."""
+        workspace = self.current_workspace.get()
+        plugin = self.current_plugin.get()
+        workspace.fire_event(plugin, event, data)
+
+    async def disconnect(
+        self,
+    ):
+        """Disconnect from the workspace."""
+        plugin = self.current_plugin.get()
+        await plugin.terminate()
 
     def check_permission(self, workspace, user_info):
         """Check user permission for a workspace."""
@@ -262,9 +291,20 @@ class CoreInterface:
                     )
         # service["_rintf"] = True
         # Note: service can set its `visibility` to `public` or `protected`
-        workspace.set_service(formated_service.name, formated_service)
+        workspace.add_service(formated_service.name, formated_service)
         self.event_bus.emit("service_registered", formated_service)
         return service_id
+
+    def unregister_service(self, service_id):
+        """Unregister an service."""
+        workspace_name, service_name = service_id.split("/")
+        workspace = self.current_workspace.get()
+        assert (
+            workspace.name == workspace_name
+        ), f"The service {service_id} is not registered in the current workspace."
+        service = workspace.get_service(service_name)
+        workspace.remove_service(service_name)
+        self.event_bus.emit("service_unregistered", service)
 
     def list_plugins(self):
         """List all plugins in the workspace."""
@@ -483,6 +523,9 @@ class CoreInterface:
         bound_interface["config"] = {"workspace": name}
         bound_interface["set"] = partial(self._update_workspace, name)
         bound_interface["_rintf"] = True
+        # Remove disconnect, since the plugin can call disconnect()
+        # from their own workspace
+        del bound_interface["disconnect"]
         self.event_bus.emit("user_entered_workspace", (user_info, workspace))
         return bound_interface
 

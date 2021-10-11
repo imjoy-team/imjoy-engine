@@ -266,7 +266,7 @@ class DynamicPlugin:
 
         connection.once("imjoyRPCReady", imjoy_rpc_ready)
 
-    async def terminate(self, force=False):
+    async def terminate(self):
         """Terminate."""
         try:
             if self.api and self.api.exit and callable(self.api.exit):
@@ -274,6 +274,7 @@ class DynamicPlugin:
                     "Terminating plugin %s/%s", self.config.workspace, self.name
                 )
                 self.api.exit()
+            self._rpc.disconnect()
         finally:
             logger.info("Plugin %s terminated.", self.config.name)
             self._set_disconnected()
