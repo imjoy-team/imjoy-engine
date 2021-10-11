@@ -6,7 +6,7 @@ jupyter==1.0.0
 msgpack==1.0.2
 numpy==1.19.5  # needs to stay compatible with latest tensorflow
 pydantic[email]==1.8.2
-python-dotenv==0.19.0
+python-dotenv==0.19.1
 python-jose==3.3.0
 python-socketio[asyncio_client]==5.0.4  # pin for now to solve unknown connection issue
 pyyaml==5.4.1
