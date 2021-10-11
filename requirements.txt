@@ -3,7 +3,7 @@ aiofiles==0.7.0
 fastapi==0.70.0
 imjoy-jupyter-extension==0.2.17
 imjoy-rpc==0.3.30
-ipykernel==5.5.5
+ipykernel==6.4.1
 jinja2==3.0.1
 jupyter==1.0.0
 msgpack==1.0.2
