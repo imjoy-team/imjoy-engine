@@ -65,7 +65,9 @@ async def test_server_apps(socketio_server):
 
     # Test window plugin
     source = (Path(__file__).parent / "testWindowPlugin1.imjoy.html").open().read()
-    pid = await controller.deploy(source, user_id="public", template="imjoy", overwrite=True)
+    pid = await controller.deploy(
+        source, user_id="public", template="imjoy", overwrite=True
+    )
     assert pid == "public/Test Window Plugin"
     apps = await controller.list("public")
     assert pid in apps
