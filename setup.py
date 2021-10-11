@@ -50,7 +50,7 @@ setup(
     author_email="imjoy.team@gmail.com",
     license="MIT",
     packages=find_packages(),
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     include_package_data=True,
     install_requires=REQUIREMENTS,
     extras_require={

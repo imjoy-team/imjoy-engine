@@ -1,8 +1,8 @@
 # See https://pre-commit.com/
 # See https://github.com/python/black#version-control-integration
 repos:
-  - repo: https://github.com/python/black
+  - repo: https://github.com/psf/black
     rev: stable
     hooks:
       - id: black
-        language_version: python3.6
+        language_version: python3
