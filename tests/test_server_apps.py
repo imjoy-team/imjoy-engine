@@ -64,12 +64,8 @@ async def test_server_apps(socketio_server):
     await controller.stop(config.name)
 
     # Test window plugin
-    try:
-        await controller.undeploy("public/Test Window Plugin")
-    except Exception:
-        pass
     source = (Path(__file__).parent / "testWindowPlugin1.imjoy.html").open().read()
-    pid = await controller.deploy(source, user_id="public", template="imjoy")
+    pid = await controller.deploy(source, user_id="public", template="imjoy", overwrite=True)
     assert pid == "public/Test Window Plugin"
     apps = await controller.list("public")
     assert pid in apps
@@ -80,12 +76,8 @@ async def test_server_apps(socketio_server):
     assert result == 6
     await controller.stop(config.name)
 
-    try:
-        await controller.undeploy("public/WebPythonPlugin")
-    except Exception:
-        pass
     source = (Path(__file__).parent / "testWebPythonPlugin.imjoy.html").open().read()
-    pid = await controller.deploy(source, "public", "imjoy")
+    pid = await controller.deploy(source, "public", "imjoy", overwrite=True)
     assert pid == "public/WebPythonPlugin"
     apps = await controller.list("public")
     assert pid in apps
@@ -96,12 +88,8 @@ async def test_server_apps(socketio_server):
     assert result == 6
     await controller.stop(config.name)
 
-    try:
-        await controller.undeploy("public/WebWorkerPlugin")
-    except Exception:
-        pass
     source = (Path(__file__).parent / "testWebWorkerPlugin.imjoy.html").open().read()
-    pid = await controller.deploy(source, "public", "imjoy")
+    pid = await controller.deploy(source, "public", "imjoy", overwrite=True)
     assert pid == "public/WebWorkerPlugin"
     apps = await controller.list("public")
     assert pid in apps
