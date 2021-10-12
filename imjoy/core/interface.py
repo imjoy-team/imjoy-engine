@@ -69,7 +69,10 @@ class CoreInterface:
                 "createWorkspace": self.create_workspace,
                 "get_workspace": self.get_workspace_interface,
                 "getWorkspace": self.get_workspace_interface,
+                "list_workspaces": self.list_workspaces,
+                "listWorkspaces": self.list_workspaces,
                 "on": self.on,
+                "once": self.once,
                 "off": self.off,
                 "emit": self.emit,
                 "disconnect": self.disconnect,
@@ -115,7 +118,13 @@ class CoreInterface:
         """Register an event handler."""
         workspace = self.current_workspace.get()
         plugin = self.current_plugin.get()
-        workspace.add_event_hander(plugin, event, handler)
+        workspace.add_event_hander(plugin, event, handler, run_once=False)
+
+    def once(self, event, handler):
+        """Register an event handler that run only once."""
+        workspace = self.current_workspace.get()
+        plugin = self.current_plugin.get()
+        workspace.add_event_hander(plugin, event, handler, run_once=True)
 
     def off(self, event):
         """Remove an event handler."""
@@ -344,6 +353,17 @@ class CoreInterface:
         if not service:
             raise Exception(f"Service not found: {service_id}")
         return service.dict()
+
+    def list_workspaces(
+        self,
+    ):
+        """List the workspaces for the user."""
+        user_info = self.current_user.get()
+        ret = []
+        for workspace in self._all_workspaces.values():
+            if self.check_permission(workspace, user_info):
+                ret.append({"name": workspace.name})
+        return ret
 
     def list_services(self, query: Optional[dict] = None):
         """Return a list of services based on the query."""
