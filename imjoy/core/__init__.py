@@ -130,17 +130,17 @@ class UserInfo(BaseModel):
         """Return the plugins."""
         return self._plugins
 
-    def get_plugin(self, plugin_name: str) -> Optional[DynamicPlugin]:
-        """Return a plugin."""
-        return self._plugins.get(plugin_name)
+    def get_plugin(self, plugin_id: str) -> Optional[DynamicPlugin]:
+        """Return a plugin by id."""
+        return self._plugins.get(plugin_id)
 
     def add_plugin(self, plugin: DynamicPlugin) -> None:
         """Add a plugin."""
         self._plugins[plugin.id] = plugin
 
-    def remove_plugin(self, plugin_name: str) -> None:
-        """Remove a plugin."""
-        del self._plugins[plugin_name]
+    def remove_plugin(self, plugin_id: str) -> None:
+        """Remove a plugin by id."""
+        del self._plugins[plugin_id]
 
     def get_sessions(self) -> List[str]:
         """Return the sessions."""
