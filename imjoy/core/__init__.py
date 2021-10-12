@@ -178,6 +178,10 @@ class WorkspaceInfo(BaseModel):
         """Return the logger."""
         return self._logger
 
+    def set_logger(self, workspace_logger: logging.Logger) -> None:
+        """Return the logger."""
+        self._logger = workspace_logger
+
     def get_plugins(self) -> Dict[str, Any]:
         """Return the plugins."""
         return self._plugins
