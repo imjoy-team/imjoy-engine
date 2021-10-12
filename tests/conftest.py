@@ -1,28 +1,25 @@
 """Provide common pytest fixtures."""
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
-import requests
-import shutil
 
 import pytest
-
-import tempfile
-import os
+import requests
 from requests import RequestException
-from imjoy.core import auth
-from fastapi.requests import Request
-from imjoy.server import start_server, get_argparser
+
+from imjoy.minio import setup_minio_executables
 
 from . import (
+    MINIO_PORT,
+    MINIO_ROOT_PASSWORD,
+    MINIO_ROOT_USER,
+    MINIO_SERVER_URL,
     SIO_PORT,
     SIO_PORT2,
-    MINIO_PORT,
-    MINIO_SERVER_URL,
-    MINIO_ROOT_USER,
-    MINIO_ROOT_PASSWORD,
 )
-from imjoy.minio import setup_minio_executables
 
 
 @pytest.fixture(name="socketio_server", scope="session")

@@ -2,7 +2,6 @@
 import argparse
 import asyncio
 import os
-import uuid
 from contextvars import copy_context
 from os import environ as env
 from typing import Union
@@ -18,14 +17,14 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from imjoy import __version__ as VERSION
+from imjoy.apps import ServerAppController
 from imjoy.core import EventBus, UserInfo, VisibilityEnum, WorkspaceInfo
 from imjoy.core.auth import parse_token
 from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
-from imjoy.apps import ServerAppController
-from imjoy.s3 import S3Controller
 from imjoy.http import HTTPProxy
+from imjoy.s3 import S3Controller
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -244,9 +243,15 @@ def setup_socketio_server(
     base_path: str = "/",
     allow_origins: Union[str, list] = "*",
     enable_server_apps: bool = False,
+    enable_s3: bool = False,
+    endpoint_url: str = None,
+    access_key_id: str = None,
+    secret_access_key: str = None,
+    default_bucket: str = "imjoy-workspaces",
     **kwargs,
 ) -> None:
     """Set up the socketio server."""
+    # pylint: disable=too-many-arguments
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
     HTTPProxy(core_interface)
@@ -270,7 +275,7 @@ def setup_socketio_server(
 
     if enable_s3:
         S3Controller(
-            event_bus,
+            core_interface.event_bus,
             core_interface,
             endpoint_url=endpoint_url,
             access_key_id=access_key_id,
