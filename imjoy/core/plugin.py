@@ -35,6 +35,7 @@ class DynamicPlugin:
         self.running = False
         self.terminating = False
         self._api_fut = asyncio.Future()
+        self._rpc = None
 
         # Note: we don't need to bind the interface
         # to the plugin as we do in the js version
@@ -269,12 +270,14 @@ class DynamicPlugin:
     async def terminate(self):
         """Terminate."""
         try:
-            if self.api and self.api.exit and callable(self.api.exit):
-                logger.info(
-                    "Terminating plugin %s/%s", self.config.workspace, self.name
-                )
-                self.api.exit()
-            self._rpc.disconnect()
+            if self._rpc:
+                if self.api and self.api.exit and callable(self.api.exit):
+                    logger.info(
+                        "Terminating plugin %s/%s", self.config.workspace, self.name
+                    )
+                    self.api.exit()
+
+                self._rpc.disconnect()
         finally:
             logger.info("Plugin %s terminated.", self.config.name)
             self._set_disconnected()
