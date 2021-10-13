@@ -12,9 +12,8 @@ import uvicorn
 from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
 from fastapi.logger import logger
-from fastapi.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, PlainTextResponse
 
 from imjoy import __version__ as VERSION
 from imjoy.core import EventBus, UserInfo, VisibilityEnum, WorkspaceInfo
@@ -208,7 +207,7 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
     bus.emit("socketio_ready", None)
 
 
-def create_application(allow_origins, base_path) -> FastAPI:
+def create_application(allow_origins) -> FastAPI:
     """Set up the server application."""
     # pylint: disable=unused-variable
 
@@ -221,13 +220,33 @@ def create_application(allow_origins, base_path) -> FastAPI:
         version=VERSION,
     )
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=allow_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["Content-Type", "Authorization"],
-    )
+    @app.middleware("http")
+    async def add_cors_header(request: Request, call_next):
+        headers = {}
+        headers["access-control-allow-origin"] = ", ".join(allow_origins)
+        headers["access-control-allow-credentials"] = "true"
+        headers["access-control-allow-methods"] = ", ".join(["*"])
+        headers["access-control-allow-headers"] = ", ".join(
+            ["Content-Type", "Authorization"]
+        )
+        if (
+            request.method == "OPTIONS"
+            and "access-control-request-method" in request.headers
+        ):
+            return PlainTextResponse("OK", status_code=200, headers=headers)
+        response = await call_next(request)
+        # We need to first normalize the case of the headers
+        # To avoid multiple values in the headers
+        # See issue: https://github.com/encode/starlette/issues/1309
+        # pylint: disable=protected-access
+        items = response.headers._list
+        # pylint: disable=protected-access
+        response.headers._list = [
+            (item[0].decode("latin-1").lower().encode("latin-1"), item[1])
+            for item in items
+        ]
+        response.headers.update(headers)
+        return response
 
     return app
 
@@ -301,7 +320,7 @@ def start_server(args):
         args.allow_origin = args.allow_origin.split(",")
     else:
         args.allow_origin = env.get("ALLOW_ORIGINS", "*").split(",")
-    application = create_application(args.allow_origin, args.base_path)
+    application = create_application(args.allow_origin)
     core_interface = CoreInterface(application)
     setup_socketio_server(application, core_interface, **vars(args))
     if args.host in ("127.0.0.1", "localhost"):
