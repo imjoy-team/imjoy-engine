@@ -14,7 +14,7 @@ import botocore
 from aiobotocore.session import get_session
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, Response
 from starlette.datastructures import Headers
 from starlette.types import Receive, Scope, Send
 
@@ -151,8 +151,12 @@ class FSFileResponse(FileResponse):
                 await self.background()
 
 
-class JSONResponse(Response):  # Why do we overwrite the JSONResponse of fastapi?
-    """Represent a JSON response."""
+class JSONResponse(Response):
+    """Represent a JSON response.
+    This implementation is needed because some of the S3 response
+    contains datetime which is not json serializable.
+    It works by setting `default=str` which converts the datetime
+    into a string."""
 
     media_type = "application/json"
 
