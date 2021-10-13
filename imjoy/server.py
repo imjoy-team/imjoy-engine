@@ -223,7 +223,7 @@ def create_application(allow_origins) -> FastAPI:
     @app.middleware("http")
     async def add_cors_header(request: Request, call_next):
         headers = {}
-        headers["access-control-allow-origin"] = allow_origins.join(",")
+        headers["access-control-allow-origin"] = ", ".join(allow_origins)
         headers["access-control-allow-credentials"] = "true"
         headers["access-control-allow-methods"] = ", ".join(["*"])
         headers["access-control-allow-headers"] = ", ".join(
