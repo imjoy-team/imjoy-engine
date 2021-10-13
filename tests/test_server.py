@@ -2,6 +2,7 @@
 import os
 import subprocess
 import sys
+import asyncio
 
 
 import pytest
@@ -226,3 +227,19 @@ async def test_workspace(socketio_server):
 
     with pytest.raises(Exception):
         await ws2.set({"covers": [], "non-exist-key": 999})
+
+    state = asyncio.Future()
+
+    def set_state(evt):
+        """Test function for set the state to a value."""
+        state.set_result(evt.data)
+
+    await ws2.on("set-state", set_state)
+
+    await ws2.emit("set-state", 9978)
+
+    assert await state == 9978
+
+    await ws2.off("set-state")
+
+    await api.disconnect()

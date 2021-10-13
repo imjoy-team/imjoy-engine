@@ -100,7 +100,8 @@ class BasicConnection(MessageEmitter):
         msg["peer_id"] = msg.get("peer_id") or self.peer_id
         asyncio.ensure_future(self._send(msg))
 
-    def disconnect(self, details):
+    async def disconnect(self):
         """Disconnect the plugin."""
+        await self.emit({"type": "disconnect"})
         if self.peer_id and self.peer_id in all_connections:
             del all_connections[self.peer_id]

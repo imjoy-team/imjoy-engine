@@ -12,9 +12,8 @@ import uvicorn
 from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
 from fastapi.logger import logger
-from fastapi.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, PlainTextResponse
 
 from imjoy import __version__ as VERSION
 from imjoy.apps import ServerAppController
@@ -25,6 +24,9 @@ from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.http import HTTPProxy
 from imjoy.s3 import S3Controller
+from imjoy.apps import ServerAppController
+from imjoy.asgi import ASGIGateway
+
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -129,13 +131,13 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
             user_info,
         )
 
-        user_info.set_plugin(plugin.id, plugin)
+        user_info.add_plugin(plugin)
         workspace_plugins = workspace.get_plugins()
         if plugin.name in workspace_plugins:
             # kill the plugin if already exist
-            asyncio.ensure_future(plugin.terminate(True))
+            asyncio.ensure_future(plugin.terminate())
             user_info.remove_plugin(plugin.id)
-        workspace.set_plugin(plugin.name, plugin)
+        workspace.add_plugin(plugin)
         logger.info("New plugin registered successfully (%s)", plugin_id)
 
         bus.emit(
@@ -179,40 +181,37 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
     async def disconnect(sid):
         """Event handler called when the client is disconnected."""
         user_info = core_interface.all_sessions[sid]
-        core_interface.all_users[user_info.id].remove_session(sid)
-        # if the user has no more all_sessions
-        user_sessions = core_interface.all_users[user_info.id].get_sessions()
+        user_info.remove_session(sid)
+        # if the user has no more session
+        user_sessions = user_info.get_sessions()
         if not user_sessions:
             del core_interface.all_users[user_info.id]
             user_plugins = user_info.get_plugins()
             for pid, plugin in list(user_plugins.items()):
+                asyncio.ensure_future(plugin.terminate())
+                user_info.remove_plugin(pid)
+
                 # TODO: how to allow plugin running when the user disconnected
                 # we will also need to handle the case when the user login again
                 # the plugin should be reclaimed for the user
                 plugin.workspace.remove_plugin(plugin.name)
-                # if there is no plugins in the workspace then we remove it
-                workspace_plugins = plugin.workspace.get_plugins()
-                if not workspace_plugins and not plugin.workspace.persistent:
-                    core_interface.unregister_workspace(plugin.workspace.name)
-                asyncio.ensure_future(plugin.terminate())
-                user_info.remove_plugin(pid)
-
                 # TODO: if a workspace has no plugins anymore
                 # we should destroy it completely
                 # Importantly, if we want to recycle the workspace name,
                 # we need to make sure we don't mess up with the permission
                 # with the plugins of the previous owners
-                plugin_services = plugin.workspace.get_services()
-                for service in list(plugin_services.values()):
-                    if service.get_provider() == plugin:
-                        plugin.workspace.remove_service(service.name)
+                # if there is no plugins in the workspace then we remove it
+                workspace_plugins = plugin.workspace.get_plugins()
+                if not workspace_plugins and not plugin.workspace.persistent:
+                    core_interface.unregister_workspace(plugin.workspace.name)
+
         del core_interface.all_sessions[sid]
         bus.emit("plugin_disconnected", {"sid": sid})
 
     bus.emit("socketio_ready", None)
 
 
-def create_application(allow_origins, base_path) -> FastAPI:
+def create_application(allow_origins) -> FastAPI:
     """Set up the server application."""
     # pylint: disable=unused-variable
 
@@ -225,13 +224,33 @@ def create_application(allow_origins, base_path) -> FastAPI:
         version=VERSION,
     )
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=allow_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["Content-Type", "Authorization"],
-    )
+    @app.middleware("http")
+    async def add_cors_header(request: Request, call_next):
+        headers = {}
+        headers["access-control-allow-origin"] = ", ".join(allow_origins)
+        headers["access-control-allow-credentials"] = "true"
+        headers["access-control-allow-methods"] = ", ".join(["*"])
+        headers["access-control-allow-headers"] = ", ".join(
+            ["Content-Type", "Authorization"]
+        )
+        if (
+            request.method == "OPTIONS"
+            and "access-control-request-method" in request.headers
+        ):
+            return PlainTextResponse("OK", status_code=200, headers=headers)
+        response = await call_next(request)
+        # We need to first normalize the case of the headers
+        # To avoid multiple values in the headers
+        # See issue: https://github.com/encode/starlette/issues/1309
+        # pylint: disable=protected-access
+        items = response.headers._list
+        # pylint: disable=protected-access
+        response.headers._list = [
+            (item[0].decode("latin-1").lower().encode("latin-1"), item[1])
+            for item in items
+        ]
+        response.headers.update(headers)
+        return response
 
     return app
 
@@ -255,6 +274,7 @@ def setup_socketio_server(
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
     HTTPProxy(core_interface)
+    ASGIGateway(core_interface)
 
     @app.get(base_path)
     async def root():
@@ -321,7 +341,7 @@ def start_server(args):
         args.allow_origin = args.allow_origin.split(",")
     else:
         args.allow_origin = env.get("ALLOW_ORIGINS", "*").split(",")
-    application = create_application(args.allow_origin, args.base_path)
+    application = create_application(args.allow_origin)
     core_interface = CoreInterface(application)
     setup_socketio_server(application, core_interface, **vars(args))
     if args.host in ("127.0.0.1", "localhost"):
