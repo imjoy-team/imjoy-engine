@@ -23,6 +23,7 @@ from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.http import HTTPProxy
 from imjoy.apps import ServerAppController
+from imjoy.asgi import ASGIGateway
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -264,6 +265,7 @@ def setup_socketio_server(
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
     HTTPProxy(core_interface)
+    ASGIGateway(core_interface)
 
     @app.get(base_path)
     async def root():
