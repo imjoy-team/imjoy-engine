@@ -21,7 +21,9 @@ async def test_asgi(socketio_server):
     controller = await api.get_app_controller()
 
     source = (
-        (Path(__file__).parent / "testASGIWebPythonPlugin.imjoy.html").open().read()
+        (Path(__file__).parent / "testASGIWebPythonPlugin.imjoy.html")
+        .open(encoding="utf-8")
+        .read()
     )
     pid = await controller.deploy(source, "public", "imjoy", overwrite=True)
     assert pid == "public/ASGIWebPythonPlugin"
