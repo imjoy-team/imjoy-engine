@@ -22,8 +22,10 @@ from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.http import HTTPProxy
+from imjoy.s3 import S3Controller
 from imjoy.apps import ServerAppController
 from imjoy.asgi import ASGIGateway
+
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -259,9 +261,15 @@ def setup_socketio_server(
     base_path: str = "/",
     allow_origins: Union[str, list] = "*",
     enable_server_apps: bool = False,
+    enable_s3: bool = False,
+    endpoint_url: str = None,
+    access_key_id: str = None,
+    secret_access_key: str = None,
+    default_bucket: str = "imjoy-workspaces",
     **kwargs,
 ) -> None:
     """Set up the socketio server."""
+    # pylint: disable=too-many-arguments
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
     HTTPProxy(core_interface)
@@ -283,6 +291,16 @@ def setup_socketio_server(
 
     if enable_server_apps:
         ServerAppController(core_interface, port=port)
+
+    if enable_s3:
+        S3Controller(
+            core_interface.event_bus,
+            core_interface,
+            endpoint_url=endpoint_url,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            default_bucket=default_bucket,
+        )
 
     socketio_path = base_path.rstrip("/") + "/socket.io"
 
@@ -364,6 +382,29 @@ def get_argparser():
         "--enable-server-apps",
         action="store_true",
         help="enable server applications",
+    )
+    parser.add_argument(
+        "--enable-s3",
+        action="store_true",
+        help="enable S3 object storage",
+    )
+    parser.add_argument(
+        "--endpoint-url",
+        type=str,
+        default=None,
+        help="set endpoint URL for S3",
+    )
+    parser.add_argument(
+        "--access-key-id",
+        type=str,
+        default=None,
+        help="set AccessKeyID for S3",
+    )
+    parser.add_argument(
+        "--secret-access-key",
+        type=str,
+        default=None,
+        help="set SecretAccessKey for S3",
     )
     return parser
 
