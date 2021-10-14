@@ -1,15 +1,19 @@
-from . import SIO_SERVER_URL, find_item
-import pytest
-from imjoy_rpc import connect_to_server
+"""Test zarr application."""
 from pathlib import Path
-import zarr
+
 import fsspec
+import pytest
+import zarr
+from imjoy_rpc import connect_to_server
+
+from . import SIO_SERVER_URL, find_item
 
 # All test coroutines will be treated as marked.
 pytestmark = pytest.mark.asyncio
 
 
 async def test_zarr(minio_server, socketio_server):
+    """Test zarr client."""
     api = await connect_to_server(
         {"name": "test client zarr", "server_url": SIO_SERVER_URL}
     )
@@ -28,9 +32,9 @@ async def test_zarr(minio_server, socketio_server):
         store = s3fs.get_mapper(root=store_dir, check=False, create=False)
         # cache = zarr.LRUStoreCache(store, max_size=2 ** 28)
         # root = zarr.group(store=cache)
-        z = zarr.zeros((10000, 10000), chunks=(1000, 1000), dtype="f8", store=store)
-        z[0:20, 1:10] = 100
-        assert z[10, 2] == 100
+        arr = zarr.zeros((10000, 10000), chunks=(1000, 1000), dtype="f8", store=store)
+        arr[0:20, 1:10] = 100
+        assert arr[10, 2] == 100
         files = s3fs.listdir(store_dir)
         assert find_item(files, "Key", f"{store_dir}/.zarray")
 
@@ -51,9 +55,4 @@ async def test_zarr(minio_server, socketio_server):
             assert "test_zarr" in plugin
             result = await plugin.test_zarr([4, 10])
             assert result == [2, 10]
-
-            # assert (
-            #     await plugin.test_read_zarr(f'{SIO_SERVER_URL}/files/{info["prefix"]}', "/zarr-demo/store")
-            #     == True
-            # )
             await controller.stop(config.name)
