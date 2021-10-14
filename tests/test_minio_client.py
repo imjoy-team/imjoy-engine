@@ -10,7 +10,6 @@ pytestmark = pytest.mark.asyncio
 # pylint: disable=too-many-statements
 async def test_minio(minio_server):
     """Test minio client."""
-    # pylint: disable=invalid-name
     minio_client = MinioClient(
         MINIO_SERVER_URL,
         MINIO_ROOT_USER,
