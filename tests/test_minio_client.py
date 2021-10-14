@@ -11,7 +11,7 @@ pytestmark = pytest.mark.asyncio
 async def test_minio(minio_server):
     """Test minio client."""
     # pylint: disable=invalid-name
-    mc = MinioClient(
+    minio_client = MinioClient(
         MINIO_SERVER_URL,
         MINIO_ROOT_USER,
         MINIO_ROOT_PASSWORD,
@@ -19,64 +19,64 @@ async def test_minio(minio_server):
     username = "tmp-user"
     username2 = "tmp-user-2"
 
-    mc.admin_user_add(username, "239udslfj3")
+    minio_client.admin_user_add(username, "239udslfj3")
     # overwrite the password
-    mc.admin_user_add(username, "23923432423j3")
-    mc.admin_user_add(username2, "234slfj3")
-    user_list = mc.admin_user_list()
+    minio_client.admin_user_add(username, "23923432423j3")
+    minio_client.admin_user_add(username2, "234slfj3")
+    user_list = minio_client.admin_user_list()
 
     assert find_item(user_list, "accessKey", username)
     assert find_item(user_list, "accessKey", username2)
-    mc.admin_user_disable(username)
-    user_list = mc.admin_user_list()
+    minio_client.admin_user_disable(username)
+    user_list = minio_client.admin_user_list()
     user1 = find_item(user_list, "accessKey", username)
     assert user1["userStatus"] == "disabled"
-    mc.admin_user_enable(username)
-    user_list = mc.admin_user_list()
+    minio_client.admin_user_enable(username)
+    user_list = minio_client.admin_user_list()
     user1 = find_item(user_list, "accessKey", username)
     assert user1["userStatus"] == "enabled"
-    user = mc.admin_user_info(username)
+    user = minio_client.admin_user_info(username)
     assert user["userStatus"] == "enabled"
-    mc.admin_user_remove(username2)
-    user_list = mc.admin_user_list()
+    minio_client.admin_user_remove(username2)
+    user_list = minio_client.admin_user_list()
     assert find_item(user_list, "accessKey", username2) is None
 
-    mc.admin_group_add("my-group", username)
-    ginfo = mc.admin_group_info("my-group")
+    minio_client.admin_group_add("my-group", username)
+    ginfo = minio_client.admin_group_info("my-group")
     assert ginfo["groupName"] == "my-group"
     assert username in ginfo["members"]
     assert ginfo["groupStatus"] == "enabled"
 
-    mc.admin_group_add("my-group", username)
+    minio_client.admin_group_add("my-group", username)
 
-    mc.admin_group_disable("my-group")
-    ginfo = mc.admin_group_info("my-group")
+    minio_client.admin_group_disable("my-group")
+    ginfo = minio_client.admin_group_info("my-group")
     assert ginfo["groupStatus"] == "disabled"
 
-    mc.admin_group_remove("my-group", ginfo["members"])
-    ginfo = mc.admin_group_info("my-group")
+    minio_client.admin_group_remove("my-group", ginfo["members"])
+    ginfo = minio_client.admin_group_info("my-group")
     assert ginfo.get("members") is None
 
     # remove empty group
-    mc.admin_group_remove("my-group")
+    minio_client.admin_group_remove("my-group")
     with pytest.raises(Exception, match=r".*Failed to run mc command*"):
-        mc.admin_group_info("my-group")
+        minio_client.admin_group_info("my-group")
 
-    mc.admin_group_add("my-group", username)
+    minio_client.admin_group_add("my-group", username)
 
-    mc.admin_user_add(username2, "234slfj3")
-    mc.admin_group_add("my-group", username2)
-    userinfo = mc.admin_user_info(username2)
+    minio_client.admin_user_add(username2, "234slfj3")
+    minio_client.admin_group_add("my-group", username2)
+    userinfo = minio_client.admin_user_info(username2)
     assert "my-group" in userinfo["memberOf"]
 
-    ginfo = mc.admin_group_info("my-group")
+    ginfo = minio_client.admin_group_info("my-group")
     assert username in ginfo["members"] and username2 in ginfo["members"]
 
-    mc.admin_group_enable("my-group")
-    ginfo = mc.admin_group_info("my-group")
+    minio_client.admin_group_enable("my-group")
+    ginfo = minio_client.admin_group_info("my-group")
     assert ginfo["groupStatus"] == "enabled"
 
-    mc.admin_policy_add(
+    minio_client.admin_policy_add(
         "admins",
         {
             "Version": "2012-10-17",
@@ -89,16 +89,16 @@ async def test_minio(minio_server):
             ],
         },
     )
-    response = mc.admin_policy_info("admins")
+    response = minio_client.admin_policy_info("admins")
     assert response["policy"] == "admins"
-    policy_list = mc.admin_policy_list()
+    policy_list = minio_client.admin_policy_list()
     print(policy_list)
     assert find_item(policy_list, "policy", "admins")
 
-    mc.admin_policy_set("admins", user=username)
-    userinfo = mc.admin_user_info(username)
+    minio_client.admin_policy_set("admins", user=username)
+    userinfo = minio_client.admin_user_info(username)
     assert userinfo["policyName"] == "admins"
 
-    mc.admin_policy_set("admins", group="my-group")
-    ginfo = mc.admin_group_info("my-group")
+    minio_client.admin_policy_set("admins", group="my-group")
+    ginfo = minio_client.admin_group_info("my-group")
     assert ginfo["groupPolicy"] == "admins"
