@@ -30,8 +30,6 @@ async def test_zarr(minio_server, socketio_server):
         )
         store_dir = f'{info["bucket"]}/{info["prefix"]}zarr-demo/store'
         store = s3fs.get_mapper(root=store_dir, check=False, create=False)
-        # cache = zarr.LRUStoreCache(store, max_size=2 ** 28)
-        # root = zarr.group(store=cache)
         arr = zarr.zeros((10000, 10000), chunks=(1000, 1000), dtype="f8", store=store)
         arr[0:20, 1:10] = 100
         assert arr[10, 2] == 100
