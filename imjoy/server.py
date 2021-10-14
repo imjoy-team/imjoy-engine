@@ -16,7 +16,6 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 
 from imjoy import __version__ as VERSION
-from imjoy.apps import ServerAppController
 from imjoy.core import EventBus, UserInfo, VisibilityEnum, WorkspaceInfo
 from imjoy.core.auth import parse_token
 from imjoy.core.connection import BasicConnection

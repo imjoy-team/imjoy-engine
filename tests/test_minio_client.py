@@ -1,3 +1,4 @@
+"""Test minio client."""
 import pytest
 from imjoy.minio import MinioClient
 from . import MINIO_SERVER_URL, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD, find_item
@@ -6,7 +7,10 @@ from . import MINIO_SERVER_URL, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD, find_item
 pytestmark = pytest.mark.asyncio
 
 
+# pylint: disable=too-many-statements
 async def test_minio(minio_server):
+    """Test minio client."""
+    # pylint: disable=invalid-name
     mc = MinioClient(
         MINIO_SERVER_URL,
         MINIO_ROOT_USER,
@@ -14,7 +18,7 @@ async def test_minio(minio_server):
     )
     username = "tmp-user"
     username2 = "tmp-user-2"
-    # print(mc.ls("/", recursive=True))
+
     mc.admin_user_add(username, "239udslfj3")
     # overwrite the password
     mc.admin_user_add(username, "23923432423j3")

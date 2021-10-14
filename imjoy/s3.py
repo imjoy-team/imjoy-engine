@@ -153,10 +153,12 @@ class FSFileResponse(FileResponse):
 
 class JSONResponse(Response):
     """Represent a JSON response.
+
     This implementation is needed because some of the S3 response
     contains datetime which is not json serializable.
     It works by setting `default=str` which converts the datetime
-    into a string."""
+    into a string.
+    """
 
     media_type = "application/json"
 

@@ -1,37 +1,41 @@
-from . import SIO_SERVER_URL, find_item
-import boto3
+"""Test S3 services."""
 import os
+
+import boto3
 import pytest
-from imjoy_rpc import connect_to_server
 import requests
+from imjoy_rpc import connect_to_server
+
+from . import SIO_SERVER_URL, find_item
 
 # All test coroutines will be treated as marked.
 pytestmark = pytest.mark.asyncio
 
 
 async def test_s3(minio_server, socketio_server):
+    """Test s3 service."""
     api = await connect_to_server({"name": "test client", "server_url": SIO_SERVER_URL})
     workspace = api.config["workspace"]
     token = await api.generate_token()
 
     async with api.get_s3_controller() as s3controller:
         info = await s3controller.generate_credential()
-        s3 = boto3.Session().resource(
+        s3_client = boto3.Session().resource(
             "s3",
             endpoint_url=info["endpoint_url"],
             aws_access_key_id=info["access_key_id"],
             aws_secret_access_key=info["secret_access_key"],
             region_name="EU",
         )
-        bucket = s3.Bucket(info["bucket"])
+        bucket = s3_client.Bucket(info["bucket"])
 
         # Listing the root folder should fail
         with pytest.raises(Exception, match=r".*An error occurred (AccessDenied)*"):
             print(list(bucket.objects.all()))
 
-        obj = s3.Object(info["bucket"], info["prefix"] + "hello.txt")
-        with open("/tmp/hello.txt", "w") as f:
-            f.write("hello")
+        obj = s3_client.Object(info["bucket"], info["prefix"] + "hello.txt")
+        with open("/tmp/hello.txt", "w", encoding="utf-8") as fil:
+            fil.write("hello")
         obj.upload_file("/tmp/hello.txt")
 
         # Upload small file (<5MB)
@@ -66,7 +70,7 @@ async def test_s3(minio_server, socketio_server):
         # Test request with range
         response = requests.get(
             f"{SIO_SERVER_URL}/{workspace}/files/my-data-large.txt",
-            headers={"Authorization": f"Bearer {token}", "Range": f"bytes=10-1033"},
+            headers={"Authorization": f"Bearer {token}", "Range": "bytes=10-1033"},
             data=content,
         )
         assert len(response.content) == 1024
@@ -127,6 +131,6 @@ async def test_s3(minio_server, socketio_server):
         assert url.startswith("http") and "X-Amz-Algorithm" in url
 
         # Upload without the prefix should fail
-        obj = s3.Object(info["bucket"], "hello.txt")
+        obj = s3_client.Object(info["bucket"], "hello.txt")
         with pytest.raises(Exception, match=r".*An error occurred (AccessDenied)*"):
             obj.upload_file("/tmp/hello.txt")

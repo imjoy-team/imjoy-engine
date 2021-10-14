@@ -1,12 +1,13 @@
+"""A module for minio client operations."""
 import json
-import re
-import os
-import sys
-import subprocess
 import logging
+import os
+import re
+import stat
+import subprocess
+import sys
 import tempfile
 import urllib.request
-import stat
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("minio")
@@ -18,10 +19,12 @@ EXECUTABLE_PATH = "bin"
 
 
 def setup_minio_executables():
+    """Download and install the minio client and server binary files."""
     os.makedirs(EXECUTABLE_PATH, exist_ok=True)
     assert (
         sys.platform == "linux"
-    ), "Manual setup required to, please download minio and minio client from https://min.io/ and place them under ./bin"
+    ), "Manual setup required to, please download minio and minio client \
+from https://min.io/ and place them under ./bin"
     mc_path = EXECUTABLE_PATH + "/mc"
     minio_path = EXECUTABLE_PATH + "/minio"
     if not os.path.exists(minio_path):
@@ -36,17 +39,18 @@ def setup_minio_executables():
             "https://dl.min.io/client/mc/release/linux-amd64/mc", mc_path
         )
 
-    st = os.stat(minio_path)
-    if not bool(st.st_mode & stat.S_IEXEC):
-        os.chmod(minio_path, st.st_mode | stat.S_IEXEC)
-    st = os.stat(mc_path)
-    if not bool(st.st_mode & stat.S_IEXEC):
-        os.chmod(mc_path, st.st_mode | stat.S_IEXEC)
+    stat_result = os.stat(minio_path)
+    if not bool(stat_result.st_mode & stat.S_IEXEC):
+        os.chmod(minio_path, stat_result.st_mode | stat.S_IEXEC)
+    stat_result = os.stat(mc_path)
+    if not bool(stat_result.st_mode & stat.S_IEXEC):
+        os.chmod(mc_path, stat_result.st_mode | stat.S_IEXEC)
 
     print("MinIO executables are ready.")
 
 
 def kwarg_to_flag(**kwargs):
+    """Convert key arguments into flags."""
     _args = []
     for _key, _value in kwargs.items():
         key = "--" + _key.replace("_", "-")
@@ -58,6 +62,7 @@ def kwarg_to_flag(**kwargs):
 
 
 def flag_to_kwarg(flag):
+    """Convert flags into keyword arguments."""
     _flag, *_value = flag.split()
     flag_name = _flag.replace("--", "").replace("-", "_")
     if _value:
@@ -68,11 +73,12 @@ def flag_to_kwarg(flag):
 
 
 def convert_to_json(subprocess_output, wrap=True, pair=("[", "]")):
-    s = subprocess_output.strip("\n")
-    s = s.replace("\n", ",")
-    s = s.replace("{,", "{")
-    s = s.replace(",}", "}")
-    preprocessed = s.replace(",,", ",")
+    """Convert output strings into JSON."""
+    output = subprocess_output.strip("\n")
+    output = output.replace("\n", ",")
+    output = output.replace("{,", "{")
+    output = output.replace(",}", "}")
+    preprocessed = output.replace(",,", ",")
     try:
         json.loads(preprocessed)
     except json.JSONDecodeError:
@@ -84,6 +90,7 @@ def convert_to_json(subprocess_output, wrap=True, pair=("[", "]")):
 
 
 def generate_command(cmd_template, **kwargs):
+    """Generate a command string with a template."""
     params = MATH_PATTERN.findall(cmd_template)
     cmd_params = dict(zip(params, [None] * len(params)))
     _args = {key: value for key, value in kwargs.items() if key not in cmd_params}
@@ -93,6 +100,7 @@ def generate_command(cmd_template, **kwargs):
 
 
 def execute_command(cmd_template, mc_executable=EXECUTABLE_PATH + "/mc", **kwargs):
+    """Execute the command."""
     command_string = generate_command(cmd_template, json=True, **kwargs)
     # override the executable
     command_string = mc_executable + command_string.lstrip("mc")
@@ -101,8 +109,8 @@ def execute_command(cmd_template, mc_executable=EXECUTABLE_PATH + "/mc", **kwarg
             command_string.split(),
             stderr=subprocess.STDOUT,
         )
-    except subprocess.CalledProcessError as e:
-        output = e.output.decode("utf-8")
+    except subprocess.CalledProcessError as err:
+        output = err.output.decode("utf-8")
         status = "failed"
         content = output
     else:
@@ -118,7 +126,7 @@ def execute_command(cmd_template, mc_executable=EXECUTABLE_PATH + "/mc", **kwarg
             content = output
 
     if status == "success":
-        logger.debug(f"mc command[status='{status}', command='{command_string}']")
+        logger.debug("mc command[status='%s', command='%s']", status, command_string)
     else:
         if isinstance(content, dict):
             message = content.get("error", {}).get("message", "")
@@ -127,15 +135,21 @@ def execute_command(cmd_template, mc_executable=EXECUTABLE_PATH + "/mc", **kwarg
             message = str(content)
             cause = ""
         logger.debug(
-            f"ERROR: mc command[status='{status}', message='{message}', cause='{cause}', command='{command_string}']"
+            "ERROR: mc command[status='%s', message='%s'," " cause='%s', command='%s']",
+            status,
+            message,
+            cause,
+            command_string,
         )
         raise Exception(
-            f"Failed to run mc command: ${command_string}, message='{message}', cause='{cause}'"
+            f"Failed to run mc command: ${command_string}, "
+            "message='{message}', cause='{cause}'"
         )
     return content
 
 
 def split_s3_path(path):
+    """Split the s3 path into buckets and prefix."""
     assert isinstance(path, str)
     if not path.startswith("/"):
         path = "/" + path
@@ -151,7 +165,7 @@ def split_s3_path(path):
 
 
 class MinioClient:
-    """A client class for managing minio"""
+    """A client class for managing minio."""
 
     def __init__(
         self,
@@ -162,6 +176,7 @@ class MinioClient:
         mc_executable=EXECUTABLE_PATH + "/mc",
         **kwargs,
     ):
+        """Initialize the client."""
         setup_minio_executables()
         self.alias = alias
         self.mc_executable = mc_executable
@@ -184,7 +199,7 @@ class MinioClient:
         return execute_command(*args, mc_executable=self.mc_executable, **kwargs)
 
     def list(self, target, **kwargs):
-        """List files on MinIO"""
+        """List files on MinIO."""
         return self._execute("mc ls {flags} {target}", target=target, **kwargs)
 
     def admin_user_add(self, username, password, **kwargs):
@@ -243,8 +258,10 @@ class MinioClient:
         )
 
     def admin_group_add(self, group, members, **kwargs):
-        """Adds a user to a group on the MinIO deployment.
-        Creates the group if it does not exist."""
+        """Add a user to a group.
+
+        Creates the group if it does not exist.
+        """
         if not isinstance(members, str):
             members = " ".join(members)
 
@@ -268,14 +285,14 @@ class MinioClient:
                 members=members,
                 **kwargs,
             )
-        else:
-            # If members is None and the group is empty, then the group will be removed
-            return self._execute(
-                "mc {flags} admin group remove {alias} {group}",
-                alias=self.alias,
-                group=group,
-                **kwargs,
-            )
+
+        # If members is None and the group is empty, then the group will be removed
+        return self._execute(
+            "mc {flags} admin group remove {alias} {group}",
+            alias=self.alias,
+            group=group,
+            **kwargs,
+        )
 
     def admin_group_info(self, group, **kwargs):
         """Display group info."""
@@ -368,7 +385,6 @@ class MinioClient:
 
     def admin_policy_set(self, name, **kwargs):
         """Set IAM policy on a user or group."""
-
         if {"user", "group"}.issubset(kwargs.keys()):
             raise KeyError("Only one of user or group arguments can be set.")
 
@@ -379,13 +395,13 @@ class MinioClient:
                 name=name,
                 **kwargs,
             )
-        else:
-            return self._execute(
-                "mc {flags} admin policy set {alias} {name} user={user}",
-                alias=self.alias,
-                name=name,
-                **kwargs,
-            )
+
+        return self._execute(
+            "mc {flags} admin policy set {alias} {name} user={user}",
+            alias=self.alias,
+            name=name,
+            **kwargs,
+        )
 
 
 if __name__ == "__main__":
@@ -394,19 +410,19 @@ if __name__ == "__main__":
         "minio",
         "miniostorage",
     )
-    username = "tmp-user"
+    USER_NAME = "tmp-user"
     # print(mc.ls("/", recursive=True))
-    mc.admin_user_add(username, "239udslfj3")
-    mc.admin_user_add(username + "2", "234slfj3")
+    mc.admin_user_add(USER_NAME, "239udslfj3")
+    mc.admin_user_add(USER_NAME + "2", "234slfj3")
     user_list = mc.admin_user_list()
     assert len(user_list) >= 2
-    mc.admin_user_disable(username)
+    mc.admin_user_disable(USER_NAME)
     print(mc.admin_user_list())
-    mc.admin_user_enable(username)
-    print(mc.admin_user_info(username))
+    mc.admin_user_enable(USER_NAME)
+    print(mc.admin_user_info(USER_NAME))
     print(mc.admin_user_list())
 
-    mc.admin_user_remove(username + "2")
+    mc.admin_user_remove(USER_NAME + "2")
     print(mc.admin_user_list())
     mc.admin_policy_add(
         "admins",
@@ -425,9 +441,6 @@ if __name__ == "__main__":
     assert response["policy"] == "admins"
     response = mc.admin_policy_list()
     assert len(response) > 1
-    mc.admin_policy_set("admins", user=username)
-    response = mc.admin_user_info(username)
+    mc.admin_policy_set("admins", user=USER_NAME)
+    response = mc.admin_user_info(USER_NAME)
     assert response["policyName"] == "admins"
-    # mc.admin_policy_remove("admins")
-    # mc.admin_user_remove(username)
-    # print("Done")
