@@ -18,7 +18,6 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 
 from imjoy import __version__ as VERSION
-from imjoy.apps import ServerAppController
 from imjoy.asgi import ASGIGateway
 from imjoy.core import EventBus, UserInfo, VisibilityEnum, WorkspaceInfo
 from imjoy.core.auth import parse_token
@@ -26,7 +25,6 @@ from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.http import HTTPProxy
-from imjoy.s3 import S3Controller
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -302,9 +300,13 @@ def setup_socketio_server(
         }
 
     if enable_server_apps:
+        from imjoy.apps import ServerAppController
+
         ServerAppController(core_interface, port=port)
 
     if enable_s3:
+        from imjoy.s3 import S3Controller
+
         S3Controller(
             core_interface.event_bus,
             core_interface,

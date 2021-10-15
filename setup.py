@@ -33,7 +33,6 @@ except ImportError:
         "pyyaml",
         "shortuuid>=1.0.1",
         "uvicorn>=0.13.4",
-        "requests>=2.26.0",
     ]
 
 ROOT_DIR = Path(__file__).parent.resolve()
@@ -59,7 +58,7 @@ setup(
     install_requires=REQUIREMENTS,
     extras_require={
         "jupyter": ["jupyter>=1.0.0", "ipykernel>=5.1.4", "imjoy-jupyter-extension"],
-        "server-apps": ["playwright>=1.15.0"],
+        "server-apps": ["requests>=2.26.0", "playwright>=1.15.0"],
     },
     zip_safe=False,
     entry_points={"console_scripts": ["imjoy = imjoy.__main__:main"]},
