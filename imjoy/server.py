@@ -5,6 +5,7 @@ import os
 from contextvars import copy_context
 from os import environ as env
 from typing import Union
+from pathlib import Path
 
 import shortuuid
 import socketio
@@ -12,20 +13,18 @@ import uvicorn
 from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
 from fastapi.logger import logger
+from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 
 from imjoy import __version__ as VERSION
+from imjoy.asgi import ASGIGateway
 from imjoy.core import EventBus, UserInfo, VisibilityEnum, WorkspaceInfo
 from imjoy.core.auth import parse_token
 from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.http import HTTPProxy
-from imjoy.s3 import S3Controller
-from imjoy.apps import ServerAppController
-from imjoy.asgi import ASGIGateway
-
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -223,10 +222,19 @@ def create_application(allow_origins) -> FastAPI:
         version=VERSION,
     )
 
+    static_folder = str(Path(__file__).parent / "static_files")
+    app.mount("/static", StaticFiles(directory=static_folder), name="static")
+
     @app.middleware("http")
     async def add_cors_header(request: Request, call_next):
         headers = {}
-        headers["access-control-allow-origin"] = ", ".join(allow_origins)
+        request_origin = request.headers.get("access-control-allow-origin")
+        if request_origin and (
+            allow_origins == "*"
+            or allow_origins[0] == "*"
+            or request_origin in allow_origins
+        ):
+            headers["access-control-allow-origin"] = request_origin
         headers["access-control-allow-credentials"] = "true"
         headers["access-control-allow-methods"] = ", ".join(["*"])
         headers["access-control-allow-headers"] = ", ".join(
@@ -290,9 +298,15 @@ def setup_socketio_server(
         }
 
     if enable_server_apps:
+        # pylint: disable=import-outside-toplevel
+        from imjoy.apps import ServerAppController
+
         ServerAppController(core_interface, port=port)
 
     if enable_s3:
+        # pylint: disable=import-outside-toplevel
+        from imjoy.s3 import S3Controller
+
         S3Controller(
             core_interface.event_bus,
             core_interface,
