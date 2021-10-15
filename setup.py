@@ -33,6 +33,7 @@ except ImportError:
         "pyyaml",
         "shortuuid>=1.0.1",
         "uvicorn>=0.13.4",
+        "requests>=2.26.0",
     ]
 
 ROOT_DIR = Path(__file__).parent.resolve()
