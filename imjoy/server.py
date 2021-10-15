@@ -261,8 +261,6 @@ def create_application(allow_origins) -> FastAPI:
 
     return app
 
-    return app
-
 
 def setup_socketio_server(
     app: FastAPI,
