@@ -298,11 +298,13 @@ def setup_socketio_server(
         }
 
     if enable_server_apps:
+        # pylint: disable=import-outside-toplevel
         from imjoy.apps import ServerAppController
 
         ServerAppController(core_interface, port=port)
 
     if enable_s3:
+        # pylint: disable=import-outside-toplevel
         from imjoy.s3 import S3Controller
 
         S3Controller(
