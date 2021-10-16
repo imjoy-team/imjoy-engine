@@ -222,7 +222,6 @@ def create_application(allow_origins) -> FastAPI:
     return app
 
 
-# pylint: disable=too-many-arguments
 def setup_socketio_server(
     app: FastAPI,
     core_interface: CoreInterface,
@@ -238,6 +237,7 @@ def setup_socketio_server(
     **kwargs,
 ) -> None:
     """Set up the socketio server."""
+    # pylint: disable=too-many-arguments
 
     def norm_url(url):
         return base_path.rstrip("/") + url
