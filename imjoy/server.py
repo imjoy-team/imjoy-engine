@@ -31,9 +31,10 @@ if ENV_FILE:
     load_dotenv(ENV_FILE)
 
 
-def initialize_socketio(sio, core_interface, bus: EventBus):
+def initialize_socketio(sio, core_interface):
     """Initialize socketio."""
     # pylint: disable=too-many-statements, unused-variable
+    event_bus = core_interface.event_bus
 
     @sio.event
     async def connect(sid, environ):
@@ -48,7 +49,7 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
                 # The connect event handler can return False
                 # to reject the connection with the client.
                 return False
-            logger.info("User connected: %s", uid)
+            logger.warning("User connected: %s", uid)
         else:
             uid = shortuuid.uuid()
             user_info = UserInfo(
@@ -60,17 +61,13 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
                 scopes=[],
                 expires_at=None,
             )
-            logger.info("Anonymized User connected: %s", uid)
+            logger.warning("Anonymized User connected: %s", uid)
 
         if uid == "root":
-            logger.info("Root user is not allowed to connect remotely")
+            logger.warning("Root user is not allowed to connect remotely")
             return False
-
-        if uid not in core_interface.all_users:
-            core_interface.all_users[uid] = user_info
-        core_interface.all_users[uid].add_session(sid)
-        core_interface.all_sessions[sid] = core_interface.all_users[uid]
-        bus.emit("user_connected", core_interface.all_users[uid])
+        logger.warning("New session connected: %s, %s", sid, user_info.id)
+        core_interface.new_session(sid, user_info)
 
     @sio.event
     async def echo(sid, data):
@@ -79,7 +76,7 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
 
     @sio.event
     async def register_plugin(sid, config):
-        user_info = core_interface.all_sessions[sid]
+        user_info = core_interface.get_user_by_session(sid)
         ws = config.get("workspace") or user_info.id
         config["workspace"] = ws
         config["name"] = config.get("name") or shortuuid.uuid()
@@ -97,17 +94,29 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
                 )
                 core_interface.register_workspace(workspace)
             else:
+                logger.error("Workspace %s does not exist", ws)
                 return {"success": False, "detail": f"Workspace {ws} does not exist."}
+
+        logger.warning(
+            "Registering plugin (uid: %s, workspace: %s)", user_info.id, workspace.name
+        )
 
         if user_info.id != ws and not core_interface.check_permission(
             workspace, user_info
         ):
+            logger.warning(
+                "Registering plugin (uid: %s, workspace: %s)",
+                user_info.id,
+                workspace.name,
+            )
+
             return {
                 "success": False,
                 "detail": f"Permission denied for workspace: {ws}",
             }
 
         name = config["name"].replace("/", "-")  # prevent hacking of the plugin name
+        config["name"] = name
         plugin_id = f"{ws}/{name}"
         config["id"] = plugin_id
         sio.enter_room(sid, plugin_id)
@@ -136,9 +145,12 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
             asyncio.ensure_future(plugin.terminate())
             user_info.remove_plugin(plugin.id)
         workspace.add_plugin(plugin)
-        logger.info("New plugin registered successfully (%s)", plugin_id)
+        logger.warning(
+            "New plugin registered successfully (%s)",
+            plugin_id,
+        )
 
-        bus.emit(
+        event_bus.emit(
             "plugin_registered",
             plugin,
         )
@@ -146,7 +158,8 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
 
     @sio.event
     async def plugin_message(sid, data):
-        user_info = core_interface.all_sessions[sid]
+        logger.warning("plugin message %s, %s", sid, data.get("type"))
+        user_info = core_interface.get_user_by_session(sid)
         plugin_id = data["plugin_id"]
         ws, name = os.path.split(plugin_id)
         workspace = core_interface.get_workspace(ws)
@@ -178,35 +191,9 @@ def initialize_socketio(sio, core_interface, bus: EventBus):
     @sio.event
     async def disconnect(sid):
         """Event handler called when the client is disconnected."""
-        user_info = core_interface.all_sessions[sid]
-        user_info.remove_session(sid)
-        # if the user has no more session
-        user_sessions = user_info.get_sessions()
-        if not user_sessions:
-            del core_interface.all_users[user_info.id]
-            user_plugins = user_info.get_plugins()
-            for pid, plugin in list(user_plugins.items()):
-                asyncio.ensure_future(plugin.terminate())
-                user_info.remove_plugin(pid)
+        core_interface.remove_session_temp(sid)
 
-                # TODO: how to allow plugin running when the user disconnected
-                # we will also need to handle the case when the user login again
-                # the plugin should be reclaimed for the user
-                plugin.workspace.remove_plugin(plugin.name)
-                # TODO: if a workspace has no plugins anymore
-                # we should destroy it completely
-                # Importantly, if we want to recycle the workspace name,
-                # we need to make sure we don't mess up with the permission
-                # with the plugins of the previous owners
-                # if there is no plugins in the workspace then we remove it
-                workspace_plugins = plugin.workspace.get_plugins()
-                if not workspace_plugins and not plugin.workspace.persistent:
-                    core_interface.unregister_workspace(plugin.workspace.name)
-
-        del core_interface.all_sessions[sid]
-        bus.emit("plugin_disconnected", {"sid": sid})
-
-    bus.emit("socketio_ready", None)
+    event_bus.emit("socketio_ready", None)
 
 
 def create_application(allow_origins) -> FastAPI:
@@ -335,7 +322,7 @@ def setup_socketio_server(
     app.mount("/", _app)
     app.sio = sio
 
-    initialize_socketio(sio, core_interface, core_interface.event_bus)
+    initialize_socketio(sio, core_interface)
 
     @app.on_event("startup")
     async def startup_event():

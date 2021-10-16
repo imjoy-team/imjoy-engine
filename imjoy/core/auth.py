@@ -284,7 +284,7 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
     token = jwt.encode(
         {
             "iss": "https://imjoy.io/",
-            "sub": parent + "/" + uid,  # user_id
+            "sub": uid,  # user_id
             "aud": "https://imjoy.eu.auth0.com/api/v2/",
             "iat": expires_in,
             "exp": expires_at,

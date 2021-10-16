@@ -165,6 +165,11 @@ class ServerAppController:
                 args.append("--no-sandbox")
             self.browser = await playwright.chromium.launch(args=args)
 
+            # Note: we need to mark it as ready to avoid deadlock
+            # if the startup apps also calls initialize()
+            self._status = StatusEnum.ready
+            self._initialize_future.set_result(None)
+
             for app_file in self.startup_dir.iterdir():
                 if app_file.suffix != ".html" or app_file.name.startswith("."):
                     continue
@@ -180,8 +185,6 @@ class ServerAppController:
                 else:
                     await self._launch_as_root(pid, workspace="root")
             assert self.plugin_parser is not None, "Failed to load the plugin parser"
-            self._status = StatusEnum.ready
-            self._initialize_future.set_result(None)
         except Exception as err:  # pylint: disable=broad-except
             self._status = StatusEnum.not_initialized
             logger.exception("Failed to initialize the app controller")

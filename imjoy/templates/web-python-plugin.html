@@ -86,7 +86,7 @@ self.onmessage = function(e) {
     if (config.token) {
         extraHeaders.Authorization = "Bearer " + config.token;
     }
-    const basePath = new URL(url).pathname;
+    // const basePath = new URL(url).pathname;
     // Note: extraHeaders only works for polling transport (the default)
     // If we switch to websocket only, the headers won't be respected
     const socket = io(url, {

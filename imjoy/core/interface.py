@@ -1,4 +1,5 @@
 """Provide interface functions for the core."""
+import asyncio
 import logging
 import sys
 from contextvars import ContextVar
@@ -42,8 +43,10 @@ class CoreInterface:
         self._all_workspaces: Dict[str, WorkspaceInfo] = {}  # wid:workspace_info
         self._app = app
         self.app_controller = app_controller
+        self.disconnect_delay = 10
         imjoy_api = imjoy_api or {}
         self._codecs = {}
+        self._disconnected_sessions = []
         self._imjoy_api = dotdict(
             {
                 "_rintf": True,
@@ -113,6 +116,77 @@ class CoreInterface:
         )
         self.register_workspace(self.root_workspace)
         self.load_extensions()
+
+    def new_session(self, sid, user_info):
+        """Create a new session."""
+        # Restore the session
+        if sid in self._disconnected_sessions:
+            self._disconnected_sessions.remove(sid)
+            return
+        uid = user_info.id
+        if uid not in self.all_users:
+            self.all_users[uid] = user_info
+        elif self.all_users[uid].id != user_info.id:
+            raise Exception("User id mismatch")
+
+        user_info.add_session(sid)
+        self.all_sessions[sid] = user_info
+        self.event_bus.emit("user_connected", user_info)
+
+    async def cleanup_session(self, sid):
+        """Cleanup session."""
+        await asyncio.sleep(self.disconnect_delay)
+        # It means the session has been reconnected
+        if not sid in self._disconnected_sessions:
+            return
+        user_info = self.all_sessions[sid]
+        user_info.remove_session(sid)
+        del self.all_sessions[sid]
+
+        self.event_bus.emit("plugin_disconnected", {"sid": sid})
+        # if the user has no more session
+        user_sessions = user_info.get_sessions()
+        if not user_sessions:
+            del self.all_users[user_info.id]
+            user_plugins = user_info.get_plugins()
+            for pid, plugin in list(user_plugins.items()):
+                asyncio.ensure_future(plugin.terminate())
+                user_info.remove_plugin(pid)
+
+                # TODO: how to allow plugin running when the user disconnected
+                # we will also need to handle the case when the user login again
+                # the plugin should be reclaimed for the user
+                plugin.workspace.remove_plugin(plugin.name)
+                # TODO: if a workspace has no plugins anymore
+                # we should destroy it completely
+                # Importantly, if we want to recycle the workspace name,
+                # we need to make sure we don't mess up with the permission
+                # with the plugins of the previous owners
+                # if there is no plugins in the workspace then we remove it
+                workspace_plugins = plugin.workspace.get_plugins()
+                if not workspace_plugins and not plugin.workspace.persistent:
+                    self.unregister_workspace(plugin.workspace.name)
+
+                # Remove service registered by the plugin
+                services = plugin.workspace.get_services()
+                for service in services:
+                    if service.get_provider() == plugin:
+                        self.unregister_service(
+                            service.config.workspace + "/" + service.name
+                        )
+
+    def remove_session_temp(self, sid):
+        """Remove session temporarily."""
+        if not sid in self._disconnected_sessions:
+            self._disconnected_sessions.append(sid)
+        loop = asyncio.get_running_loop()
+        loop.create_task(self.cleanup_session(sid))
+
+    def get_user_by_session(self, sid):
+        """Obtain user info by session id."""
+        if sid in self.all_sessions:
+            return self.all_sessions[sid]
+        raise Exception("Session not found: " + sid)
 
     def on(self, event, handler):
         """Register an event handler."""
@@ -586,5 +660,15 @@ class CoreInterface:
     def mount_app(self, path, app, name=None, priority=-1):
         """Mount an app to fastapi."""
         route = Mount(path, app, name=name)
+        # remove existing path
+        routes_remove = [route for route in self._app.routes if route.path == path]
+        for rou in routes_remove:
+            self._app.routes.remove(rou)
         # The default priority is -1 which assumes the last one is websocket
         self._app.routes.insert(priority, route)
+
+    def umount_app(self, path):
+        """Unmount an app to fastapi."""
+        routes_remove = [route for route in self._app.routes if route.path == path]
+        for route in routes_remove:
+            self._app.routes.remove(route)

@@ -288,6 +288,8 @@ class S3Controller:
             logger.info("Bucket created: %s", self.default_bucket)
         except s3client.exceptions.BucketAlreadyExists:
             pass
+        except s3client.exceptions.BucketAlreadyOwnedByYou:
+            pass
         self.s3client = s3client
 
         self.minio_client.admin_user_add(
