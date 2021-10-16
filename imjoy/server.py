@@ -11,8 +11,7 @@ import shortuuid
 import socketio
 import uvicorn
 from dotenv import find_dotenv, load_dotenv
-from fastapi import FastAPI
-from fastapi.logger import logger
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
