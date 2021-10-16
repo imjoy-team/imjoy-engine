@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+   <title>ImJoy Plugin Template</title>
+   <meta name="description" content="Template for ImJoy plugin">
+   <meta name="author" content="ImJoy-Team">
+   <script src="https://cdn.jsdelivr.net/npm/imjoy-rpc@0.3.31/dist/imjoy-rpc-socketio.min.js"></script>
+   <scrpt src="https://cdn.jsdelivr.net/npm/imjoy-core@0.13.82/src/pluginParser.js"></scrpt>
+</head>
+
+<body>
+    <script>
+        const config = Object.fromEntries(new URLSearchParams(window.location.search))
+        if(!config.server_url) config.server_url = window.location.origin;
+        imjoyRPCSocketIO.connectToServer(config).then((api)=>{
+            async function setup(){
+                await api.register_service(
+                    {
+                        "_rintf": true,
+                        "name": "echo-service",
+                        "type": "echo",
+                        echo( data ){
+                            console.log("Echo: ", data)
+                            return data
+                        }
+                    }
+                )
+            }
+            api.export({setup})
+        }).catch(console.error)
+    </script>
+</body>
+</html>

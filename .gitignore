@@ -3,7 +3,7 @@
 logs/
 bin/
 data/
-apps/
+apps/*
 node_modules
 __ImJoy__
 # Byte-compiled / optimized / DLL files
