@@ -66,10 +66,12 @@ def initialize_socketio(sio, core_interface):
                 return
 
         try:
-            user_info = core_interface.get_user_info(config.get("token"))
-        # pylint: disable=broad-except
-        except Exception as exp:
-            logger.warning("Failed to creae user: %s", exp)
+            user_info = core_interface.get_user_info_from_token(config.get("token"))
+        except HTTPException as exp:
+            logger.warning("Failed to create user: %s", exp.detail)
+            return {"success": False, "detail": f"Failed to create user: {exp.detail}"}
+        except Exception as exp:  # pylint: disable=broad-except
+            logger.warning("Failed to create user: %s", exp)
             return {"success": False, "detail": f"Failed to create user: {exp}"}
 
         ws = config.get("workspace") or user_info.id
@@ -101,7 +103,8 @@ def initialize_socketio(sio, core_interface):
             workspace, user_info
         ):
             logger.warning(
-                "Failed to register plugin (uid: %s, workspace: %s) due to permission error",
+                "Failed to register plugin (uid: %s, workspace: %s)"
+                " due to permission error",
                 user_info.id,
                 workspace.name,
             )
@@ -220,6 +223,7 @@ def create_application(allow_origins) -> FastAPI:
     return app
 
 
+# pylint: disable=too-many-arguments
 def setup_socketio_server(
     app: FastAPI,
     core_interface: CoreInterface,
@@ -235,24 +239,27 @@ def setup_socketio_server(
     **kwargs,
 ) -> None:
     """Set up the socketio server."""
-    # pylint: disable=too-many-arguments
-    socketio_path = base_path.rstrip("/") + "/socket.io"
+
+    def norm_url(url):
+        return base_path.rstrip("/") + url
 
     HTTPProxy(core_interface)
     ASGIGateway(core_interface)
 
     @app.get(base_path)
-    async def root():
+    async def home():
         return {
             "name": "ImJoy Engine",
             "version": VERSION,
-            "all_users": {
-                uid: len(user_info.get_plugins())
-                for uid, user_info in core_interface._all_users.items()
-            },
-            "all_workspaces": {
-                w.name: len(w.get_plugins()) for w in core_interface.get_all_workspace()
-            },
+        }
+
+    @app.get(norm_url("/stats"))
+    async def stats():
+        client_count = len(core_interface.get_all_users())
+        return {
+            "plugin_count": client_count,
+            "workspace_count": len(core_interface.get_all_workspace()),
+            "workspaces": [w.get_summary() for w in core_interface.get_all_workspace()],
         }
 
     if enable_server_apps:
@@ -274,9 +281,7 @@ def setup_socketio_server(
             default_bucket=default_bucket,
         )
 
-    socketio_path = base_path.rstrip("/") + "/socket.io"
-
-    @app.get(base_path.rstrip("/") + "/liveness")
+    @app.get(norm_url("/liveness"))
     async def liveness(req: Request) -> JSONResponse:
         try:
             await sio.emit("liveness")
@@ -288,7 +293,7 @@ def setup_socketio_server(
         allow_origins = "*"
     sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=allow_origins)
 
-    _app = socketio.ASGIApp(socketio_server=sio, socketio_path=socketio_path)
+    _app = socketio.ASGIApp(socketio_server=sio, socketio_path=norm_url("/socket.io"))
 
     app.mount("/", _app)
     app.sio = sio

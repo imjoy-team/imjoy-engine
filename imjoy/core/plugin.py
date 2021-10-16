@@ -1,6 +1,5 @@
 """Provide a plugin interface."""
 import asyncio
-from collections import UserDict
 import logging
 import sys
 import shortuuid
@@ -31,13 +30,14 @@ class DynamicPlugin:
         filtered = [p for p in DynamicPlugin._all_plugins.values() if p.id == plugin_id]
         if len(filtered) == 1:
             return filtered[0]
-        elif len(filtered) > 1:
+        if len(filtered) > 1:
             logger.warning("Found multiple plugins with the same id: %s", plugin_id)
-        else:
-            return None
+            return filtered[0]
+        return None
 
     @staticmethod
     def remove_plugin(plugin):
+        """Remove a plugin."""
         DynamicPlugin._all_plugins = {
             key: val for key, val in DynamicPlugin._all_plugins.items() if val != plugin
         }
@@ -187,6 +187,7 @@ class DynamicPlugin:
         self.terminating = False
 
     def is_disconnected(self):
+        """Check if plugin is disconnected."""
         return self._disconnected
 
     def _register_rpc_events(self):
@@ -325,12 +326,15 @@ class DynamicPlugin:
             self._set_disconnected()
             # The following needed to be done when terminating a plugin
             # 1. remove the plugin from the user_info,
-            #   if user_info becomes empty, remove user_info from core_interface.all_users
-            # 2. unregister services associated with the plugin, e.g. for ASGI service,
-            #   we need to make sure the route is removed from the server
+            #   if user_info becomes empty, remove user_info from
+            #   core_interface.all_users
+            # 2. unregister services associated with the plugin,
+            #   e.g. for ASGI service, we need to make sure the
+            #   route is removed from the server
             # 3. remove plugin from its workspace,
-            #   if workspace contains no plugin, depending on whether its a persistent workspace,
-            #   we need to clean it up
+            #   if workspace contains no plugin, depending on
+            #   whether its a persistent workspace, we need to
+            #   clean it up
 
             # clean up for 1.
             self.user_info.remove_plugin(self)

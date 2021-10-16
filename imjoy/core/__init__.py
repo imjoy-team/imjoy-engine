@@ -38,14 +38,14 @@ class EventBus:
         """Register an event callback that only run once."""
         self._callbacks[event_name] = self._callbacks.get(event_name, []) + [func]
         # mark once callback
-        self._callbacks[event_name]._once = True
+        self._callbacks[event_name].once = True
         return func
 
     def emit(self, event_name, *data):
         """Trigger an event."""
         for func in self._callbacks.get(event_name, []):
             func(*data)
-            if hasattr(func, "_once"):
+            if hasattr(func, "once"):
                 self.off(event_name, func)
 
     def off(self, event_name, func=None):
@@ -120,6 +120,8 @@ class ServiceInfo(BaseModel):
         summary = {
             "name": self.name,
             "type": self.type,
+            "id": self._id,
+            "visibility": self.config.visibility.value,
             "provider": self._provider.name,
             "provider_id": self._provider.id,
         }
@@ -127,6 +129,7 @@ class ServiceInfo(BaseModel):
         return summary
 
     def get_id(self) -> str:
+        """Get service id."""
         return self._id
 
 
@@ -190,7 +193,7 @@ class WorkspaceInfo(BaseModel):
     _global_event_bus: EventBus = PrivateAttr(default_factory=lambda: None)
 
     def set_global_event_bus(self, event_bus: EventBus) -> None:
-        """Set the global event bus"""
+        """Set the global event bus."""
         self._global_event_bus = event_bus
 
     def get_logger(self) -> Optional[logging.Logger]:
@@ -286,5 +289,20 @@ class WorkspaceInfo(BaseModel):
         self._global_event_bus.emit("service_unregistered", service)
 
     def get_event_bus(self):
-        """Get the workspace event bus"""
+        """Get the workspace event bus."""
         return self._event_bus
+
+    def get_summary(self) -> dict:
+        """Get a summary about the workspace."""
+        summary = {
+            "name": self.name,
+            "plugin_count": len(self._plugins),
+            "service_count": len(self._services),
+            "visibility": self.visibility.value,
+            "plugins": [
+                {"name": plugin.name, "id": plugin.id, "type": plugin.config.type}
+                for plugin in self._plugins.values()
+            ],
+            "services": [service.get_summary() for service in self._services.values()],
+        }
+        return summary

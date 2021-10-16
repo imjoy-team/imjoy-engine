@@ -48,7 +48,7 @@ class ASGIGateway:
             self.core_interface.mount_app(subpath, RemoteASGIApp(service), priority=-1)
 
     def umount_asgi_app(self, service):
-        """Unmount the ASGI apps"""
+        """Unmount the ASGI apps."""
         if service.type == "ASGI":
             subpath = f"/{service.config.workspace}/app/{service.name}"
             self.core_interface.umount_app(subpath)

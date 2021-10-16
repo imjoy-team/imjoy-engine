@@ -1,6 +1,7 @@
 """Provide interface functions for the core."""
 import asyncio
 import inspect
+import json
 import logging
 import sys
 from contextvars import ContextVar
@@ -29,7 +30,7 @@ logger.setLevel(logging.INFO)
 
 
 def parse_user(token):
-    """Parse user info from a token"""
+    """Parse user info from a token."""
     if token:
         user_info = parse_token(token)
         uid = user_info.id
@@ -140,7 +141,12 @@ class CoreInterface:
         self.register_workspace(self.root_workspace)
         self.load_extensions()
 
-    def get_user_info(self, token):
+    def get_all_users(self):
+        """Get all the users."""
+        return list(self._all_users.values())
+
+    def get_user_info_from_token(self, token):
+        """Get user info from token."""
         user_info = parse_user(token)
         # Note here we only use the newly created user info object
         # if the same user id does not exist
@@ -162,7 +168,7 @@ class CoreInterface:
         """Remove the plugin after a delayed period (if not cancelled)."""
         await asyncio.sleep(self.disconnect_delay)
         # It means the session has been reconnected
-        if not plugin in self._disconnected_plugins:
+        if plugin not in self._disconnected_plugins:
             return
         await self._terminate_plugin(plugin)
 
@@ -194,7 +200,8 @@ class CoreInterface:
         if len(user_info.get_plugins()) <= 0:
             del self._all_users[user_info.id]
             logger.info(
-                "Removing user (%s) completely since the user has no other plugin connected.",
+                "Removing user (%s) completely since the user "
+                "has no other plugin connected.",
                 user_info.id,
             )
 
@@ -203,7 +210,8 @@ class CoreInterface:
         if len(workspace.get_plugins()) <= 0 and not workspace.persistent:
             del self._all_workspaces[workspace.name]
             logger.info(
-                "Removing workspace (%s) completely since there is no other plugin connected.",
+                "Removing workspace (%s) completely "
+                "since there is no other plugin connected.",
                 workspace.name,
             )
 
@@ -407,7 +415,7 @@ class CoreInterface:
             if not service:
                 raise Exception(f"Service not found: {query['name']}")
         else:
-            raise Exception(f"Please specify the service id or name to get the service")
+            raise Exception("Please specify the service id or name to get the service")
 
         user_info = self.current_user.get()
         if (
@@ -607,7 +615,7 @@ class CoreInterface:
                 bound_interface[key].__name__ = key  # required for imjoy-rpc
             else:
                 bound_interface[key] = interface[key]
-        bound_interface["config"] = {"workspace": name}
+        bound_interface["config"] = json.loads(workspace.json())
         bound_interface["set"] = partial(self._update_workspace, name)
         bound_interface["_rintf"] = True
         event_bus = workspace.get_event_bus()

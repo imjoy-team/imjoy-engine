@@ -21,7 +21,6 @@ from imjoy.core import StatusEnum
 from imjoy.core.interface import CoreInterface
 from imjoy.utils import dotdict, safe_join
 
-
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("apps")
 logger.setLevel(logging.INFO)
@@ -332,7 +331,7 @@ class ServerAppController:
     async def _launch_as_root(self, app_name: str, workspace: str = "root") -> dotdict:
         """Launch an app as root user."""
         rws = self.core_interface.get_workspace_as_root(workspace)
-        token = rws.generate_token()
+        token = await rws.generate_token()
         config = await self.start(app_name, workspace, token=token)
         return await self.core_interface.get_plugin_as_root(
             config.name, config.workspace

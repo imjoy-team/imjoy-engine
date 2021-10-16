@@ -166,7 +166,7 @@ def valid_token(authorization: str):
 
     if parts[0].lower() != "bearer":
         raise HTTPException(
-            status_code=401, detail="Authorization header must start with" " Bearer"
+            status_code=401, detail="Authorization header must start with Bearer"
         )
     if len(parts) == 1:
         raise HTTPException(status_code=401, detail="Token not found")
