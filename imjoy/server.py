@@ -20,7 +20,6 @@ from starlette.responses import JSONResponse, PlainTextResponse
 from imjoy import __version__ as VERSION
 from imjoy.asgi import ASGIGateway
 from imjoy.core import EventBus, UserInfo, VisibilityEnum, WorkspaceInfo
-from imjoy.core.auth import parse_token
 from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
@@ -39,35 +38,10 @@ def initialize_socketio(sio, core_interface):
     @sio.event
     async def connect(sid, environ):
         """Handle event called when a socketio client is connected to the server."""
-        if "HTTP_AUTHORIZATION" in environ:
-            try:
-                authorization = environ["HTTP_AUTHORIZATION"]  # JWT token
-                user_info = parse_token(authorization)
-                uid = user_info.id
-            except Exception as err:  # pylint: disable=broad-except
-                logger.exception("Authentication failed: %s", err)
-                # The connect event handler can return False
-                # to reject the connection with the client.
-                return False
-            logger.warning("User connected: %s", uid)
-        else:
-            uid = shortuuid.uuid()
-            user_info = UserInfo(
-                id=uid,
-                is_anonymous=True,
-                email=None,
-                parent=None,
-                roles=[],
-                scopes=[],
-                expires_at=None,
-            )
-            logger.warning("Anonymized User connected: %s", uid)
-
-        if uid == "root":
-            logger.warning("Root user is not allowed to connect remotely")
-            return False
-        logger.warning("New session connected: %s, %s", sid, user_info.id)
-        core_interface.new_session(sid, user_info)
+        # We don't do much until register_plugin is called
+        # This allows us to use websocket transport directly
+        # Without relying on the Authorization header
+        logger.warning("New session connected: %s", sid)
 
     @sio.event
     async def echo(sid, data):
@@ -76,7 +50,24 @@ def initialize_socketio(sio, core_interface):
 
     @sio.event
     async def register_plugin(sid, config):
-        user_info = core_interface.get_user_by_session(sid)
+        # Check if the plugin is already registered
+        plugin = DynamicPlugin.get_plugin_by_session_id(sid)
+        if plugin:
+            if plugin.is_disconnected():
+                DynamicPlugin.remove_plugin(plugin)
+                logger.warning("Removing disconnected plugin: %s", plugin.id)
+            else:
+                core_interface.restore_plugin(plugin)
+                logger.warning("Plugin has already been registered: %s", plugin.id)
+                return
+
+        try:
+            user_info = core_interface.get_user_info(config.get("token"))
+        # pylint: disable=broad-except
+        except Exception as exp:
+            logger.warning("Failed to creae user: %s", exp)
+            return {"success": False, "detail": f"Failed to create user: {exp}"}
+
         ws = config.get("workspace") or user_info.id
         config["workspace"] = ws
         config["name"] = config.get("name") or shortuuid.uuid()
@@ -121,67 +112,44 @@ def initialize_socketio(sio, core_interface):
         config["id"] = plugin_id
         sio.enter_room(sid, plugin_id)
 
-        async def send(data):
-            await sio.emit(
-                "plugin_message",
-                data,
-                room=plugin_id,
+        plugin = DynamicPlugin.get_plugin_by_id(plugin_id)
+        if plugin:
+            logger.warning(
+                "Plugin reconnected (%s)",
+                plugin_id,
             )
-
-        connection = BasicConnection(send)
-        plugin = DynamicPlugin(
-            config,
-            core_interface.get_interface(),
-            core_interface.get_codecs(),
-            connection,
-            workspace,
-            user_info,
-        )
-
-        user_info.add_plugin(plugin)
-        workspace_plugins = workspace.get_plugins()
-        if plugin.name in workspace_plugins:
-            # kill the plugin if already exist
-            asyncio.ensure_future(plugin.terminate())
-            user_info.remove_plugin(plugin.id)
-        workspace.add_plugin(plugin)
-        logger.warning(
-            "New plugin registered successfully (%s)",
-            plugin_id,
-        )
-
-        event_bus.emit(
-            "plugin_registered",
-            plugin,
-        )
+        else:
+            connection = BasicConnection(sio, plugin_id, sid)
+            plugin = DynamicPlugin(
+                config,
+                core_interface.get_interface(),
+                core_interface.get_codecs(),
+                connection,
+                workspace,
+                user_info,
+                event_bus,
+            )
+            user_info.add_plugin(plugin)
+            workspace.add_plugin(plugin)
+            event_bus.emit(
+                "plugin_registered",
+                plugin,
+            )
+            logger.warning(
+                "New plugin registered successfully (%s)",
+                plugin_id,
+            )
         return {"success": True, "plugin_id": plugin_id}
 
     @sio.event
     async def plugin_message(sid, data):
         logger.warning("plugin message %s, %s", sid, data.get("type"))
-        user_info = core_interface.get_user_by_session(sid)
-        plugin_id = data["plugin_id"]
-        ws, name = os.path.split(plugin_id)
-        workspace = core_interface.get_workspace(ws)
-        if not workspace:
-            return {"success": False, "detail": f"Workspace not found: {ws}"}
-        if user_info.id != ws and not core_interface.check_permission(
-            workspace, user_info
-        ):
-            logger.error(
-                "Permission denied: workspace=%s, user_id=%s", workspace, user_info.id
-            )
-            return {"success": False, "detail": "Permission denied"}
-
-        plugin = workspace.get_plugin(name)
+        plugin = DynamicPlugin.get_plugin_by_session_id(sid)
+        # TODO: Do we need to check the permission of the user?
         if not plugin:
-            logger.warning("Plugin %s not found in workspace %s", name, workspace.name)
-            return {
-                "success": False,
-                "detail": f"Plugin {name} not found in workspace {workspace.name}",
-            }
-
-        core_interface.current_user.set(user_info)
+            return {"success": False, "detail": f"Plugin session not found: {sid}"}
+        workspace = plugin.workspace
+        core_interface.current_user.set(plugin.user_info)
         core_interface.current_plugin.set(plugin)
         core_interface.current_workspace.set(workspace)
         ctx = copy_context()
@@ -191,7 +159,8 @@ def initialize_socketio(sio, core_interface):
     @sio.event
     async def disconnect(sid):
         """Event handler called when the client is disconnected."""
-        core_interface.remove_session_temp(sid)
+        core_interface.remove_plugin_temp(sid)
+        logger.warning("Session disconnected: %s", sid)
 
     event_bus.emit("socketio_ready", None)
 
@@ -276,8 +245,8 @@ def setup_socketio_server(
             "name": "ImJoy Engine",
             "version": VERSION,
             "all_users": {
-                uid: user_info.get_sessions()
-                for uid, user_info in core_interface.all_users.items()
+                uid: len(user_info.get_plugins())
+                for uid, user_info in core_interface._all_users.items()
             },
             "all_workspaces": {
                 w.name: len(w.get_plugins()) for w in core_interface.get_all_workspace()

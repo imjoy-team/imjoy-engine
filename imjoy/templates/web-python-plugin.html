@@ -9,6 +9,9 @@
 </head>
 
 <body>
+<ul id="console">
+
+</ul>
 <script id="worker" type="javascript/worker">
 const window = self;
 const src = `
@@ -69,7 +72,15 @@ importScripts("https://cdn.jsdelivr.net/npm/socket.io-client@4.0.1/dist/socket.i
 async function setupPyodide() {
     if(self.pyodide) return;
     importScripts('https://cdn.jsdelivr.net/pyodide/v0.18.1/full/pyodide.js');
-    self.pyodide = await loadPyodide({ indexURL : 'https://cdn.jsdelivr.net/pyodide/v0.18.1/full/' });
+    self.pyodide = await loadPyodide({
+        indexURL : 'https://cdn.jsdelivr.net/pyodide/v0.18.1/full/',
+        stdout: (text) => {
+            self.postMessage({"type": "stdout", "content": text})
+        },
+        stderr: (text) => {
+            self.postMessage({"type": "stderr", "content": text})
+        },
+    });
     await self.pyodide.loadPackage(['micropip']);
     await installPackage()
 }
@@ -94,30 +105,33 @@ self.onmessage = function(e) {
         extraHeaders,
     });
     socket.on("connect", () => {
-        let plugin_id;
         self.sendMessage = function(data){
             data = toObject(data)
-            data.plugin_id = plugin_id
             socket.emit("plugin_message", data)
         }
         setupPyodide().then(()=>{
             socket.emit("register_plugin", config, async (result) => {
-                    if (!result.success) {
-                        console.error(result.detail);
-                        reject(result.detail);
-                        return;
-                    }
-                    plugin_id = result['plugin_id']
-                    self.setMessageCallback = (cb)=>{
-                        socket.on("plugin_message", cb);
-                    }
-                    // const startup_script = await (await fetch("./start_pyodide.py")).text()
-                    self.pyodide.runPython(src);
+                if (!result.success) {
+                    console.error(result.detail);
+                    reject(result.detail);
+                    self.postMessage({type: "stderr", "content": result.detail})
+                    return;
+                }
+
+                self.postMessage({type: "stdout", "content": "Plugin registered: " + config.name})
+                self.postMessage({type: "title", "content": config.name})
+                self.setMessageCallback = (cb)=>{
+                    socket.on("plugin_message", cb);
+                }
+                // const startup_script = await (await fetch("./start_pyodide.py")).text()
+                // run pyodide in a new context
+                const dict = pyodide.pyimport("dict");
+                self.pyodide.runPython(src, dict());
         
             })
         })
-        socket.on("connect_error", () => {
-            console.error("connection error");
+        socket.on("connect_error", (error) => {
+            console.error("connection error", error);
         });
         socket.on("disconnect", () => {
             console.error("disconnected");
@@ -128,15 +142,38 @@ self.onmessage = function(e) {
     
 </script>
 <script>
+const consoleElem = document.getElementById('console');
 const blob = new Blob([
     document.querySelector('#worker').textContent
 ], { type: "text/javascript" })
 const worker = new Worker(window.URL.createObjectURL(blob));
 worker.onerror = console.error
-worker.onmessage = console.log
+worker.onmessage = (e)=>{
+    if(e.data.type === 'title'){
+        document.title = e.data.content;
+        return
+    }
+    if(e.data.type === 'stdout'){
+        const li = document.createElement('li')
+        li.innerHTML = e.data.content;
+        li.style.color ="blue";
+        consoleElem.appendChild(li)
+    }
+    else if(e.data.type === 'stderr'){
+        const li = document.createElement('li')
+        li.innerHTML = e.data.content;
+        li.style.color ="red";
+        consoleElem.appendChild(li)
+    }
+    // make sure we don't have too many elements in the dom
+    if(consoleElem.children.length>1024){
+        consoleElem.removeChild(consoleElem.firstChild)
+    }
+}
 const config = Object.fromEntries(new URLSearchParams(window.location.search))
 if(!config.server_url) config.server_url = window.location.origin;
 worker.postMessage(config); 
+
 </script>
 </body>
 </html>

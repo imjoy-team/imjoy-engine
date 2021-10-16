@@ -230,9 +230,9 @@ async def test_workspace(socketio_server):
 
     state = asyncio.Future()
 
-    def set_state(evt):
+    def set_state(data):
         """Test function for set the state to a value."""
-        state.set_result(evt.data)
+        state.set_result(data)
 
     await ws2.on("set-state", set_state)
 
@@ -243,3 +243,8 @@ async def test_workspace(socketio_server):
     await ws2.off("set-state")
 
     await api.disconnect()
+
+
+async def test_plugin_cleanup():
+    """Test when plugin connect and disconnect whether there is memory leak."""
+    api = await connect_to_server({"name": "my plugin 2", "server_url": SIO_SERVER_URL})

@@ -1,11 +1,13 @@
 """Provide a plugin interface."""
 import asyncio
+from collections import UserDict
 import logging
 import sys
 import shortuuid
 
 from imjoy_rpc.rpc import RPC
 from imjoy_rpc.utils import ContextLocal, dotdict
+
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("dynamic-plugin")
@@ -16,8 +18,40 @@ class DynamicPlugin:
     """Represent a dynamic plugin."""
 
     # pylint: disable=too-many-instance-attributes
+    _all_plugins = {}
 
-    def __init__(self, config, interface, codecs, connection, workspace, user_info):
+    @staticmethod
+    def get_plugin_by_session_id(session_id: str):
+        """Get a plugin by its session id."""
+        return DynamicPlugin._all_plugins.get(session_id)
+
+    @staticmethod
+    def get_plugin_by_id(plugin_id: str):
+        """Get a plugin by its session id."""
+        filtered = [p for p in DynamicPlugin._all_plugins.values() if p.id == plugin_id]
+        if len(filtered) == 1:
+            return filtered[0]
+        elif len(filtered) > 1:
+            logger.warning("There is multiple plugins with the same id")
+        else:
+            return None
+
+    @staticmethod
+    def remove_plugin(plugin):
+        DynamicPlugin._all_plugins = {
+            key: val for key, val in DynamicPlugin._all_plugins.items() if val != plugin
+        }
+
+    def __init__(
+        self,
+        config: dict,
+        interface: dict,
+        codecs: dict,
+        connection,
+        workspace,
+        user_info,
+        event_bus,
+    ):
         """Set up instance."""
         self.loop = asyncio.get_event_loop()
         self.config = dotdict(config)
@@ -25,6 +59,7 @@ class DynamicPlugin:
         assert self.config.workspace == workspace.name
         self.workspace = workspace
         self.user_info = user_info
+        self.event_bus = event_bus
         self.id = self.config.id or shortuuid.uuid()  # pylint: disable=invalid-name
         self.name = self.config.name
         self.initializing = False
@@ -36,7 +71,8 @@ class DynamicPlugin:
         self.terminating = False
         self._api_fut = asyncio.Future()
         self._rpc = None
-
+        self.session_id = self.connection.get_session_id()
+        DynamicPlugin._all_plugins[self.session_id] = self
         # Note: we don't need to bind the interface
         # to the plugin as we do in the js version
         # We will use context variables `current_plugin`
@@ -145,6 +181,9 @@ class DynamicPlugin:
         self.running = False
         self.initializing = False
         self.terminating = False
+
+    def is_disconnected(self):
+        return self._disconnected
 
     def _register_rpc_events(self):
         """Register rpc events."""
@@ -279,5 +318,26 @@ class DynamicPlugin:
 
                 self._rpc.disconnect()
         finally:
-            logger.info("Plugin %s terminated.", self.config.name)
             self._set_disconnected()
+            # The following needed to be done when terminating a plugin
+            # 1. remove the plugin from the user_info,
+            #   if user_info becomes empty, remove user_info from core_interface.all_users
+            # 2. unregister services associated with the plugin, e.g. for ASGI service,
+            #   we need to make sure the route is removed from the server
+            # 3. remove plugin from its workspace,
+            #   if workspace contains no plugin, depending on whether its a persistent workspace,
+            #   we need to clean it up
+
+            # clean up for 1.
+            self.user_info.remove_plugin(self)
+            # clean up for 2
+            services = self.workspace.get_services_by_plugin(self)
+            for service in services:
+                self.workspace.remove_service(service.name)
+                self.event_bus.emit("service_unregistered", service)
+            # clean up for 3
+            self.workspace.remove_plugin(self)
+            del DynamicPlugin._all_plugins[self.session_id]
+            self.event_bus.emit("plugin_terminated", self)
+            # finally done
+            logger.info("Plugin %s terminated.", self.config.name)

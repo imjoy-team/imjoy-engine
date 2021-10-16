@@ -7,6 +7,7 @@ from functools import partial
 from typing import Dict, Optional
 
 import pkg_resources
+import shortuuid
 from starlette.routing import Mount
 
 from imjoy.core import (
@@ -17,14 +18,39 @@ from imjoy.core import (
     VisibilityEnum,
     WorkspaceInfo,
 )
-from imjoy.core.auth import generate_presigned_token
-from imjoy.core.connection import BasicConnection
+from imjoy.core.auth import generate_presigned_token, parse_token
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.utils import dotdict
 
 logging.basicConfig(stream=sys.stdout)
 logger = logging.getLogger("imjoy-core")
 logger.setLevel(logging.INFO)
+
+
+def parse_user(token):
+    """Parse user info from a token"""
+    if token:
+        user_info = parse_token(token)
+        uid = user_info.id
+        logger.warning("User connected: %s", uid)
+    else:
+        uid = shortuuid.uuid()
+        user_info = UserInfo(
+            id=uid,
+            is_anonymous=True,
+            email=None,
+            parent=None,
+            roles=[],
+            scopes=[],
+            expires_at=None,
+        )
+        logger.warning("Anonymized User connected: %s", uid)
+
+    if uid == "root":
+        logger.warning("Root user is not allowed to connect remotely")
+        raise Exception("Root user is not allowed to connect remotely")
+
+    return user_info
 
 
 class CoreInterface:
@@ -38,15 +64,14 @@ class CoreInterface:
         self.current_user = ContextVar("current_user")
         self.current_plugin = ContextVar("current_plugin")
         self.current_workspace = ContextVar("current_workspace")
-        self.all_sessions: Dict[str, UserInfo] = {}  # sid:user_info
-        self.all_users: Dict[str, UserInfo] = {}  # uid:user_info
+        self._all_users: Dict[str, UserInfo] = {}  # uid:user_info
         self._all_workspaces: Dict[str, WorkspaceInfo] = {}  # wid:workspace_info
         self._app = app
         self.app_controller = app_controller
-        self.disconnect_delay = 10
+        self.disconnect_delay = 1
         imjoy_api = imjoy_api or {}
         self._codecs = {}
-        self._disconnected_sessions = []
+        self._disconnected_plugins = []
         self._imjoy_api = dotdict(
             {
                 "_rintf": True,
@@ -74,10 +99,6 @@ class CoreInterface:
                 "getWorkspace": self.get_workspace_interface,
                 "list_workspaces": self.list_workspaces,
                 "listWorkspaces": self.list_workspaces,
-                "on": self.on,
-                "once": self.once,
-                "off": self.off,
-                "emit": self.emit,
                 "disconnect": self.disconnect,
             }
         )
@@ -117,107 +138,70 @@ class CoreInterface:
         self.register_workspace(self.root_workspace)
         self.load_extensions()
 
-    def new_session(self, sid, user_info):
-        """Create a new session."""
-        # Restore the session
-        if sid in self._disconnected_sessions:
-            self._disconnected_sessions.remove(sid)
-            return
-        uid = user_info.id
-        if uid not in self.all_users:
-            self.all_users[uid] = user_info
-        elif self.all_users[uid].id != user_info.id:
-            raise Exception("User id mismatch")
+    def get_user_info(self, token):
+        user_info = parse_user(token)
+        # Note here we only use the newly created user info object
+        # if the same user id does not exist
+        if user_info.id in self._all_users:
+            user_info = self._all_users[user_info.id]
+        else:
+            self._all_users[user_info.id] = user_info
+        return user_info
 
-        user_info.add_session(sid)
-        self.all_sessions[sid] = user_info
-        self.event_bus.emit("user_connected", user_info)
+    async def restore_plugin(self, plugin):
+        """Restore the plugin."""
+        if plugin in self._disconnected_plugins:
+            logger.info("Plugin connection restored")
+            self._disconnected_plugins.remove(plugin)
+        else:
+            logger.warning("Plugin connection was not disconnected")
 
-    async def cleanup_session(self, sid):
-        """Cleanup session."""
+    async def remove_plugin_delayed(self, plugin):
+        """Remove the plugin after a delayed period (if not cancelled)."""
         await asyncio.sleep(self.disconnect_delay)
         # It means the session has been reconnected
-        if not sid in self._disconnected_sessions:
+        if not plugin in self._disconnected_plugins:
             return
-        user_info = self.all_sessions[sid]
-        user_info.remove_session(sid)
-        del self.all_sessions[sid]
+        await self._terminate_plugin(plugin)
 
-        self.event_bus.emit("plugin_disconnected", {"sid": sid})
-        # if the user has no more session
-        user_sessions = user_info.get_sessions()
-        if not user_sessions:
-            del self.all_users[user_info.id]
-            user_plugins = user_info.get_plugins()
-            for pid, plugin in list(user_plugins.items()):
-                asyncio.ensure_future(plugin.terminate())
-                user_info.remove_plugin(pid)
-
-                # TODO: how to allow plugin running when the user disconnected
-                # we will also need to handle the case when the user login again
-                # the plugin should be reclaimed for the user
-                plugin.workspace.remove_plugin(plugin.name)
-                # TODO: if a workspace has no plugins anymore
-                # we should destroy it completely
-                # Importantly, if we want to recycle the workspace name,
-                # we need to make sure we don't mess up with the permission
-                # with the plugins of the previous owners
-                # if there is no plugins in the workspace then we remove it
-                workspace_plugins = plugin.workspace.get_plugins()
-                if not workspace_plugins and not plugin.workspace.persistent:
-                    self.unregister_workspace(plugin.workspace.name)
-
-                # Remove service registered by the plugin
-                services = plugin.workspace.get_services()
-                for service in services:
-                    if service.get_provider() == plugin:
-                        self.unregister_service(
-                            service.config.workspace + "/" + service.name
-                        )
-
-    def remove_session_temp(self, sid):
+    def remove_plugin_temp(self, sid):
         """Remove session temporarily."""
-        if not sid in self._disconnected_sessions:
-            self._disconnected_sessions.append(sid)
+        plugin = DynamicPlugin.get_plugin_by_session_id(sid)
+        if plugin is None:
+            logger.warning(
+                "Plugin (sid: %s) does not exist or has already been terminated.", sid
+            )
+            return
+        if plugin not in self._disconnected_plugins:
+            self._disconnected_plugins.append(plugin)
         loop = asyncio.get_running_loop()
-        loop.create_task(self.cleanup_session(sid))
-
-    def get_user_by_session(self, sid):
-        """Obtain user info by session id."""
-        if sid in self.all_sessions:
-            return self.all_sessions[sid]
-        raise Exception("Session not found: " + sid)
-
-    def on(self, event, handler):
-        """Register an event handler."""
-        workspace = self.current_workspace.get()
-        plugin = self.current_plugin.get()
-        workspace.add_event_hander(plugin, event, handler, run_once=False)
-
-    def once(self, event, handler):
-        """Register an event handler that run only once."""
-        workspace = self.current_workspace.get()
-        plugin = self.current_plugin.get()
-        workspace.add_event_hander(plugin, event, handler, run_once=True)
-
-    def off(self, event):
-        """Remove an event handler."""
-        workspace = self.current_workspace.get()
-        plugin = self.current_plugin.get()
-        workspace.remove_event_hander(plugin, event)
-
-    def emit(self, event, data=None):
-        """Emit an event to the workspace."""
-        workspace = self.current_workspace.get()
-        plugin = self.current_plugin.get()
-        workspace.fire_event(plugin, event, data)
+        loop.create_task(self.remove_plugin_delayed(plugin))
 
     async def disconnect(
         self,
     ):
         """Disconnect from the workspace."""
         plugin = self.current_plugin.get()
+        await self._terminate_plugin(plugin)
+
+    async def _terminate_plugin(self, plugin):
+        """Terminate the plugin."""
         await plugin.terminate()
+        user_info = plugin.user_info
+        # Remove the user completely if no plugins exists
+        if len(user_info.get_plugins()) <= 0:
+            del self._all_users[user_info.id]
+            logger.info(
+                "Removing user completely since the user has no other plugin connected."
+            )
+
+        workspace = plugin.workspace
+        # Remove the user completely if no plugins exists
+        if len(workspace.get_plugins()) <= 0 and not workspace.persistent:
+            del self._all_workspaces[workspace.name]
+            logger.info(
+                "Removing workspace completely since there is no other plugin connected."
+            )
 
     def check_permission(self, workspace, user_info):
         """Check user permission for a workspace."""
@@ -240,7 +224,7 @@ class CoreInterface:
             return True
 
         if user_info.parent:
-            parent = self.all_users.get(user_info.parent)
+            parent = self._all_users.get(user_info.parent)
             if not parent:
                 return False
             if not self.check_permission(workspace, parent):
@@ -310,18 +294,8 @@ class CoreInterface:
         # See how it works:
         # https://packaging.python.org/guides/creating-and-discovering-plugins/
         for entry_point in pkg_resources.iter_entry_points("imjoy_engine_extension"):
-            connection = BasicConnection(lambda x: x)
-            plugin = DynamicPlugin(
-                {"workspace": self.root_workspace.name, "name": entry_point.name},
-                self.get_interface(),
-                self.get_codecs(),
-                connection,
-                self.root_workspace,
-                self.root_user,
-            )
             self.current_user.set(self.root_user)
             self.current_workspace.set(self.root_workspace)
-            self.current_plugin.set(plugin)
             try:
                 setup_extension = entry_point.load()
                 setup_extension(self)
@@ -617,6 +591,11 @@ class CoreInterface:
         bound_interface["config"] = {"workspace": name}
         bound_interface["set"] = partial(self._update_workspace, name)
         bound_interface["_rintf"] = True
+        event_bus = workspace.get_event_bus()
+        bound_interface["on"] = event_bus.on
+        bound_interface["off"] = event_bus.off
+        bound_interface["once"] = event_bus.once
+        bound_interface["emit"] = event_bus.emit
         # Remove disconnect, since the plugin can call disconnect()
         # from their own workspace
         del bound_interface["disconnect"]

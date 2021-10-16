@@ -16,11 +16,13 @@ all_connections = {}
 class BasicConnection(MessageEmitter):
     """Represent a base connection."""
 
-    def __init__(self, send):
+    def __init__(self, socketio, plugin_id, session_id):
         """Set up instance."""
         super().__init__(logger)
         self.plugin_config = dotdict()
-        self._send = send
+        self._socketio = socketio
+        self._plugin_id = plugin_id
+        self._session_id = session_id
         self._access_token = None
         self._expires_in = None
         self._plugin_origin = "*"
@@ -64,6 +66,17 @@ class BasicConnection(MessageEmitter):
                 self._access_token = self.plugin_config["auth"]["access_token"]
                 self._refresh_token = self.plugin_config["auth"]["refresh_token"]
 
+    async def _send(self, data):
+        await self._socketio.emit(
+            "plugin_message",
+            data,
+            room=self._plugin_id,
+        )
+
+    def get_session_id(self):
+        """Get session id."""
+        return self._session_id
+
     def handle_message(self, data):
         """Handle a message."""
         target_id = data.get("target_id")
@@ -100,8 +113,8 @@ class BasicConnection(MessageEmitter):
         msg["peer_id"] = msg.get("peer_id") or self.peer_id
         asyncio.ensure_future(self._send(msg))
 
-    async def disconnect(self):
+    def disconnect(self):
         """Disconnect the plugin."""
-        await self.emit({"type": "disconnect"})
+        self.emit({"type": "disconnect"})
         if self.peer_id and self.peer_id in all_connections:
             del all_connections[self.peer_id]

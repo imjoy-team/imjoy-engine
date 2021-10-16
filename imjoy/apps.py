@@ -68,7 +68,7 @@ class ServerAppController:
             loader=PackageLoader("imjoy"), autoescape=select_autoescape()
         )
         self.templates_dir = Path(__file__).parent / "templates"
-        self.startup_dir = Path(__file__).parent / "startup_apps"
+        self.builtin_apps_dir = Path(__file__).parent / "apps"
         router = APIRouter()
         self._initialize_future: Optional[asyncio.Future] = None
 
@@ -164,13 +164,7 @@ class ServerAppController:
             if self.in_docker:
                 args.append("--no-sandbox")
             self.browser = await playwright.chromium.launch(args=args)
-
-            # Note: we need to mark it as ready to avoid deadlock
-            # if the startup apps also calls initialize()
-            self._status = StatusEnum.ready
-            self._initialize_future.set_result(None)
-
-            for app_file in self.startup_dir.iterdir():
+            for app_file in self.builtin_apps_dir.iterdir():
                 if app_file.suffix != ".html" or app_file.name.startswith("."):
                     continue
                 source = (app_file).open().read()
@@ -178,13 +172,17 @@ class ServerAppController:
                 await self.deploy(
                     source, user_id="root", template=None, app_id=pid, overwrite=True
                 )
-                if pid == "imjoy-plugin-parser":
-                    self.plugin_parser = await self._launch_as_root(
-                        pid, workspace="root"
-                    )
-                else:
-                    await self._launch_as_root(pid, workspace="root")
-            assert self.plugin_parser is not None, "Failed to load the plugin parser"
+
+            self.plugin_parser = await self._launch_as_root(
+                "imjoy-plugin-parser", workspace="root"
+            )
+
+            # TODO: check if the plugins are marked as startup plugin
+            # and if yes, we will run it directly
+
+            self._status = StatusEnum.ready
+            self._initialize_future.set_result(None)
+
         except Exception as err:  # pylint: disable=broad-except
             self._status = StatusEnum.not_initialized
             logger.exception("Failed to initialize the app controller")
