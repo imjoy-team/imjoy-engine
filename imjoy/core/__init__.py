@@ -1,14 +1,18 @@
 """Provide the ImJoy core API interface."""
-from enum import Enum
+import asyncio
+import json
 import logging
+import random
 import sys
-from typing import Any, Callable, Dict, List, Tuple, Optional
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
+import shortuuid
 from pydantic import (  # pylint: disable=no-name-in-module
     BaseModel,
     EmailStr,
-    PrivateAttr,
     Extra,
+    PrivateAttr,
 )
 
 from imjoy.core.plugin import DynamicPlugin
@@ -30,14 +34,26 @@ class EventBus:
         self._callbacks[event_name] = self._callbacks.get(event_name, []) + [func]
         return func
 
+    def once(self, event_name, func):
+        """Register an event callback that only run once."""
+        self._callbacks[event_name] = self._callbacks.get(event_name, []) + [func]
+        # mark once callback
+        self._callbacks[event_name].once = True
+        return func
+
     def emit(self, event_name, *data):
         """Trigger an event."""
         for func in self._callbacks.get(event_name, []):
             func(*data)
+            if hasattr(func, "once"):
+                self.off(event_name, func)
 
-    def off(self, event_name, func):
+    def off(self, event_name, func=None):
         """Remove an event callback."""
-        self._callbacks.get(event_name, []).remove(func)
+        if not func:
+            del self._callbacks[event_name]
+        else:
+            self._callbacks.get(event_name, []).remove(func)
 
 
 class TokenConfig(BaseModel):
@@ -69,7 +85,7 @@ class ServiceConfig(BaseModel):
     visibility: VisibilityEnum = VisibilityEnum.protected
     require_context: bool = False
     workspace: str
-    id: str
+    flags: List[str] = []
 
 
 class ServiceInfo(BaseModel):
@@ -80,11 +96,16 @@ class ServiceInfo(BaseModel):
     type: str
 
     _provider: DynamicPlugin = PrivateAttr(default_factory=lambda: None)
+    _id: str = PrivateAttr(default_factory=shortuuid.uuid)
 
     class Config:
         """Set the config for pydantic."""
 
         extra = Extra.allow
+
+    def is_singleton(self):
+        """Check if the service is singleton."""
+        return "single-instance" in self.config.flags
 
     def set_provider(self, provider: DynamicPlugin) -> None:
         """Set the provider plugin."""
@@ -96,12 +117,20 @@ class ServiceInfo(BaseModel):
 
     def get_summary(self) -> dict:
         """Get a summary about the service."""
-        return {
+        summary = {
             "name": self.name,
             "type": self.type,
+            "id": self._id,
+            "visibility": self.config.visibility.value,
             "provider": self._provider.name,
             "provider_id": self._provider.id,
-        }.update(self.config.dict())
+        }
+        summary.update(json.loads(self.config.json()))
+        return summary
+
+    def get_id(self) -> str:
+        """Get service id."""
+        return self._id
 
 
 class UserInfo(BaseModel):
@@ -120,7 +149,6 @@ class UserInfo(BaseModel):
     _plugins: Dict[str, DynamicPlugin] = PrivateAttr(
         default_factory=lambda: {}
     )  # id:plugin
-    _sessions: List[str] = PrivateAttr(default_factory=lambda: [])  # session ids
 
     def get_metadata(self) -> Dict[str, Any]:
         """Return the metadata."""
@@ -138,21 +166,9 @@ class UserInfo(BaseModel):
         """Add a plugin."""
         self._plugins[plugin.id] = plugin
 
-    def remove_plugin(self, plugin_id: str) -> None:
+    def remove_plugin(self, plugin: DynamicPlugin) -> None:
         """Remove a plugin by id."""
-        del self._plugins[plugin_id]
-
-    def get_sessions(self) -> List[str]:
-        """Return the sessions."""
-        return self._sessions
-
-    def add_session(self, session: str) -> None:
-        """Add a session."""
-        self._sessions.append(session)
-
-    def remove_session(self, session: str) -> None:
-        """Remove a session."""
-        self._sessions.remove(session)
+        del self._plugins[plugin.id]
 
 
 class WorkspaceInfo(BaseModel):
@@ -173,9 +189,12 @@ class WorkspaceInfo(BaseModel):
         default_factory=lambda: {}
     )  # name: plugin
     _services: Dict[str, ServiceInfo] = PrivateAttr(default_factory=lambda: {})
-    _event_handlers: Dict[str, List[Tuple[Any]]] = PrivateAttr(
-        default_factory=lambda: {}
-    )
+    _event_bus: EventBus = PrivateAttr(default_factory=EventBus)
+    _global_event_bus: EventBus = PrivateAttr(default_factory=lambda: None)
+
+    def set_global_event_bus(self, event_bus: EventBus) -> None:
+        """Set the global event bus."""
+        self._global_event_bus = event_bus
 
     def get_logger(self) -> Optional[logging.Logger]:
         """Return the logger."""
@@ -189,92 +208,101 @@ class WorkspaceInfo(BaseModel):
         """Return the plugins."""
         return self._plugins
 
-    def get_plugin(self, plugin_name: str) -> Optional[DynamicPlugin]:
-        """Return a plugin."""
-        return self._plugins.get(plugin_name)
+    def get_plugin_by_name(self, plugin_name: str) -> Optional[DynamicPlugin]:
+        """Return a plugin by its name (randomly select one if multiple exists)."""
+        plugins = [
+            plugin for plugin in self._plugins.values() if plugin.name == plugin_name
+        ]
+        if len(plugins) > 0:
+            return random.choice(plugins)
+        return None
 
     def add_plugin(self, plugin: DynamicPlugin) -> None:
         """Set a plugin."""
-        self._plugins[plugin.name] = plugin
+        if plugin.id in self._plugins:
+            raise Exception(
+                f"Plugin with the same id({plugin.id})"
+                " already exists in the workspace ({self.name})"
+            )
 
-    def remove_plugin(self, plugin_name: str) -> None:
+        if plugin.is_singleton():
+            for plg in self._plugins.values():
+                if plg.name == plugin.name:
+                    logger.info(
+                        "Terminating other plugins with the same name"
+                        " (%s) due to single-instance flag",
+                        plugin.name,
+                    )
+                    asyncio.ensure_future(plg.terminate())
+        self._plugins[plugin.id] = plugin
+        self._event_bus.emit("plugin_connected", plugin.config)
+
+    def remove_plugin(self, plugin: DynamicPlugin) -> None:
         """Remove a plugin form the workspace."""
-        if plugin_name not in self._plugins:
-            raise KeyError(f"Plugin not fould (name={plugin_name})")
-        plugin = self._plugins[plugin_name]
-        del self._plugins[plugin.name]
-        # remove the services that registered by this plugin
-        # note: we might need to emit service_unregister event
-        # pylint: disable=protected-access
-        self._services = {
-            k: self._services[k]
+        plugin_id = plugin.id
+        if plugin_id not in self._plugins:
+            raise KeyError(f"Plugin not fould (id={plugin_id})")
+        del self._plugins[plugin_id]
+        self._event_bus.emit("plugin_disconnected", plugin.config)
+
+    def get_services_by_plugin(self, plugin: DynamicPlugin) -> List[ServiceInfo]:
+        """Get services by plugin."""
+        return [
+            self._services[k]
             for k in self._services
-            if self._services[k]._provider != plugin
-        }
-        # remove event hanlders
-        self._event_handlers = {
-            evt: self._event_handlers[evt]
-            for evt in self._event_handlers
-            if self._event_handlers[evt][0] != plugin
-        }
+            if self._services[k].get_provider() == plugin
+        ]
 
     def get_services(self) -> Dict[str, ServiceInfo]:
         """Return the services."""
         return self._services
 
-    def add_service(self, service_name: str, service: ServiceInfo) -> None:
+    def add_service(self, service: ServiceInfo) -> None:
         """Add a service."""
-        self._services[service_name] = service
+        if service.is_singleton():
+            for svc in self._plugins.values():
+                if svc.name == service.name:
+                    logger.info(
+                        "Unregistering other services with the same name"
+                        " (%s) due to single-instance flag",
+                        svc.name,
+                    )
+                    # TODO: we need to emit unregister event here
+                    self.remove_service(svc)
+        self._services[service.get_id()] = service
+        self._global_event_bus.emit("service_registered", service)
 
-    def get_service(self, service_name: str) -> ServiceInfo:
-        """Get a service."""
-        return self._services[service_name]
-
-    def remove_service(self, service_name: str) -> None:
-        """Remove a service."""
-        del self._services[service_name]
-
-    def add_event_hander(
-        self,
-        plugin: DynamicPlugin,
-        event: str,
-        handler: Callable,
-        run_once: bool = False,
-    ) -> None:
-        """Register an event handler."""
-        if event not in self._event_handlers:
-            self._event_handlers[event] = []
-        # a tuple with the plugin, the event handler,
-        # or whether remove it after triggered
-        self._event_handlers[event].append((plugin, handler, run_once))
-
-    def remove_event_hander(self, plugin: DynamicPlugin, event: str) -> None:
-        """Register an event handler."""
-        if event not in self._event_handlers:
-            raise KeyError("No event handler found for " + event)
-        # Remove all the events belongs to the current plugin
-        self._event_handlers[event] = [
-            v for v in self._event_handlers[event] if v[0] != plugin
+    def get_service_by_name(self, service_name: str) -> ServiceInfo:
+        """Return a service by its name (randomly select one if multiple exists)."""
+        services = [
+            service
+            for service in self._services.values()
+            if service.name == service_name
         ]
+        if len(services) > 0:
+            return random.choice(services)
+        return None
 
-    def fire_event(self, plugin: DynamicPlugin, event: str, data: Any = None) -> None:
-        """Execute the event handlers for an event."""
-        if event not in self._event_handlers:
-            return
-        for (_, handler, run_once) in self._event_handlers[event].copy():
-            try:
-                handler(
-                    {
-                        "target": {"plugin_name": plugin.name, "plugin_id": plugin.id},
-                        "data": data,
-                    }
-                )
-            # pylint: disable=broad-except
-            except Exception as exp:
-                plugin.log(f"Failed to handle event '{event}', error: {exp}")
+    def remove_service(self, service: ServiceInfo) -> None:
+        """Remove a service."""
+        del self._services[service.get_id()]
+        self._global_event_bus.emit("service_unregistered", service)
 
-            # Remove the handler
-            if run_once:
-                self._event_handlers[event] = [
-                    v for v in self._event_handlers[event] if v[1] != handler
-                ]
+    def get_event_bus(self):
+        """Get the workspace event bus."""
+        return self._event_bus
+
+    def get_summary(self) -> dict:
+        """Get a summary about the workspace."""
+        summary = {
+            "name": self.name,
+            "plugin_count": len(self._plugins),
+            "service_count": len(self._services),
+            "visibility": self.visibility.value,
+            "plugins": [
+                {"name": plugin.name, "id": plugin.id, "type": plugin.config.type}
+                for plugin in self._plugins.values()
+            ],
+            "services": [service.get_summary() for service in self._services.values()],
+        }
+        return summary

@@ -205,7 +205,7 @@ async def test_workspace(socketio_server):
     assert api2.config["workspace"] == "test-workspace"
     await api2.export({"foo": "bar"})
     ss3 = await api2.list_services({"type": "#test"})
-    assert len(ss3) == 1
+    assert len(ss3) == 2
 
     plugin = await api2.get_plugin("my plugin 2")
     assert plugin.foo == "bar"
@@ -230,9 +230,9 @@ async def test_workspace(socketio_server):
 
     state = asyncio.Future()
 
-    def set_state(evt):
+    def set_state(data):
         """Test function for set the state to a value."""
-        state.set_result(evt.data)
+        state.set_result(data)
 
     await ws2.on("set-state", set_state)
 

@@ -1,5 +1,5 @@
 include imjoy/VERSION
 include imjoy/templates/*
-include imjoy/startup_apps/*
+include imjoy/apps/*
 include imjoy/static_files/*
 include LICENSE

@@ -288,6 +288,8 @@ class S3Controller:
             logger.info("Bucket created: %s", self.default_bucket)
         except s3client.exceptions.BucketAlreadyExists:
             pass
+        except s3client.exceptions.BucketAlreadyOwnedByYou:
+            pass
         self.s3client = s3client
 
         self.minio_client.admin_user_add(
@@ -298,7 +300,6 @@ class S3Controller:
 
         event_bus.on("workspace_registered", self.setup_workspace)
         event_bus.on("workspace_unregistered", self.cleanup_workspace)
-        event_bus.on("user_connected", self.setup_user)
         event_bus.on("plugin_registered", self.setup_plugin)
         event_bus.on("user_entered_workspace", self.enter_workspace)
 
@@ -513,16 +514,16 @@ class S3Controller:
             region_name="EU",
         )
 
-    def setup_user(self, user_info):
-        """Set up user."""
+    def setup_plugin(self, plugin):
+        """Set up plugin."""
+        user_info = plugin.user_info
+        # Make sure we created an account for the user
         try:
             self.minio_client.admin_user_info(user_info.id)
         except Exception:  # pylint: disable=broad-except
             # Note: we don't store the credentials, it can only be regenerated
             self.minio_client.admin_user_add(user_info.id, generate_password())
 
-    def setup_plugin(self, plugin):
-        """Set up plugin."""
         self.minio_client.admin_group_add(plugin.workspace.name, plugin.user_info.id)
 
     def cleanup_workspace(self, workspace):

@@ -1,7 +1,9 @@
 """Provide an apps controller."""
 import asyncio
+import logging
 import os
 import shutil
+import sys
 import threading
 import time
 from pathlib import Path
@@ -10,7 +12,6 @@ from typing import Any, Dict, List, Optional
 import requests
 import shortuuid
 from fastapi import APIRouter
-from fastapi.logger import logger
 from fastapi.responses import FileResponse, JSONResponse
 from jinja2 import Environment, PackageLoader, select_autoescape
 from playwright.async_api import Page, async_playwright
@@ -20,7 +21,9 @@ from imjoy.core import StatusEnum
 from imjoy.core.interface import CoreInterface
 from imjoy.utils import dotdict, safe_join
 
-dir_path = os.path.dirname(os.path.realpath(__file__))
+logging.basicConfig(stream=sys.stdout)
+logger = logging.getLogger("apps")
+logger.setLevel(logging.INFO)
 
 
 def is_safe_path(basedir: str, path: str, follow_symlinks: bool = True) -> bool:
@@ -68,7 +71,7 @@ class ServerAppController:
             loader=PackageLoader("imjoy"), autoescape=select_autoescape()
         )
         self.templates_dir = Path(__file__).parent / "templates"
-        self.startup_dir = Path(__file__).parent / "startup_apps"
+        self.builtin_apps_dir = Path(__file__).parent / "apps"
         router = APIRouter()
         self._initialize_future: Optional[asyncio.Future] = None
 
@@ -164,8 +167,7 @@ class ServerAppController:
             if self.in_docker:
                 args.append("--no-sandbox")
             self.browser = await playwright.chromium.launch(args=args)
-
-            for app_file in self.startup_dir.iterdir():
+            for app_file in self.builtin_apps_dir.iterdir():
                 if app_file.suffix != ".html" or app_file.name.startswith("."):
                     continue
                 source = (app_file).open().read()
@@ -173,15 +175,17 @@ class ServerAppController:
                 await self.deploy(
                     source, user_id="root", template=None, app_id=pid, overwrite=True
                 )
-                if pid == "imjoy-plugin-parser":
-                    self.plugin_parser = await self._launch_as_root(
-                        pid, workspace="root"
-                    )
-                else:
-                    await self._launch_as_root(pid, workspace="root")
-            assert self.plugin_parser is not None, "Failed to load the plugin parser"
+
+            self.plugin_parser = await self._launch_as_root(
+                "imjoy-plugin-parser", workspace="root"
+            )
+
+            # TODO: check if the plugins are marked as startup plugin
+            # and if yes, we will run it directly
+
             self._status = StatusEnum.ready
             self._initialize_future.set_result(None)
+
         except Exception as err:  # pylint: disable=broad-except
             self._status = StatusEnum.not_initialized
             logger.exception("Failed to initialize the app controller")
@@ -327,7 +331,7 @@ class ServerAppController:
     async def _launch_as_root(self, app_name: str, workspace: str = "root") -> dotdict:
         """Launch an app as root user."""
         rws = self.core_interface.get_workspace_as_root(workspace)
-        token = rws.generate_token()
+        token = await rws.generate_token()
         config = await self.start(app_name, workspace, token=token)
         return await self.core_interface.get_plugin_as_root(
             config.name, config.workspace

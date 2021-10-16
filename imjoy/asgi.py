@@ -39,9 +39,16 @@ class ASGIGateway:
         """Initialize the gateway."""
         self.core_interface = core_interface
         core_interface.event_bus.on("service_registered", self.mount_asgi_app)
+        core_interface.event_bus.on("service_unregistered", self.umount_asgi_app)
 
     def mount_asgi_app(self, service):
         """Mount the ASGI apps from new services."""
         if service.type == "ASGI":
             subpath = f"/{service.config.workspace}/app/{service.name}"
             self.core_interface.mount_app(subpath, RemoteASGIApp(service), priority=-1)
+
+    def umount_asgi_app(self, service):
+        """Unmount the ASGI apps."""
+        if service.type == "ASGI":
+            subpath = f"/{service.config.workspace}/app/{service.name}"
+            self.core_interface.umount_app(subpath)

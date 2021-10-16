@@ -166,7 +166,7 @@ def valid_token(authorization: str):
 
     if parts[0].lower() != "bearer":
         raise HTTPException(
-            status_code=401, detail="Authorization header must start with" " Bearer"
+            status_code=401, detail="Authorization header must start with Bearer"
         )
     if len(parts) == 1:
         raise HTTPException(status_code=401, detail="Token not found")
@@ -236,19 +236,23 @@ def parse_token(authorization: str, allow_anonymouse=False):
             return get_user_info(info)
         raise HTTPException(status_code=401, detail="Authorization header is expected")
 
-    parts = authorization.split()
-    if parts[0].lower() != "bearer":
-        raise HTTPException(
-            status_code=401, detail="Authorization header must start with" " Bearer"
-        )
-    if len(parts) == 1:
-        raise HTTPException(status_code=401, detail="Token not found")
-    if len(parts) > 2:
-        raise HTTPException(
-            status_code=401, detail="Authorization header must be 'Bearer' token"
-        )
+    if authorization.startswith("Bearer ") or authorization.startswith("bearer "):
+        parts = authorization.split()
+        if parts[0].lower() != "bearer":
+            raise HTTPException(
+                status_code=401, detail="Authorization header must start with" " Bearer"
+            )
+        if len(parts) == 1:
+            raise HTTPException(status_code=401, detail="Token not found")
+        if len(parts) > 2:
+            raise HTTPException(
+                status_code=401, detail="Authorization header must be 'Bearer' token"
+            )
 
-    token = parts[1]
+        token = parts[1]
+    else:
+        token = authorization
+
     if "@imjoy@" not in token:
         # auth0 token
         info = valid_token(authorization)
@@ -284,7 +288,7 @@ def generate_presigned_token(user_info: UserInfo, config: TokenConfig):
     token = jwt.encode(
         {
             "iss": "https://imjoy.io/",
-            "sub": parent + "/" + uid,  # user_id
+            "sub": uid,  # user_id
             "aud": "https://imjoy.eu.auth0.com/api/v2/",
             "iat": expires_in,
             "exp": expires_at,

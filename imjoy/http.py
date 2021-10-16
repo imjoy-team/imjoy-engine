@@ -118,8 +118,9 @@ class HTTPProxy:
             """Route for checking details of a service."""
             try:
                 core_interface.current_user.set(user_info)
-                service = await core_interface.get_service(f"{workspace}/{service}")
-                info = serialize(service)
+                ws = core_interface.get_workspace(workspace)
+                service = ws.get_service_by_name(service)
+                info = service.config.dict()
                 return JSONResponse(
                     status_code=200,
                     content=info,
@@ -145,7 +146,8 @@ class HTTPProxy:
             """
             try:
                 core_interface.current_user.set(user_info)
-                service = await core_interface.get_service(f"{workspace}/{service}")
+                ws = core_interface.get_workspace(workspace)
+                service = ws.get_service_by_name(service)
                 value = get_value(keys, service)
                 if not value:
                     return JSONResponse(
