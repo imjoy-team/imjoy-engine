@@ -1,5 +1,6 @@
 """Provide interface functions for the core."""
 import asyncio
+import inspect
 import logging
 import sys
 from contextvars import ContextVar
@@ -32,7 +33,7 @@ def parse_user(token):
     if token:
         user_info = parse_token(token)
         uid = user_info.id
-        logger.warning("User connected: %s", uid)
+        logger.info("User connected: %s", uid)
     else:
         uid = shortuuid.uuid()
         user_info = UserInfo(
@@ -44,10 +45,10 @@ def parse_user(token):
             scopes=[],
             expires_at=None,
         )
-        logger.warning("Anonymized User connected: %s", uid)
+        logger.info("Anonymized User connected: %s", uid)
 
     if uid == "root":
-        logger.warning("Root user is not allowed to connect remotely")
+        logger.error("Root user is not allowed to connect remotely")
         raise Exception("Root user is not allowed to connect remotely")
 
     return user_info
@@ -135,6 +136,7 @@ class CoreInterface:
             visibility=VisibilityEnum.protected,
             persistent=True,
         )
+        self.root_workspace.set_global_event_bus(self.event_bus)
         self.register_workspace(self.root_workspace)
         self.load_extensions()
 
@@ -154,7 +156,7 @@ class CoreInterface:
             logger.info("Plugin connection restored")
             self._disconnected_plugins.remove(plugin)
         else:
-            logger.warning("Plugin connection was not disconnected")
+            logger.warning("Plugin connection is not in the disconnected list")
 
     async def remove_plugin_delayed(self, plugin):
         """Remove the plugin after a delayed period (if not cancelled)."""
@@ -192,7 +194,8 @@ class CoreInterface:
         if len(user_info.get_plugins()) <= 0:
             del self._all_users[user_info.id]
             logger.info(
-                "Removing user completely since the user has no other plugin connected."
+                "Removing user (%s) completely since the user has no other plugin connected.",
+                user_info.id,
             )
 
         workspace = plugin.workspace
@@ -200,7 +203,8 @@ class CoreInterface:
         if len(workspace.get_plugins()) <= 0 and not workspace.persistent:
             del self._all_workspaces[workspace.name]
             logger.info(
-                "Removing workspace completely since there is no other plugin connected."
+                "Removing workspace (%s) completely since there is no other plugin connected.",
+                workspace.name,
             )
 
     def check_permission(self, workspace, user_info):
@@ -209,7 +213,7 @@ class CoreInterface:
         if isinstance(workspace, str):
             workspace = self.get_workspace(workspace)
             if not workspace:
-                logger.warning("Workspace %s not found", workspace)
+                logger.error("Workspace %s not found", workspace)
                 return False
 
         # Make exceptions for root user, the children of root and test workspace
@@ -273,6 +277,7 @@ class CoreInterface:
 
     def register_workspace(self, ws):
         """Register the workspace."""
+        ws.set_global_event_bus(self.event_bus)
         if ws.name in self._all_workspaces:
             raise Exception(
                 f"Another workspace with the same name {ws.name} already exist."
@@ -316,14 +321,12 @@ class CoreInterface:
         """Register a service."""
         plugin = self.current_plugin.get()
         workspace = self.current_workspace.get()
-        service_id = f'{workspace.name}/{service["name"]}'
         if "name" not in service or "type" not in service:
             raise Exception("Service should at least contain `name` and `type`")
 
         # TODO: check if it's already exists
         service.config = service.get("config", {})
         assert isinstance(service.config, dict), "service.config must be a dictionary"
-        service.config["id"] = service_id
         service.config["workspace"] = workspace.name
         formated_service = ServiceInfo.parse_obj(service)
         formated_service.set_provider(plugin)
@@ -348,20 +351,23 @@ class CoreInterface:
                     )
         # service["_rintf"] = True
         # Note: service can set its `visibility` to `public` or `protected`
-        workspace.add_service(formated_service.name, formated_service)
-        self.event_bus.emit("service_registered", formated_service)
-        return service_id
+        workspace.add_service(formated_service)
+        return formated_service.get_id()
 
     def unregister_service(self, service_id):
         """Unregister an service."""
-        workspace_name, service_name = service_id.split("/")
         workspace = self.current_workspace.get()
-        assert (
-            workspace.name == workspace_name
-        ), f"The service {service_id} is not registered in the current workspace."
-        service = workspace.get_service(service_name)
-        workspace.remove_service(service_name)
-        self.event_bus.emit("service_unregistered", service)
+        plugin = self.current_plugin.get()
+        services = workspace.get_services_by_plugin(plugin)
+        not_exists = True
+        for service in services:
+            if service.get_id() == service_id:
+                workspace.remove_service(service)
+                not_exists = False
+        if not_exists:
+            raise KeyError(
+                f"The service {service_id} is not registered in the current workspace."
+            )
 
     def list_plugins(self):
         """List all plugins in the workspace."""
@@ -371,26 +377,38 @@ class CoreInterface:
     async def get_plugin(self, name):
         """Return a plugin by its name."""
         workspace = self.current_workspace.get()
-        workspace_plugins = workspace.get_plugins()
-        if name in workspace_plugins:
-            return await workspace_plugins[name].get_api()
+        plugin = workspace.get_plugin_by_name(name)
+        if plugin:
+            return await plugin.get_api()
         raise Exception(f"Plugin {name} not found")
 
     async def get_service(self, service_id):
         """Return a service."""
-        if isinstance(service_id, dict):
-            service_id = service_id["id"]
-        if "/" not in service_id:
-            raise Exception(
-                "Invalid service_id format, it must be <workspace>/<service_name>"
-            )
-        ws, service_name = service_id.split("/")
-        workspace = self.get_workspace(ws)
-        if not workspace:
-            raise Exception(f"Service not found: {service_id} (workspace unavailable)")
+        if isinstance(service_id, str):
+            query = {"id": service_id}
+        else:
+            query = service_id
 
-        workspace_services = workspace.get_services()
-        service = workspace_services.get(service_name)
+        if "workspace" in query:
+            workspace = self.get_workspace(query["workspace"])
+            if not workspace:
+                raise Exception(
+                    f"Service not found: {service_id} (workspace unavailable)"
+                )
+        else:
+            workspace = self.current_workspace.get()
+
+        if "id" in query:
+            service = workspace.get_services().get(query["id"])
+            if not service:
+                raise Exception(f"Service not found: {query['id']}")
+        elif "name" in query:
+            service = workspace.get_service_by_name(query["name"])
+            if not service:
+                raise Exception(f"Service not found: {query['name']}")
+        else:
+            raise Exception(f"Please specify the service id or name to get the service")
+
         user_info = self.current_user.get()
         if (
             not self.check_permission(workspace, user_info)
@@ -398,8 +416,6 @@ class CoreInterface:
         ):
             raise Exception(f"Permission denied: {service_id}")
 
-        if not service:
-            raise Exception(f"Service not found: {service_id}")
         return service.dict()
 
     def list_workspaces(
@@ -514,6 +530,7 @@ class CoreInterface:
         if user_info.is_anonymous and config["persistent"]:
             raise Exception("Only registered user can create persistent workspace.")
         workspace = WorkspaceInfo.parse_obj(config)
+        workspace.set_global_event_bus(self.event_bus)
         if self.get_workspace(workspace.name):
             raise Exception(f"Workspace {workspace.name} already exists.")
         user_info = self.current_user.get()
@@ -569,7 +586,7 @@ class CoreInterface:
         for key in interface:
             if callable(interface[key]):
 
-                def wrap_func(func, *args, **kwargs):
+                async def wrap_func(func, *args, **kwargs):
                     try:
                         workspace_bk = self.current_workspace.get()
                     except LookupError:
@@ -578,6 +595,8 @@ class CoreInterface:
                     try:
                         self.current_workspace.set(workspace)
                         ret = func(*args, **kwargs)
+                        if inspect.isawaitable(ret):
+                            ret = await ret
                     except Exception as exp:
                         raise exp
                     finally:

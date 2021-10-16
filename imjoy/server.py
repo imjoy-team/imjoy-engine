@@ -1,11 +1,11 @@
 """Provide the server."""
 import argparse
-import asyncio
-import os
+import logging
+import sys
 from contextvars import copy_context
 from os import environ as env
-from typing import Union
 from pathlib import Path
+from typing import Union
 
 import shortuuid
 import socketio
@@ -19,11 +19,15 @@ from starlette.responses import JSONResponse, PlainTextResponse
 
 from imjoy import __version__ as VERSION
 from imjoy.asgi import ASGIGateway
-from imjoy.core import EventBus, UserInfo, VisibilityEnum, WorkspaceInfo
+from imjoy.core import VisibilityEnum, WorkspaceInfo
 from imjoy.core.connection import BasicConnection
 from imjoy.core.interface import CoreInterface
 from imjoy.core.plugin import DynamicPlugin
 from imjoy.http import HTTPProxy
+
+logging.basicConfig(stream=sys.stdout)
+logger = logging.getLogger("server")
+logger.setLevel(logging.INFO)
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -41,7 +45,7 @@ def initialize_socketio(sio, core_interface):
         # We don't do much until register_plugin is called
         # This allows us to use websocket transport directly
         # Without relying on the Authorization header
-        logger.warning("New session connected: %s", sid)
+        logger.info("New session connected: %s", sid)
 
     @sio.event
     async def echo(sid, data):
@@ -55,10 +59,10 @@ def initialize_socketio(sio, core_interface):
         if plugin:
             if plugin.is_disconnected():
                 DynamicPlugin.remove_plugin(plugin)
-                logger.warning("Removing disconnected plugin: %s", plugin.id)
+                logger.info("Removing disconnected plugin: %s", plugin.id)
             else:
                 core_interface.restore_plugin(plugin)
-                logger.warning("Plugin has already been registered: %s", plugin.id)
+                logger.info("Plugin has already been registered: %s", plugin.id)
                 return
 
         try:
@@ -83,12 +87,13 @@ def initialize_socketio(sio, core_interface):
                     visibility=VisibilityEnum.protected,
                     persistent=persistent,
                 )
+                workspace.set_global_event_bus(event_bus)
                 core_interface.register_workspace(workspace)
             else:
                 logger.error("Workspace %s does not exist", ws)
                 return {"success": False, "detail": f"Workspace {ws} does not exist."}
 
-        logger.warning(
+        logger.info(
             "Registering plugin (uid: %s, workspace: %s)", user_info.id, workspace.name
         )
 
@@ -96,7 +101,7 @@ def initialize_socketio(sio, core_interface):
             workspace, user_info
         ):
             logger.warning(
-                "Registering plugin (uid: %s, workspace: %s)",
+                "Failed to register plugin (uid: %s, workspace: %s) due to permission error",
                 user_info.id,
                 workspace.name,
             )
@@ -106,9 +111,7 @@ def initialize_socketio(sio, core_interface):
                 "detail": f"Permission denied for workspace: {ws}",
             }
 
-        name = config["name"].replace("/", "-")  # prevent hacking of the plugin name
-        config["name"] = name
-        plugin_id = f"{ws}/{name}"
+        plugin_id = "plugin-" + sid
         config["id"] = plugin_id
         sio.enter_room(sid, plugin_id)
 
@@ -135,7 +138,7 @@ def initialize_socketio(sio, core_interface):
                 "plugin_registered",
                 plugin,
             )
-            logger.warning(
+            logger.info(
                 "New plugin registered successfully (%s)",
                 plugin_id,
             )
@@ -143,7 +146,6 @@ def initialize_socketio(sio, core_interface):
 
     @sio.event
     async def plugin_message(sid, data):
-        logger.warning("plugin message %s, %s", sid, data.get("type"))
         plugin = DynamicPlugin.get_plugin_by_session_id(sid)
         # TODO: Do we need to check the permission of the user?
         if not plugin:
@@ -160,7 +162,7 @@ def initialize_socketio(sio, core_interface):
     async def disconnect(sid):
         """Event handler called when the client is disconnected."""
         core_interface.remove_plugin_temp(sid)
-        logger.warning("Session disconnected: %s", sid)
+        logger.info("Session disconnected: %s", sid)
 
     event_bus.emit("socketio_ready", None)
 

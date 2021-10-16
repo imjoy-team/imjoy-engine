@@ -32,7 +32,7 @@ class DynamicPlugin:
         if len(filtered) == 1:
             return filtered[0]
         elif len(filtered) > 1:
-            logger.warning("There is multiple plugins with the same id")
+            logger.warning("Found multiple plugins with the same id: %s", plugin_id)
         else:
             return None
 
@@ -95,6 +95,10 @@ class DynamicPlugin:
 
         self.connection.on("initialized", initialized)
         self.connection.connect()
+
+    def is_singleton(self):
+        """Check if the plugin is singleton."""
+        return "single-instance" in self.config.get("flags", [])
 
     def dispose_object(self, obj):
         """Dispose object in RPC store."""
@@ -333,8 +337,7 @@ class DynamicPlugin:
             # clean up for 2
             services = self.workspace.get_services_by_plugin(self)
             for service in services:
-                self.workspace.remove_service(service.name)
-                self.event_bus.emit("service_unregistered", service)
+                self.workspace.remove_service(service)
             # clean up for 3
             self.workspace.remove_plugin(self)
             del DynamicPlugin._all_plugins[self.session_id]

@@ -32,14 +32,18 @@ async def test_asgi(socketio_server):
     config = await controller.start(pid, workspace, token)
     plugin = await api.get_plugin(config.name)
     await plugin.setup()
-    service = await api.get_service(config.workspace + "/hello-fastapi")
+    service = await api.get_service(
+        {"workspace": config.workspace, "name": "hello-fastapi"}
+    )
     assert "serve" in service
 
     response = requests.get(f"{SIO_SERVER_URL}/{workspace}/app/hello-fastapi/")
     assert response.ok
     assert response.json()["message"] == "Hello World"
 
-    service = await api.get_service(config.workspace + "/hello-flask")
+    service = await api.get_service(
+        {"workspace": config.workspace, "name": "hello-flask"}
+    )
     assert "serve" in service
     response = requests.get(f"{SIO_SERVER_URL}/{workspace}/app/hello-flask/")
     assert response.ok

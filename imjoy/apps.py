@@ -1,7 +1,9 @@
 """Provide an apps controller."""
 import asyncio
+import logging
 import os
 import shutil
+import sys
 import threading
 import time
 from pathlib import Path
@@ -10,7 +12,6 @@ from typing import Any, Dict, List, Optional
 import requests
 import shortuuid
 from fastapi import APIRouter
-from fastapi.logger import logger
 from fastapi.responses import FileResponse, JSONResponse
 from jinja2 import Environment, PackageLoader, select_autoescape
 from playwright.async_api import Page, async_playwright
@@ -20,7 +21,10 @@ from imjoy.core import StatusEnum
 from imjoy.core.interface import CoreInterface
 from imjoy.utils import dotdict, safe_join
 
-dir_path = os.path.dirname(os.path.realpath(__file__))
+
+logging.basicConfig(stream=sys.stdout)
+logger = logging.getLogger("apps")
+logger.setLevel(logging.INFO)
 
 
 def is_safe_path(basedir: str, path: str, follow_symlinks: bool = True) -> bool:
