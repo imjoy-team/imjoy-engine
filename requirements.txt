@@ -8,7 +8,7 @@ jinja2==3.0.3
 jupyter==1.0.0
 msgpack==1.0.3
 numpy==1.19.5  # needs to stay compatible with latest tensorflow
-playwright==1.16.1
+playwright==1.17.2
 pydantic[email]==1.8.2
 python-dotenv==0.19.1
 python-jose==3.3.0
