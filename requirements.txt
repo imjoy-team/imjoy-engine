@@ -1,6 +1,6 @@
 aiobotocore==1.4.2
 aiofiles==0.8.0
-fastapi==0.70.0
+fastapi==0.70.1
 imjoy-jupyter-extension==0.2.17
 imjoy-rpc==0.3.31
 ipykernel==6.6.0
