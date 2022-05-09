@@ -1,4 +1,4 @@
-aiobotocore==1.4.2
+aiobotocore==2.3.2
 aiofiles==0.8.0
 fastapi==0.70.1
 imjoy-jupyter-extension==0.2.17
