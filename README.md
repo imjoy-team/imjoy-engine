@@ -27,26 +27,11 @@ To use it after the installation:
 
 Please note that if you are trying to use the ImJoy Plugin Engine running on a remote server, please use the ImJoy web App served on your server (`http://YOUR_REMOTE_IP:9527`) instead of `https://imjoy.io`. This is because most browsers do not allow a web application served through `https` to connect to an unsecured server (your remote server). Alternatively, you can use a proxy to enable `https` for the plugin engine. Then you will be able to use it with `https://imjoy.io`.
 
+## Connect to ImJoy Engine Server
 
-## Connecting to a ImJoy Engine Server
-```python
-import webbrowser
-from imjoy_rpc import connect_to_server, launch_plugin
+We are deprecating the ImJoy Engine, the recommended way to setup a python server is to use the new python library [Hypha](https://pypi.org/project/hypha/).
 
-def new_client_join(ws):
-    viewer = await ws.createWindow(src="https://kaibu.org")
-
-async def main():
-    api = await connect_to_server(server_url="https://api.imjoy.io/")
-    api.on('join', new_client_join)
-    tk = await api.generate_token()
-    name = api.config['name']
-    token = tk['token']
-    url = f"https://imjoy.io/lite?server_url=https://api.imjoy.io&token={token}&name={name}"
-    print(url)
-    webbrowser.open(url)
-```
-
+Here you can find more information on [how to set up hypha](https://gist.github.com/oeway/a3396c7fc94c274a66b27152b84e9391).
 
 ## More details and FAQs in [Docs](https://imjoy.io/docs/#/user_manual)
 
