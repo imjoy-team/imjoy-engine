@@ -6,7 +6,7 @@ imjoy-rpc==0.3.31
 ipykernel==6.6.0
 jinja2==3.0.3
 jupyter==1.0.0
-msgpack==1.0.3
+msgpack==1.0.4
 numpy==1.19.5  # needs to stay compatible with latest tensorflow
 playwright==1.17.2
 pydantic[email]==1.8.2
